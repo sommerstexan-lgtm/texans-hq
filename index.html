@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#03202F" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Texans HQ" />
+  <meta name="description" content="Personal Houston Texans PWA — play-by-play, game center, schedule, training camp, notes. Offline-friendly." />
+  <title>Texans HQ</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+</head>
+<body>
+  <!-- PASSWORD LOCK SCREEN (v2) -->
+  <div id="lockScreen" class="lock-screen">
+    <div class="lock-card">
+      <div class="lock-logo">H</div>
+      <div class="lock-title">Texans <span>HQ</span></div>
+      <p class="lock-sub">Personal · Password required</p>
+      <input type="password" id="lockPassword" class="lock-input" placeholder="Enter password" autocomplete="off" />
+      <button class="btn lock-btn" id="lockUnlockBtn">Unlock</button>
+      <p id="lockError" class="lock-error" style="display:none">Incorrect password</p>
+      <p class="lock-hint">This device will remember after unlock</p>
+    </div>
+  </div>
+
+  <div id="appShell" class="app-shell locked">
+    <header class="app-header">
+      <div class="logo-row">
+        <div class="logo-mark">H</div>
+        <div class="app-title">Texans <span>HQ</span></div>
+      </div>
+      <div id="statusPill" class="status-pill">v2 · Offline-ready</div>
+    </header>
+
+    <main class="main">
+      <!-- 1. GAME CENTER -->
+      <section id="sec-game" class="section active">
+        <div class="card scoreboard">
+          <div class="card-title">Game Center</div>
+          <div id="gameCenterContent">
+            <div class="loading">Loading…</div>
+          </div>
+        </div>
+        <div class="card" id="driveCard" style="display:none">
+          <div class="card-title">Current / Last Drive</div>
+          <div id="driveSummary"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Next Up</div>
+          <div id="nextGamePreview" class="text-center small">—</div>
+          <div id="countdown" class="countdown"></div>
+        </div>
+      </section>
+
+      <!-- 2. PLAY-BY-PLAY -->
+      <section id="sec-pbp" class="section">
+        <div class="card">
+          <div class="card-title">Play-by-Play <span id="pbpGameLabel" class="small"></span></div>
+          <div id="pbpList" class="pbp-list">
+            <div class="empty">Select a game from Schedule or wait for live data.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. SCHEDULE -->
+      <section id="sec-schedule" class="section">
+        <div class="card">
+          <div class="card-title">2026 Schedule</div>
+          <div id="scheduleList"></div>
+        </div>
+      </section>
+
+      <!-- 4. TRAINING CAMP -->
+      <section id="sec-camp" class="section">
+        <div class="card">
+          <div class="card-title">Training Camp — August 2026</div>
+          <div id="campUpdates"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Open Practices (remaining)</div>
+          <div id="campDates" class="small"></div>
+        </div>
+      </section>
+
+      <!-- 5. STATS -->
+      <section id="sec-stats" class="section">
+        <div class="card">
+          <div class="card-title">Team Snapshot (2025 season)</div>
+          <div class="stat-grid" id="teamStats"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Key Players to Watch</div>
+          <div id="playerWatch" class="small"></div>
+        </div>
+      </section>
+
+      <!-- 6. NEWS / PULSE -->
+      <section id="sec-news" class="section">
+        <div class="card">
+          <div class="card-title">News & Pulse (public sources)</div>
+          <div id="newsList">
+            <div class="loading">Fetching public headlines…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. NOTES -->
+      <section id="sec-notes" class="section">
+        <div class="card">
+          <div class="card-title">Personal Notes (local only)</div>
+          <textarea id="notesArea" class="notes-area" placeholder="Your private notes, depth chart thoughts, bets with your son… stays only on this device."></textarea>
+          <button class="btn" id="saveNotesBtn">Save Notes</button>
+          <button class="btn secondary" id="clearNotesBtn" style="margin-left:8px">Clear</button>
+          <p class="small mt-8">Saved to this device only. Never uploaded.</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-sec="game" aria-label="Game">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        Game
+      </button>
+      <button class="nav-btn" data-sec="pbp" aria-label="Plays">
+        <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+        Plays
+      </button>
+      <button class="nav-btn" data-sec="schedule" aria-label="Schedule">
+        <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+        Sched
+      </button>
+      <button class="nav-btn" data-sec="camp" aria-label="Camp">
+        <svg viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>
+        Camp
+      </button>
+      <button class="nav-btn" data-sec="stats" aria-label="Stats">
+        <svg viewBox="0 0 24 24"><path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2V4h-2v13zm4 0h2v-9h-2v9z"/></svg>
+        Stats
+      </button>
+      <button class="nav-btn" data-sec="notes" aria-label="Notes">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        Notes
+      </button>
+    </nav>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
