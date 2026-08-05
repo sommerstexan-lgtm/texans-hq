@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v12.0
+   Texans HQ — Personal PWA  v13.0
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -490,21 +490,6 @@ function timeAgo(ts) {
   return Math.floor(m / 60) + 'h ago';
 }
 
-function isSonMode() {
-  return localStorage.getItem('texans-hq-son-mode') === 'true';
-}
-
-function setSonMode(on) {
-  localStorage.setItem('texans-hq-son-mode', on ? 'true' : 'false');
-  document.body.classList.toggle('son-mode', on);
-}
-
-function plainDown(d) {
-  if (d === 1) return '1st down';
-  if (d === 2) return '2nd down';
-  if (d === 3) return '3rd down';
-  return '4th down';
-}
 
 
 function renderWinProbCard() {
@@ -607,8 +592,6 @@ function renderGameCenter() {
     }
     const possHou = LIVE_DEMO.possession === 'HOU';
     const fg = fgRangeLabel(LIVE_DEMO.yardSide || 'opp', LIVE_DEMO.yardNum || 38);
-    const son = isSonMode();
-    const downText = son ? plainDown(LIVE_DEMO.down) + ' · need ' + LIVE_DEMO.distance + ' yards' : (ordSuffix(LIVE_DEMO.down) + ' & ' + LIVE_DEMO.distance);
     content.innerHTML = `
       <div class="score-row">
         <div class="team-block">
@@ -625,10 +608,10 @@ function renderGameCenter() {
         </div>
       </div>
       <div class="possession-row">
-        <div class="possession-pill ${possHou ? '' : 'away'}">${possHou ? (son ? 'Texans have the ball' : 'HOU BALL') : (son ? LIVE_DEMO.oppAbbr + ' has the ball' : LIVE_DEMO.oppAbbr + ' BALL')}</div>
+        <div class="possession-pill ${possHou ? '' : 'away'}">${possHou ? 'HOU BALL' : LIVE_DEMO.oppAbbr + ' BALL'}</div>
       </div>
       <div class="situation-bar">
-        <span><strong>${downText}</strong></span>
+        <span><strong>${ordSuffix(LIVE_DEMO.down)} & ${LIVE_DEMO.distance}</strong></span>
         <span>${LIVE_DEMO.yardline}</span>
         <span class="fg-pill ${fg.cls}">${fg.text}</span>
       </div>
@@ -642,7 +625,6 @@ function renderGameCenter() {
         <button type="button" class="active" id="btnDemoLive">Demo live</button>
         <button type="button" id="btnDemoRecap">Sample recap</button>
         <button type="button" id="btnDemoUpcoming">Upcoming only</button>
-        <button type="button" id="btnSonMode">${son ? 'Son mode: ON' : 'Son mode: OFF'}</button>
       </div>
     `;
 
@@ -873,15 +855,9 @@ function wireDemoToggles() {
   const live = $('#btnDemoLive');
   const recap = $('#btnDemoRecap');
   const up = $('#btnDemoUpcoming');
-  const sonBtn = $('#btnSonMode');
   if (live) live.onclick = () => { LIVE_DEMO.active = true; renderGameCenter(); renderPBP(); };
   if (recap) recap.onclick = () => { renderRecapDemo(); };
   if (up) up.onclick = () => { LIVE_DEMO.active = false; renderGameCenter(); renderPBP(); };
-  if (sonBtn) sonBtn.onclick = () => {
-    setSonMode(!isSonMode());
-    renderGameCenter();
-    renderPBP();
-  };
 }
 
 function startCountdown(target) {
@@ -1081,21 +1057,19 @@ if ('serviceWorker' in navigator) {
       .then(() => {
         const pill = $('#statusPill');
         if (pill) {
-          pill.textContent = 'v12 · Offline-ready';
+          pill.textContent = 'v13 · Offline-ready';
           pill.classList.remove('live');
         }
       })
       .catch(() => {
         const pill = $('#statusPill');
-        if (pill) pill.textContent = 'v12 · SW optional';
+        if (pill) pill.textContent = 'v13 · SW optional';
       });
   });
 }
 
 /* ---------- Init ---------- */
 function init() {
-  // Restore son-friendly mode if previously enabled
-  if (isSonMode()) document.body.classList.add('son-mode');
   renderSchedule();
   renderGameCenter();
   renderCamp();

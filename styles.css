@@ -1,4 +1,4 @@
-/* Texans HQ PWA v12 — High-contrast light theme + TV networks
+/* Texans HQ PWA v13 — High-contrast light theme + TV networks
    White/off-white backgrounds, dark text, semantic color for meaning only
    Navy used for branding accents, red used sparingly for importance
 */
@@ -1084,26 +1084,4 @@ body {
   color: var(--muted);
 }
 
-/* Son-friendly mode — larger type, simpler density */
-body.son-mode {
-  font-size: 17px;
-}
-body.son-mode .team-score {
-  font-size: 3rem;
-}
-body.son-mode .possession-pill {
-  font-size: 1rem;
-  padding: 8px 18px;
-}
-body.son-mode .situation-bar {
-  font-size: 1.05rem;
-}
-body.son-mode .play-desc {
-  font-size: 1.05rem;
-}
-body.son-mode .card-title {
-  font-size: 0.85rem;
-}
-body.son-mode .nav-btn {
-  font-size: 0.75rem;
-}
+
