@@ -1,12 +1,21 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v5.0
+   Texans HQ — Personal PWA  v7.0
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const UNLOCK_KEY = 'texans-hq-unlocked-v5';
+/* Stable key — never changes across versions so the device stays unlocked */
+const UNLOCK_KEY = 'texans-hq-device-unlocked';
+/* Old keys from previous versions (for one-time migration) */
+const LEGACY_UNLOCK_KEYS = [
+  'texans-hq-unlocked-v2',
+  'texans-hq-unlocked-v3',
+  'texans-hq-unlocked-v4',
+  'texans-hq-unlocked-v5',
+  'texans-hq-unlocked-v6'
+];
 
 const TEXANS = {
   id: 34,
@@ -18,7 +27,15 @@ const TEXANS = {
 
 /* ---------- Password Lock ---------- */
 function isUnlocked() {
-  return localStorage.getItem(UNLOCK_KEY) === 'true';
+  if (localStorage.getItem(UNLOCK_KEY) === 'true') return true;
+  // One-time migration from older version keys
+  for (const k of LEGACY_UNLOCK_KEYS) {
+    if (localStorage.getItem(k) === 'true') {
+      localStorage.setItem(UNLOCK_KEY, 'true');
+      return true;
+    }
+  }
+  return false;
 }
 
 function unlockApp() {
@@ -185,33 +202,43 @@ function renderSchedule() {
   list.innerHTML = '';
   const now = new Date();
 
+  // Find the single true next game (first future game with no result)
+  let nextIdx = -1;
+  SCHEDULE_2026.forEach((g, idx) => {
+    if (nextIdx >= 0 || g.type === 'bye' || !g.date || g.result) return;
+    const d = new Date(g.date + 'T' + (g.time || '12:00') + ':00');
+    if (d > now) nextIdx = idx;
+  });
+
   SCHEDULE_2026.forEach((g, idx) => {
     if (g.type === 'bye') {
       const row = document.createElement('div');
       row.className = 'game-row';
       row.innerHTML = `<div class="game-date"><span class="day">BYE</span></div>
-        <div class="game-info"><div class="game-opp">Week 8 — Bye Week</div></div>`;
+        <div class="game-info"><div class="game-opp">Week 8 — Bye Week</div></div>
+        <div class="game-week">Wk 8</div>`;
       list.appendChild(row);
       return;
     }
 
     const d = new Date(g.date + 'T' + (g.time || '12:00') + ':00');
-    const isNext = !selectedGame && d > now && !g.result;
-    const isPast = d < now && g.result;
+    const isNext = idx === nextIdx;
 
     const row = document.createElement('div');
-    row.className = 'game-row';
+    row.className = 'game-row' + (isNext ? ' is-next' : '');
     row.dataset.idx = idx;
 
     const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
 
-    let resultHtml = '';
+    // Right side: result if played, otherwise week number. NEXT badge only on true next (near opponent).
+    let rightHtml = '';
     if (g.result) {
       const cls = g.result.startsWith('W') ? 'w' : g.result.startsWith('L') ? 'l' : 't';
-      resultHtml = `<div class="game-result ${cls}">${g.result}</div>`;
-    } else if (isNext) {
-      resultHtml = `<div class="game-result"><span class="next-badge">NEXT</span></div>`;
+      rightHtml = `<div class="game-result ${cls}">${g.result}</div>`;
+    } else {
+      const weekLabel = g.type === 'pre' ? g.week : ('Wk ' + g.week);
+      rightHtml = `<div class="game-week">${weekLabel}</div>`;
     }
 
     row.innerHTML = `
@@ -223,7 +250,7 @@ function renderSchedule() {
         <div class="game-opp">${g.home ? 'vs' : '@'} ${g.opp}${isNext ? ' <span class="next-badge">NEXT</span>' : ''}</div>
         <div class="game-meta">${g.type === 'pre' ? 'Preseason' : 'Week ' + g.week}${g.note ? ' · ' + g.note : ''} · ${g.time ? formatTime(g.time) : ''}${g.tv ? ' · <span class="tv-badge' + (g.tv === 'Prime Video' ? ' prime' : '') + '">' + g.tv + '</span>' : ''}</div>
       </div>
-      ${resultHtml}
+      ${rightHtml}
     `;
 
     row.addEventListener('click', () => {
@@ -455,13 +482,13 @@ if ('serviceWorker' in navigator) {
       .then(() => {
         const pill = $('#statusPill');
         if (pill) {
-          pill.textContent = 'v5 · Offline-ready';
+          pill.textContent = 'v7 · Offline-ready';
           pill.classList.remove('live');
         }
       })
       .catch(() => {
         const pill = $('#statusPill');
-        if (pill) pill.textContent = 'v5 · SW optional';
+        if (pill) pill.textContent = 'v7 · SW optional';
       });
   });
 }

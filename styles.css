@@ -1,4 +1,4 @@
-/* Texans HQ PWA v5 — High-contrast light theme + TV networks
+/* Texans HQ PWA v7 — High-contrast light theme + TV networks
    White/off-white backgrounds, dark text, semantic color for meaning only
    Navy used for branding accents, red used sparingly for importance
 */
@@ -310,6 +310,16 @@ body {
   margin-top: 2px;
 }
 
+.game-week {
+  font-weight: 700;
+  font-size: 0.85rem;
+  min-width: 48px;
+  text-align: right;
+  color: var(--muted);
+}
+.game-row.is-next .game-week {
+  color: var(--navy);
+}
 .game-result {
   font-weight: 700;
   font-size: 0.95rem;
