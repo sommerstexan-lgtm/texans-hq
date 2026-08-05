@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
   <meta name="theme-color" content="#03202F" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Texans HQ" />
   <meta name="description" content="Personal Houston Texans PWA — play-by-play, game center, schedule, training camp, notes. Offline-friendly." />
   <title>Texans HQ</title>
@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v14.2 · Texans+ESPN feeds</div>
+      <div id="statusPill" class="status-pill">v14.4 · Safe header</div>
     </header>
 
     <main class="main">
@@ -129,14 +129,17 @@
       <section id="sec-stats" class="section">
         <div class="card">
           <div class="card-title">Team Snapshot (2025 season)</div>
+          <p class="small" style="margin:0 0 8px">Tap a number for a short explanation</p>
           <div class="stat-grid" id="teamStats"></div>
         </div>
         <div class="card">
           <div class="card-title">Player cards</div>
+          <p class="small" style="margin:0 0 8px">Tap a player to expand details</p>
           <div id="playerWatch"></div>
         </div>
         <div class="card">
           <div class="card-title">Depth chart (simplified)</div>
+          <p class="small" style="margin:0 0 8px">Tap a name when you want a note</p>
           <div id="depthChart"></div>
         </div>
       </section>

@@ -1,8 +1,8 @@
-/* Texans HQ PWA — Service Worker v14.2
+/* Texans HQ PWA — Service Worker v14.4
    Network-first app shell (cache: no-store) so deploys are visible after one reload.
    skipWaiting on install + on message; claim clients on activate.
 */
-const CACHE_NAME = 'texans-hq-v14.2';
+const CACHE_NAME = 'texans-hq-v14.4';
 const APP_SHELL = [
   './',
   './index.html',

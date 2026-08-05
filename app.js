@@ -1,13 +1,13 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v14.2
+   Texans HQ — Personal PWA  v14.4
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v14.2';
-const APP_VERSION_LABEL = 'v14.2 · Texans+ESPN feeds';
+const APP_VERSION = 'v14.4';
+const APP_VERSION_LABEL = 'v14.4 · Safe header';
 /* Stable key — never changes across versions so the device stays unlocked */
 const UNLOCK_KEY = 'texans-hq-device-unlocked';
 /* Old keys from previous versions (for one-time migration) */
@@ -165,16 +165,35 @@ const TEAM_STATS_2025 = [
 ];
 
 const KEY_PLAYERS = [
-  { name: 'C.J. Stroud', pos: 'QB', num: '7', note: 'Franchise QB, Year 4', stats: '2025: 3,700+ pass yds · 20+ TD' },
-  { name: 'Nico Collins', pos: 'WR', num: '12', note: 'Pro Bowl target', stats: 'Big-play X receiver' },
-  { name: 'Jayden Higgins', pos: 'WR', num: '—', note: 'Year-2 breakout candidate', stats: 'Camp standout vs Stingley' },
-  { name: 'Joe Mixon', pos: 'RB', num: '28', note: 'Lead back', stats: 'Between-the-tackles + pass game' },
-  { name: 'Dalton Schultz', pos: 'TE', num: '86', note: 'Safety valve / red zone', stats: 'Reliable 3rd-down target' },
-  { name: 'Will Anderson Jr.', pos: 'DE', num: '51', note: 'Edge force', stats: 'Primary pass-rush threat' },
-  { name: 'Derek Stingley Jr.', pos: 'CB', num: '24', note: 'All-Pro shutdown corner', stats: 'Shadows top WR' },
-  { name: 'Azeez Al-Shaair', pos: 'LB', num: '0', note: 'Defensive leader', stats: 'Run fit + communication' },
-  { name: 'Jadeveon Clowney', pos: 'DE', num: '—', note: 'Hometown reunion 2026', stats: 'Veteran edge rotation' }
+  { name: 'C.J. Stroud', pos: 'QB', num: '7', note: 'Franchise QB, Year 4', stats: '2025: 3,700+ pass yds · 20+ TD',
+    detail: 'Year-4 starter. Camp notes stress timing with Higgins/Schultz and protecting the football. Preseason will show the real early-down mix.' },
+  { name: 'Nico Collins', pos: 'WR', num: '12', note: 'Pro Bowl target', stats: 'Big-play X receiver',
+    detail: 'Primary vertical and contested-catch threat. Occasional camp rest days are normal workload management unless the team says otherwise.' },
+  { name: 'Jayden Higgins', pos: 'WR', num: '—', note: 'Year-2 breakout candidate', stats: 'Camp standout vs Stingley',
+    detail: 'Year-2 WR with strong camp buzz, including reported wins vs top corners. Watch preseason targets and third-down usage.' },
+  { name: 'Joe Mixon', pos: 'RB', num: '28', note: 'Lead back', stats: 'Between-the-tackles + pass game',
+    detail: 'Early-down and short-yardage lead back. Pass protection and checkdowns matter as much as raw rush yards.' },
+  { name: 'Dalton Schultz', pos: 'TE', num: '86', note: 'Safety valve / red zone', stats: 'Reliable 3rd-down target',
+    detail: 'Trusted intermediate option for Stroud. Red-zone and third-down snaps are the live-game value markers.' },
+  { name: 'Will Anderson Jr.', pos: 'DE', num: '51', note: 'Edge force', stats: 'Primary pass-rush threat',
+    detail: 'Lead edge rusher. How often he aligns with Clowney on obvious passing downs is a weekly watch item.' },
+  { name: 'Derek Stingley Jr.', pos: 'CB', num: '24', note: 'All-Pro shutdown corner', stats: 'Shadows top WR',
+    detail: 'Often travels with the opponent’s top receiver. Camp one-on-ones are useful signal — not final grades.' },
+  { name: 'Azeez Al-Shaair', pos: 'LB', num: '0', note: 'Defensive leader', stats: 'Run fit + communication',
+    detail: 'Defensive communicator and run-fit LB. Availability can change quickly if camp bumps show up on the report.' },
+  { name: 'Jadeveon Clowney', pos: 'DE', num: '—', note: 'Hometown reunion 2026', stats: 'Veteran edge rotation',
+    detail: 'Re-signed hometown edge. Expect rotational and situational pass-rush snaps alongside Anderson.' }
 ];
+
+const TEAM_STAT_DETAILS = {
+  'Record': '2025 regular-season finish. Used here as context only — 2026 results will replace this when the season starts.',
+  'Points For': '2025 points scored per game (approx). Offense tempo and red-zone TD rate drive this number.',
+  'Points Against': '2025 points allowed per game (approx). Lower is better.',
+  'Pass Yds/G': '2025 team passing yards per game.',
+  'Rush Yds/G': '2025 team rushing yards per game.',
+  'AFC South': '2025 division finish.'
+};
+
 
 /* Demo live state — for testing UI before real 2026 games start */
 const LIVE_DEMO = {
@@ -354,6 +373,7 @@ function showSection(id) {
   if (id === 'pbp') renderPBP();
   if (id === 'news') loadNews(false);
   if (id === 'camp') loadCamp(false);
+  if (id === 'stats') renderStats();
 }
 
 $$('.nav-btn').forEach((btn) => {
@@ -563,13 +583,30 @@ function renderDepthChart() {
         <div class="small" style="margin:4px 0 2px;font-weight:600">${u.unit}</div>
         <div class="depth-line">
           ${u.players.map((name, i) =>
-            `<span class="depth-chip${i === 0 ? ' starter' : ''}">${name}</span>`
+            `<button type="button" class="depth-chip${i === 0 ? ' starter' : ''}" data-depth-name="${String(name).replace(/"/g, '&quot;')}">${name}</button>`
           ).join('')}
         </div>
       `).join('')}
     </div>`;
   el.innerHTML = block('Offense', DEPTH_CHART.offense) + block('Defense', DEPTH_CHART.defense) +
-    `<p class="tend-note">Simplified starters-first view — not an official depth chart.</p>`;
+    `<div id="depthDetail" class="player-detail hidden"></div>` +
+    `<p class="tend-note">Tap a name for a short note when available. Simplified starters-first view — not an official depth chart.</p>`;
+
+  el.querySelectorAll('[data-depth-name]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const name = btn.getAttribute('data-depth-name') || '';
+      const detail = document.getElementById('depthDetail');
+      if (!detail) return;
+      const exact = KEY_PLAYERS.find((x) => x.name === name);
+      const hit = exact || KEY_PLAYERS.find((x) => name.includes(x.name) || x.name.includes(name));
+      detail.classList.remove('hidden');
+      if (hit) {
+        detail.innerHTML = `<strong>${hit.name}</strong> · ${hit.pos}${hit.num && hit.num !== '—' ? ' #' + hit.num : ''}<br><span class="small">${hit.note}</span><br>${hit.detail || hit.stats || ''}`;
+      } else {
+        detail.innerHTML = `<strong>${name}</strong><br><span class="small">No extended card for this roster line yet — placeholder depth only.</span>`;
+      }
+    });
+  });
 }
 
 function renderGameCenter() {
@@ -938,7 +975,7 @@ function renderPBP() {
 /* Why 8/4 lingered on 8/5 morning:
    ESPN team feed often lags same-day team posts. Official houstontexans.com/rss/news
    already had "Transactions (8-5-2026)" at ~7:47am CT while ESPN's newest HOU item
-   was still prior-evening. v14.2 merges both sources and sorts by published time. */
+   was still prior-evening. v14.4 merges both sources and sorts by published time. */
 const CAMP_CACHE_KEY = 'texans-hq-camp-cache-v2';
 const NEWS_CACHE_KEY = 'texans-hq-news-cache-v2';
 
@@ -1297,6 +1334,74 @@ if ('serviceWorker' in navigator) {
   });
 } else {
   window.addEventListener('load', () => setVersionPill(APP_VERSION + ' · no SW'));
+}
+
+
+/* ---------- Stats (restored in v14.4 — was dropped in v14.4 feed rewrite) ---------- */
+function renderStats() {
+  const grid = $('#teamStats');
+  if (!grid) return;
+
+  grid.innerHTML = TEAM_STATS_2025.map((s) => `
+    <button type="button" class="stat-item stat-item-btn" data-stat-label="${s.label}">
+      <div class="stat-value">${s.value}</div>
+      <div class="stat-label">${s.label}</div>
+    </button>
+  `).join('') + `<div id="statDetail" class="player-detail hidden" style="grid-column:1/-1"></div>`;
+
+  grid.querySelectorAll('[data-stat-label]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const label = btn.getAttribute('data-stat-label');
+      const row = TEAM_STATS_2025.find((s) => s.label === label);
+      const detail = document.getElementById('statDetail');
+      if (!detail || !row) return;
+      const blurb = (typeof TEAM_STAT_DETAILS !== 'undefined' && TEAM_STAT_DETAILS[label])
+        ? TEAM_STAT_DETAILS[label]
+        : '2025 season context for personal reference.';
+      detail.classList.remove('hidden');
+      detail.innerHTML = `<strong>${row.label}: ${row.value}</strong><br>${blurb}`;
+    });
+  });
+
+  const watch = $('#playerWatch');
+  if (watch) {
+    watch.innerHTML = KEY_PLAYERS.map((p, idx) => `
+      <button type="button" class="player-card player-card-btn" data-player-idx="${idx}" aria-expanded="false">
+        <div class="player-card-top">
+          <span class="player-name">${p.num && p.num !== '—' ? '#' + p.num + ' ' : ''}${p.name}</span>
+          <span class="player-pos">${p.pos}</span>
+        </div>
+        <div class="player-note">${p.note}</div>
+        <div class="player-stats">${p.stats || ''}</div>
+        <div class="player-expand-hint">Tap for details ▾</div>
+        <div class="player-detail-body hidden"></div>
+      </button>
+    `).join('');
+
+    watch.querySelectorAll('[data-player-idx]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-player-idx'), 10);
+        const p = KEY_PLAYERS[idx];
+        if (!p) return;
+        const body = btn.querySelector('.player-detail-body');
+        const hint = btn.querySelector('.player-expand-hint');
+        const wasOpen = body && !body.classList.contains('hidden');
+        watch.querySelectorAll('.player-detail-body').forEach((el) => el.classList.add('hidden'));
+        watch.querySelectorAll('.player-card-btn').forEach((b) => {
+          b.setAttribute('aria-expanded', 'false');
+          const h = b.querySelector('.player-expand-hint');
+          if (h) h.textContent = 'Tap for details ▾';
+        });
+        if (wasOpen || !body) return;
+        body.classList.remove('hidden');
+        body.textContent = p.detail || p.stats || p.note;
+        btn.setAttribute('aria-expanded', 'true');
+        if (hint) hint.textContent = 'Tap to close ▴';
+      });
+    });
+  }
+
+  renderDepthChart();
 }
 
 /* ---------- Init ---------- */
