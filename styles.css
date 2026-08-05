@@ -1,4 +1,4 @@
-/* Texans HQ PWA v10 — High-contrast light theme + TV networks
+/* Texans HQ PWA v11 — High-contrast light theme + TV networks
    White/off-white backgrounds, dark text, semantic color for meaning only
    Navy used for branding accents, red used sparingly for importance
 */
@@ -969,3 +969,83 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .drive-plays-mini div:last-child { border-bottom: none; }
+
+
+/* ===== v11 Nice to have ===== */
+.wp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.wp-pct {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--navy);
+}
+.wp-chart {
+  width: 100%;
+  height: 64px;
+  display: block;
+  background: #FAFBFC;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.wp-note {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.watch-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.watch-item:last-child { border-bottom: none; }
+.watch-item strong { color: var(--navy); }
+.hist-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+.hist-row:last-child { border-bottom: none; }
+.hist-result.w { color: var(--success); font-weight: 700; }
+.hist-result.l { color: var(--danger); font-weight: 700; }
+.depth-unit {
+  margin-bottom: 14px;
+}
+.depth-unit h4 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.depth-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.depth-chip {
+  font-size: 0.78rem;
+  background: #EEF2F5;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--text);
+}
+.depth-chip.starter {
+  background: var(--navy);
+  color: white;
+  border-color: var(--navy);
+  font-weight: 600;
+}
+.live-updated {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 8px;
+}

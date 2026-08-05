@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
-  <!-- PASSWORD LOCK SCREEN (v10) -->
+  <!-- PASSWORD LOCK SCREEN (v11) -->
   <div id="lockScreen" class="lock-screen">
     <div class="lock-card">
       <div class="lock-logo">H</div>
@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v10 · Offline-ready</div>
+      <div id="statusPill" class="status-pill">v11 · Offline-ready</div>
     </header>
 
     <main class="main">
@@ -52,6 +52,10 @@
           <div class="card-title">Offensive tendency (HOU ball)</div>
           <div id="tendencyContent"></div>
         </div>
+        <div class="card" id="winProbCard">
+          <div class="card-title">Win probability (simplified)</div>
+          <div id="winProbContent"></div>
+        </div>
         <div class="card" id="efficiencyCard">
           <div class="card-title">This game efficiency</div>
           <div id="efficiencyContent"></div>
@@ -59,6 +63,14 @@
         <div class="card" id="driveCard">
           <div class="card-title">This drive</div>
           <div id="driveSummary"></div>
+        </div>
+        <div class="card" id="watchWeekCard">
+          <div class="card-title">What to watch this week</div>
+          <div id="watchWeekContent"></div>
+        </div>
+        <div class="card" id="historyCard">
+          <div class="card-title">History vs opponent</div>
+          <div id="historyContent"></div>
         </div>
         <div class="card" id="injuryCard">
           <div class="card-title">Injury / availability</div>
@@ -118,6 +130,10 @@
         <div class="card">
           <div class="card-title">Player cards</div>
           <div id="playerWatch"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Depth chart (simplified)</div>
+          <div id="depthChart"></div>
         </div>
       </section>
 

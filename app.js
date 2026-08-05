@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v10.0
+   Texans HQ — Personal PWA  v11.0
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -253,6 +253,56 @@ const OPPONENT_PREVIEWS = {
   }
 };
 
+
+/* Win probability series for demo graph (simplified model points, not ESPN) */
+const WP_SERIES_DEMO = [
+  { t: 0, hou: 52 }, { t: 1, hou: 48 }, { t: 2, hou: 55 }, { t: 3, hou: 61 },
+  { t: 4, hou: 58 }, { t: 5, hou: 64 }, { t: 6, hou: 62 }, { t: 7, hou: 67 }
+];
+
+/* Depth chart simplified */
+const DEPTH_CHART = {
+  offense: [
+    { unit: 'QB', players: ['C.J. Stroud', 'Backup QB'] },
+    { unit: 'RB', players: ['Joe Mixon', 'Dameon Pierce', 'Dare Ogunbowale'] },
+    { unit: 'WR', players: ['Nico Collins', 'Jayden Higgins', 'Xavier Hutchinson'] },
+    { unit: 'TE', players: ['Dalton Schultz', 'Brevin Jordan'] },
+    { unit: 'OL (core)', players: ['LT', 'LG', 'C', 'RG', 'RT'] }
+  ],
+  defense: [
+    { unit: 'EDGE', players: ['Will Anderson Jr.', 'Jadeveon Clowney'] },
+    { unit: 'DL', players: ['Interior rotation'] },
+    { unit: 'LB', players: ['Azeez Al-Shaair', 'Linebacker group'] },
+    { unit: 'CB', players: ['Derek Stingley Jr.', 'Kamari Lassiter'] },
+    { unit: 'S', players: ['Safety duo'] }
+  ]
+};
+
+/* What to watch this week */
+const WATCH_THIS_WEEK = [
+  { title: 'Stroud → Higgins chemistry', detail: 'Year-2 WR continuing camp momentum into live reps.' },
+  { title: 'Edge pressure package', detail: 'Anderson + Clowney rotation and how often they align together.' },
+  { title: 'Run-game efficiency', detail: 'Early-down success rate sets up play-action later.' },
+  { title: 'TV / availability', detail: 'Check schedule card for network — Prime games need your existing subscription.' }
+];
+
+/* Recent history vs opponents (public-style sample) */
+const OPPONENT_HISTORY = {
+  BUF: [
+    { year: '2024', result: 'L', score: '20-24', note: 'Home' },
+    { year: '2023', result: 'L', score: '22-31', note: 'Away' }
+  ],
+  LAC: [
+    { year: '2025', result: 'W', score: '32-27', note: 'Sample prior' },
+    { year: '2022', result: 'L', score: '24-27', note: 'Away' }
+  ],
+  DEFAULT: [
+    { year: '—', result: '', score: 'No recent listed', note: 'Will fill as season progresses' }
+  ]
+};
+
+let liveRefreshTimer = null;
+
 /* Sample completed game recap (demo) */
 const SAMPLE_RECAP = {
   opp: 'Los Angeles Chargers',
@@ -382,6 +432,101 @@ function getNextGame() {
   return SCHEDULE_2026.find((g) => g.date && new Date(g.date + 'T' + (g.time || '12:00') + ':00') > now);
 }
 
+
+function stopLiveRefresh() {
+  if (liveRefreshTimer) {
+    clearInterval(liveRefreshTimer);
+    liveRefreshTimer = null;
+  }
+}
+
+function startLiveRefresh() {
+  stopLiveRefresh();
+  if (!LIVE_DEMO.active) return;
+  liveRefreshTimer = setInterval(() => {
+    // Quiet refresh: bump "last updated" only (demo). Real games would re-fetch situation/PBP.
+    const el = $('#liveUpdatedAt');
+    if (el) el.textContent = 'Updated ' + new Date().toLocaleTimeString();
+  }, 30000);
+}
+
+function renderWinProbCard() {
+  const card = $('#winProbCard');
+  const el = $('#winProbContent');
+  if (!card || !el) return;
+  if (!LIVE_DEMO.active) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+  const series = WP_SERIES_DEMO;
+  const last = series[series.length - 1].hou;
+  const w = 280, h = 64, pad = 4;
+  const maxT = series[series.length - 1].t || 1;
+  const pts = series.map((p) => {
+    const x = pad + (p.t / maxT) * (w - pad * 2);
+    const y = pad + (1 - p.hou / 100) * (h - pad * 2);
+    return `${x},${y}`;
+  }).join(' ');
+  el.innerHTML = `
+    <div class="wp-header">
+      <span>HOU win %</span>
+      <span class="wp-pct">${last}%</span>
+    </div>
+    <svg class="wp-chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-label="Simplified win probability chart">
+      <polyline fill="none" stroke="#03202F" stroke-width="2.5" points="${pts}" />
+      <line x1="${pad}" y1="${h/2}" x2="${w-pad}" y2="${h/2}" stroke="#E2E6EA" stroke-width="1" />
+    </svg>
+    <div class="wp-note">Simplified model (score + time + field tilt) — not ESPN’s official number.</div>
+    <div class="live-updated" id="liveUpdatedAt">Updated ${new Date().toLocaleTimeString()}</div>
+  `;
+}
+
+function renderWatchWeekCard() {
+  const el = $('#watchWeekContent');
+  if (!el) return;
+  el.innerHTML = WATCH_THIS_WEEK.map(w =>
+    `<div class="watch-item"><strong>${w.title}</strong><br>${w.detail}</div>`
+  ).join('');
+}
+
+function renderHistoryCard() {
+  const el = $('#historyContent');
+  if (!el) return;
+  let abbr = 'BUF';
+  if (LIVE_DEMO.active) abbr = LIVE_DEMO.oppAbbr;
+  else {
+    const next = getNextGame();
+    if (next) abbr = next.oppAbbr;
+  }
+  const rows = OPPONENT_HISTORY[abbr] || OPPONENT_HISTORY.DEFAULT;
+  el.innerHTML = rows.map(r => `
+    <div class="hist-row">
+      <span>${r.year} · ${r.note}</span>
+      <span class="hist-result ${r.result.toLowerCase()}">${r.result} ${r.score}</span>
+    </div>
+  `).join('') + `<p class="tend-note">Sample public-style results for layout — verify official records.</p>`;
+}
+
+function renderDepthChart() {
+  const el = $('#depthChart');
+  if (!el) return;
+  const block = (title, units) => `
+    <div class="depth-unit">
+      <h4>${title}</h4>
+      ${units.map(u => `
+        <div class="small" style="margin:4px 0 2px;font-weight:600">${u.unit}</div>
+        <div class="depth-line">
+          ${u.players.map((name, i) =>
+            `<span class="depth-chip${i === 0 ? ' starter' : ''}">${name}</span>`
+          ).join('')}
+        </div>
+      `).join('')}
+    </div>`;
+  el.innerHTML = block('Offense', DEPTH_CHART.offense) + block('Defense', DEPTH_CHART.defense) +
+    `<p class="tend-note">Simplified starters-first view — not an official depth chart.</p>`;
+}
+
 function renderGameCenter() {
   const content = $('#gameCenterContent');
   const modePill = $('#gameModePill');
@@ -395,6 +540,8 @@ function renderGameCenter() {
 
   renderInjuryCard();
   renderOpponentCard();
+  renderWatchWeekCard();
+  renderHistoryCard();
 
   if (LIVE_DEMO.active) {
     if (modePill) {
@@ -489,8 +636,14 @@ function renderGameCenter() {
 
     if (injuryCard) injuryCard.style.display = '';
     if (opponentCard) opponentCard.style.display = '';
+    const watchWeekCard = $('#watchWeekCard');
+    const historyCard = $('#historyCard');
+    if (watchWeekCard) watchWeekCard.style.display = '';
+    if (historyCard) historyCard.style.display = '';
     if (recapCard) recapCard.style.display = 'none';
     if (upcomingCard) upcomingCard.style.display = 'none';
+    renderWinProbCard();
+    startLiveRefresh();
     wireDemoToggles();
     return;
   }
@@ -500,12 +653,19 @@ function renderGameCenter() {
     modePill.textContent = 'Upcoming';
     modePill.classList.remove('live');
   }
+  stopLiveRefresh();
   if (tendencyCard) tendencyCard.style.display = 'none';
   if (efficiencyCard) efficiencyCard.style.display = 'none';
   if (driveCard) driveCard.style.display = 'none';
   if (recapCard) recapCard.style.display = 'none';
+  const winProbCard = $('#winProbCard');
+  if (winProbCard) winProbCard.style.display = 'none';
   if (injuryCard) injuryCard.style.display = '';
   if (opponentCard) opponentCard.style.display = '';
+  const watchWeekCard = $('#watchWeekCard');
+  const historyCard = $('#historyCard');
+  if (watchWeekCard) watchWeekCard.style.display = '';
+  if (historyCard) historyCard.style.display = '';
   if (upcomingCard) upcomingCard.style.display = '';
 
   const next = getNextGame();
@@ -597,11 +757,18 @@ function renderRecapDemo() {
     modePill.textContent = 'Sample recap';
     modePill.classList.remove('live');
   }
+  stopLiveRefresh();
   if (tendencyCard) tendencyCard.style.display = 'none';
   if (efficiencyCard) efficiencyCard.style.display = 'none';
   if (driveCard) driveCard.style.display = 'none';
   if (injuryCard) injuryCard.style.display = 'none';
   if (opponentCard) opponentCard.style.display = 'none';
+  const winProbCard = $('#winProbCard');
+  const watchWeekCard = $('#watchWeekCard');
+  const historyCard = $('#historyCard');
+  if (winProbCard) winProbCard.style.display = 'none';
+  if (watchWeekCard) watchWeekCard.style.display = 'none';
+  if (historyCard) historyCard.style.display = 'none';
   if (upcomingCard) upcomingCard.style.display = 'none';
   if (recapCard) recapCard.style.display = '';
 
@@ -749,6 +916,7 @@ function renderStats() {
       <div class="player-stats">${p.stats || ''}</div>
     </div>
   `).join('');
+  renderDepthChart();
 }
 
 /* ---------- News (public ESPN endpoint — best effort) ---------- */
@@ -841,13 +1009,13 @@ if ('serviceWorker' in navigator) {
       .then(() => {
         const pill = $('#statusPill');
         if (pill) {
-          pill.textContent = 'v10 · Offline-ready';
+          pill.textContent = 'v11 · Offline-ready';
           pill.classList.remove('live');
         }
       })
       .catch(() => {
         const pill = $('#statusPill');
-        if (pill) pill.textContent = 'v10 · SW optional';
+        if (pill) pill.textContent = 'v11 · SW optional';
       });
   });
 }
