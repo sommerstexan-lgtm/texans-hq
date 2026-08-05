@@ -1,5 +1,8 @@
-/* Texans HQ PWA — Service Worker v13 */
-const CACHE_NAME = 'texans-hq-v13';
+/* Texans HQ PWA — Service Worker v14
+   Network-first for app shell so Camp/News logic updates deploy.
+   Cache fallback keeps offline shell working.
+*/
+const CACHE_NAME = 'texans-hq-v14';
 const APP_SHELL = [
   './',
   './index.html',
@@ -24,25 +27,51 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+function isAppShell(url) {
+  const path = url.pathname;
+  return (
+    path.endsWith('/') ||
+    path.endsWith('/index.html') ||
+    path.endsWith('/app.js') ||
+    path.endsWith('/styles.css') ||
+    path.endsWith('/manifest.json') ||
+    path.endsWith('/sw.js') ||
+    path.endsWith('/icon-192.png') ||
+    path.endsWith('/icon-512.png')
+  );
+}
+
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  // Cache-first for app shell; network-first for ESPN/public data with offline fallback
-  if (APP_SHELL.some((p) => url.pathname.endsWith(p.replace('./', '')) || url.pathname.endsWith('/'))) {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+
+  // App shell: network-first, cache fallback (fixes "Camp never updates after deploy")
+  if (url.origin === self.location.origin && isAppShell(url)) {
     event.respondWith(
-      caches.match(event.request).then((cached) => cached || fetch(event.request))
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req).then((c) => c || caches.match('./index.html')))
     );
     return;
   }
-  // For external data: try network, fall back to cache if we previously stored it
+
+  // ESPN / external: network-first, optional cache of successful responses
   event.respondWith(
-    fetch(event.request)
+    fetch(req, { cache: 'no-store' })
       .then((res) => {
         if (res.ok && (url.hostname.includes('espn') || url.hostname.includes('nfldata'))) {
           const clone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
         }
         return res;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => caches.match(req))
   );
 });

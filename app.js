@@ -351,6 +351,7 @@ function showSection(id) {
   });
   if (id === 'pbp') renderPBP();
   if (id === 'news') loadNews(false);
+  if (id === 'camp') loadCamp(false);
 }
 
 $$('.nav-btn').forEach((btn) => {
@@ -931,17 +932,149 @@ function renderPBP() {
   });
 }
 
-function renderCamp() {
-  const box = $('#campUpdates');
-  box.innerHTML = '';
-  CAMP_NOTES.forEach((n) => {
-    const div = document.createElement('div');
-    div.className = 'camp-note';
-    div.innerHTML = `<div class="camp-date">${n.date}</div><div class="camp-text">${n.text}</div>`;
-    box.appendChild(div);
-  });
+/* ---------- Training Camp (live ESPN + offline fallback) ---------- */
+const CAMP_CACHE_KEY = 'texans-hq-camp-cache-v1';
+const NEWS_CACHE_KEY = 'texans-hq-news-cache-v1';
 
-  $('#campDates').innerHTML = CAMP_OPEN_DATES.map((d) => `<div style="padding:4px 0">${d}</div>`).join('');
+function renderCampStaticFallback(reason) {
+  const box = $('#campUpdates');
+  if (!box) return;
+  const cached = readJsonCache(CAMP_CACHE_KEY);
+  if (cached && cached.items && cached.items.length) {
+    box.innerHTML = freshnessLine(cached.savedAt, true, reason) +
+      cached.items.map(campItemHtml).join('');
+    return;
+  }
+  box.innerHTML = (reason ? `<div class="tend-note" style="margin-bottom:8px">${reason}</div>` : '') +
+    CAMP_NOTES.map((n) =>
+      `<div class="camp-note"><div class="camp-date">${n.date}</div><div class="camp-text">${n.text}</div></div>`
+    ).join('') +
+    `<p class="tend-note">Static camp notes (baked into app). Live headlines appear when online.</p>`;
+}
+
+function campItemHtml(item) {
+  return `<div class="camp-note">
+    <div class="camp-date">${item.date || ''}${item.source ? ' · ' + item.source : ''}</div>
+    <div class="camp-text">${item.href
+      ? `<a href="${item.href}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;font-weight:600">${item.title}</a>`
+      : item.title || ''}
+    ${item.desc ? `<div class="small" style="margin-top:4px">${item.desc}</div>` : ''}</div>
+  </div>`;
+}
+
+function freshnessLine(ts, isCached, extra) {
+  const when = ts ? timeAgo(ts) : 'unknown';
+  const label = isCached ? `Cached · ${when}` : `Updated ${when}`;
+  return `<div class="live-updated" style="margin:0 0 10px;text-align:left">${label}${extra ? ' · ' + extra : ''}</div>`;
+}
+
+function readJsonCache(key) {
+  try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; }
+}
+
+function writeJsonCache(key, payload) {
+  try { localStorage.setItem(key, JSON.stringify(payload)); } catch (e) {}
+}
+
+function articleToItem(a) {
+  const href = (a.links && a.links.web && a.links.web.href) || a.link || '#';
+  const title = a.headline || a.title || 'Headline';
+  const published = a.published || a.lastModified || '';
+  let date = '';
+  if (published) {
+    try {
+      date = new Date(published).toLocaleString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      });
+    } catch (e) { date = published; }
+  }
+  return {
+    title,
+    desc: a.description || '',
+    href,
+    date,
+    published,
+    source: 'ESPN'
+  };
+}
+
+function isCampRelated(item) {
+  const t = ((item.title || '') + ' ' + (item.desc || '')).toLowerCase();
+  return /camp|practice|pads|joint practice|training|roster cut|preseason|injury|walk-through|walkthrough/.test(t);
+}
+
+async function fetchEspnArticles() {
+  const urls = [
+    'https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=15&team=hou',
+    'https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=12'
+  ];
+  let articles = [];
+  let lastErr = null;
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+      if (!res.ok) { lastErr = 'HTTP ' + res.status; continue; }
+      const data = await res.json();
+      const list = data.articles || data.headlines || [];
+      if (Array.isArray(list) && list.length) {
+        articles = list;
+        break;
+      }
+    } catch (e) {
+      lastErr = (e && e.message) ? e.message : 'network';
+    }
+  }
+  if (!articles.length) throw new Error(lastErr || 'No articles');
+  return articles.map(articleToItem);
+}
+
+async function loadCamp(fromButton) {
+  const box = $('#campUpdates');
+  const btn = $('#campRefreshBtn');
+  if (!box) return;
+  if (fromButton && btn) {
+    btn.disabled = true;
+    btn.textContent = 'Refreshing…';
+  }
+  // Always paint open-practice dates (static schedule of open sessions)
+  const datesEl = $('#campDates');
+  if (datesEl) {
+    const today = new Date();
+    const todayLabel = today.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    datesEl.innerHTML = CAMP_OPEN_DATES.map((d) => {
+      const isToday = d.toLowerCase().indexOf(todayLabel.toLowerCase().replace(',', '')) !== -1
+        || d.toLowerCase().indexOf(today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase()) !== -1;
+      return `<div style="padding:4px 0">${isToday ? '<strong style="color:var(--navy)">TODAY · </strong>' : ''}${d}</div>`;
+    }).join('');
+  }
+
+  box.innerHTML = '<div class="loading">Fetching camp updates…</div>';
+  try {
+    const items = await fetchEspnArticles();
+    // Prefer camp/practice stories; if few, keep top Texans headlines as pulse
+    let campItems = items.filter(isCampRelated);
+    if (campItems.length < 3) {
+      const rest = items.filter((it) => !campItems.includes(it));
+      campItems = campItems.concat(rest).slice(0, 8);
+    } else {
+      campItems = campItems.slice(0, 8);
+    }
+    writeJsonCache(CAMP_CACHE_KEY, { savedAt: Date.now(), items: campItems });
+    box.innerHTML = freshnessLine(Date.now(), false) + campItems.map(campItemHtml).join('');
+  } catch (e) {
+    renderCampStaticFallback('Live camp feed unavailable (' + (e.message || 'offline') + ')');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Refresh';
+    }
+  }
+}
+
+function renderCamp() {
+  // Initial paint: show cache/static immediately, then refresh in background
+  renderCampStaticFallback('');
+  loadCamp(false);
 }
 
 /* ---------- Stats ---------- */
@@ -976,38 +1109,27 @@ async function loadNews(fromButton) {
     btn.disabled = true;
     btn.textContent = 'Refreshing…';
   }
-  list.innerHTML = '<div class="loading">Fetching public headlines…</div>';
-  try {
-    // Prefer team-focused feed, fall back to general NFL news
-    let articles = [];
-    const urls = [
-      'https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=10&team=hou',
-      'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/34/news',
-      'https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=8'
-    ];
-    for (const url of urls) {
-      try {
-        const res = await fetch(url, { mode: 'cors' });
-        if (!res.ok) continue;
-        const data = await res.json();
-        articles = (data.articles || data.headlines || []).slice(0, 10);
-        if (articles.length) break;
-      } catch (_) { /* try next */ }
-    }
-    if (!articles.length) throw new Error('Empty');
 
-    list.innerHTML = articles.map((a) => {
-      const href = a.links?.web?.href || a.link || '#';
-      const title = a.headline || a.title || 'Headline';
-      const when = a.published ? new Date(a.published).toLocaleString() : (a.publishedAt || '');
-      const desc = a.description || '';
-      return `<div class="news-item">
-        <a href="${href}" target="_blank" rel="noopener">${title}</a>
-        <div class="news-meta">${when}${desc ? ' · ' + desc : ''}</div>
-      </div>`;
-    }).join('');
+  const cached = readJsonCache(NEWS_CACHE_KEY);
+  if (cached && cached.items && cached.items.length) {
+    list.innerHTML = freshnessLine(cached.savedAt, true, 'showing last good fetch') +
+      cached.items.map(newsItemHtml).join('');
+  } else {
+    list.innerHTML = '<div class="loading">Fetching public headlines…</div>';
+  }
+
+  try {
+    const items = await fetchEspnArticles();
+    const trimmed = items.slice(0, 10);
+    writeJsonCache(NEWS_CACHE_KEY, { savedAt: Date.now(), items: trimmed });
+    list.innerHTML = freshnessLine(Date.now(), false) + trimmed.map(newsItemHtml).join('');
   } catch (e) {
-    list.innerHTML = `
+    if (cached && cached.items && cached.items.length) {
+      list.innerHTML = freshnessLine(cached.savedAt, true, 'live fetch failed — ' + (e.message || 'offline')) +
+        cached.items.map(newsItemHtml).join('') +
+        `<div class="news-item"><a href="https://www.houstontexans.com/news" target="_blank" rel="noopener">Official Texans News</a><div class="news-meta">houstontexans.com</div></div>`;
+    } else {
+      list.innerHTML = `
       <div class="empty">
         Could not reach public news feed (offline or blocked).<br>
         Camp notes and schedule remain fully available offline.
@@ -1019,14 +1141,21 @@ async function loadNews(fromButton) {
       <div class="news-item">
         <a href="https://www.espn.com/nfl/team/_/name/hou/houston-texans" target="_blank" rel="noopener">ESPN Texans Hub</a>
         <div class="news-meta">Public source</div>
-      </div>
-    `;
+      </div>`;
+    }
   } finally {
     if (btn) {
       btn.disabled = false;
       btn.textContent = 'Refresh';
     }
   }
+}
+
+function newsItemHtml(a) {
+  return `<div class="news-item">
+    <a href="${a.href || '#'}" target="_blank" rel="noopener">${a.title || 'Headline'}</a>
+    <div class="news-meta">${a.date || ''}${a.desc ? ' · ' + a.desc : ''}</div>
+  </div>`;
 }
 
 /* ---------- Local Notes ---------- */
@@ -1057,13 +1186,13 @@ if ('serviceWorker' in navigator) {
       .then(() => {
         const pill = $('#statusPill');
         if (pill) {
-          pill.textContent = 'v13 · Offline-ready';
+          pill.textContent = 'v14 · Live camp/news';
           pill.classList.remove('live');
         }
       })
       .catch(() => {
         const pill = $('#statusPill');
-        if (pill) pill.textContent = 'v13 · SW optional';
+        if (pill) pill.textContent = 'v14 · SW optional';
       });
   });
 }
@@ -1079,8 +1208,13 @@ function init() {
   if (newsBtn) {
     newsBtn.addEventListener('click', () => loadNews(true));
   }
-  // Pre-warm news in background
-  setTimeout(() => loadNews(false), 800);
+  const campBtn = $('#campRefreshBtn');
+  if (campBtn) {
+    campBtn.addEventListener('click', () => loadCamp(true));
+  }
+  // Pre-warm news + camp in background (network, non-blocking)
+  setTimeout(() => loadNews(false), 600);
+  setTimeout(() => loadCamp(false), 900);
 }
 
 /* Start: check password first */

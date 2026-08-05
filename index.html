@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v13 · Offline-ready</div>
+      <div id="statusPill" class="status-pill">v14 · Live camp/news</div>
     </header>
 
     <main class="main">
@@ -110,9 +110,13 @@
       </section>
 
       <!-- 4. TRAINING CAMP -->
-      <section id="sec-camp" class="section">
+            <section id="sec-camp" class="section">
         <div class="card">
-          <div class="card-title">Training Camp — August 2026</div>
+          <div class="card-title-row">
+            <div class="card-title" style="margin-bottom:0">Training Camp — August 2026</div>
+            <button type="button" class="btn-refresh" id="campRefreshBtn" aria-label="Refresh camp">Refresh</button>
+          </div>
+          <p class="small" style="margin:6px 0 8px">Live ESPN Texans / camp headlines · offline falls back to last saved + static notes</p>
           <div id="campUpdates"></div>
         </div>
         <div class="card">
@@ -144,7 +148,7 @@
             <div class="card-title" style="margin-bottom:0">News & Pulse</div>
             <button type="button" class="btn-refresh" id="newsRefreshBtn" aria-label="Refresh news">Refresh</button>
           </div>
-          <p class="small" style="margin:6px 0 10px">Public sources · tap Refresh for latest</p>
+          <p class="small" style="margin:6px 0 10px">Live ESPN public feed · cached on device if offline · tap Refresh for latest</p>
           <div id="newsList">
             <div class="loading">Fetching public headlines…</div>
           </div>
