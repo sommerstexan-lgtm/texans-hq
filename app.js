@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v11.0
+   Texans HQ — Personal PWA  v12.0
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -183,7 +183,7 @@ const LIVE_DEMO = {
   houScore: 17,
   oppScore: 14,
   qtr: 3,
-  clock: '6:12',
+  clockSeconds: 6 * 60 + 12, // ticking demo clock starts at 6:12
   possession: 'HOU', // HOU or OPP
   down: 2,
   distance: 7,
@@ -208,7 +208,12 @@ const LIVE_DEMO = {
     { qtr: 3, clock: '6:41', team: 'HOU', desc: 'Joe Mixon rush left tackle for 5 yards to the BUF 50.', big: false },
     { qtr: 3, clock: '7:15', team: 'HOU', desc: 'C.J. Stroud pass complete to Dalton Schultz for 8 yards to the HOU 45.', big: false },
     { qtr: 3, clock: '7:48', team: 'HOU', desc: 'Joe Mixon rush up the middle for 4 yards to the HOU 37.', big: false }
-  ]
+  ],
+  /* Yard line as opponent 38 → FG range: field goal range */
+  yardNum: 38,
+  yardSide: 'opp', // 'own' or 'opp'
+  weather: { temp: 78, wind: '6 mph', note: 'Dome / indoor — weather not a factor' },
+  lastUpdated: Date.now()
 };
 
 /* Injury / availability (demo — public-style report for testing) */
@@ -444,11 +449,63 @@ function startLiveRefresh() {
   stopLiveRefresh();
   if (!LIVE_DEMO.active) return;
   liveRefreshTimer = setInterval(() => {
-    // Quiet refresh: bump "last updated" only (demo). Real games would re-fetch situation/PBP.
+    if (!LIVE_DEMO.active) { stopLiveRefresh(); return; }
+    // Tick the demo game clock down 1 second
+    if (typeof LIVE_DEMO.clockSeconds === 'number' && LIVE_DEMO.clockSeconds > 0) {
+      LIVE_DEMO.clockSeconds -= 1;
+      const clockEl = $('#liveGameClock');
+      if (clockEl) clockEl.textContent = formatClock(LIVE_DEMO.clockSeconds);
+    }
+    LIVE_DEMO.lastUpdated = Date.now();
     const el = $('#liveUpdatedAt');
-    if (el) el.textContent = 'Updated ' + new Date().toLocaleTimeString();
-  }, 30000);
+    if (el) el.textContent = 'Updated ' + timeAgo(LIVE_DEMO.lastUpdated);
+    const el2 = $('#dataFreshness');
+    if (el2) el2.textContent = 'Data fresh · ' + timeAgo(LIVE_DEMO.lastUpdated);
+  }, 1000);
 }
+
+function formatClock(totalSec) {
+  totalSec = Math.max(0, Math.floor(totalSec));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return m + ':' + s.toString().padStart(2, '0');
+}
+
+/* Special-teams range from yard line (simplified) */
+function fgRangeLabel(yardSide, yardNum) {
+  // Convert to yards from goal for the offense
+  const toGoal = yardSide === 'opp' ? yardNum : (100 - yardNum);
+  if (toGoal <= 33) return { text: 'FG range', cls: 'fg-in' };
+  if (toGoal <= 40) return { text: 'Long FG', cls: 'fg-long' };
+  if (toGoal <= 50) return { text: 'Just outside FG', cls: 'fg-out' };
+  return { text: 'Not FG range', cls: 'fg-far' };
+}
+
+function timeAgo(ts) {
+  const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (sec < 5) return 'just now';
+  if (sec < 60) return sec + 's ago';
+  const m = Math.floor(sec / 60);
+  if (m < 60) return m + 'm ago';
+  return Math.floor(m / 60) + 'h ago';
+}
+
+function isSonMode() {
+  return localStorage.getItem('texans-hq-son-mode') === 'true';
+}
+
+function setSonMode(on) {
+  localStorage.setItem('texans-hq-son-mode', on ? 'true' : 'false');
+  document.body.classList.toggle('son-mode', on);
+}
+
+function plainDown(d) {
+  if (d === 1) return '1st down';
+  if (d === 2) return '2nd down';
+  if (d === 3) return '3rd down';
+  return '4th down';
+}
+
 
 function renderWinProbCard() {
   const card = $('#winProbCard');
@@ -549,6 +606,9 @@ function renderGameCenter() {
       modePill.classList.add('live');
     }
     const possHou = LIVE_DEMO.possession === 'HOU';
+    const fg = fgRangeLabel(LIVE_DEMO.yardSide || 'opp', LIVE_DEMO.yardNum || 38);
+    const son = isSonMode();
+    const downText = son ? plainDown(LIVE_DEMO.down) + ' · need ' + LIVE_DEMO.distance + ' yards' : (ordSuffix(LIVE_DEMO.down) + ' & ' + LIVE_DEMO.distance);
     content.innerHTML = `
       <div class="score-row">
         <div class="team-block">
@@ -557,7 +617,7 @@ function renderGameCenter() {
         </div>
         <div class="vs-clock">
           <div style="font-size:1rem;font-weight:700;color:var(--danger)">LIVE</div>
-          <div style="margin-top:4px">Q${LIVE_DEMO.qtr} · ${LIVE_DEMO.clock}</div>
+          <div style="margin-top:4px">Q${LIVE_DEMO.qtr} · <span id="liveGameClock">${formatClock(LIVE_DEMO.clockSeconds)}</span></div>
         </div>
         <div class="team-block">
           <div class="team-abbr">${LIVE_DEMO.oppAbbr}</div>
@@ -565,18 +625,24 @@ function renderGameCenter() {
         </div>
       </div>
       <div class="possession-row">
-        <div class="possession-pill ${possHou ? '' : 'away'}">${possHou ? 'HOU BALL' : LIVE_DEMO.oppAbbr + ' BALL'}</div>
+        <div class="possession-pill ${possHou ? '' : 'away'}">${possHou ? (son ? 'Texans have the ball' : 'HOU BALL') : (son ? LIVE_DEMO.oppAbbr + ' has the ball' : LIVE_DEMO.oppAbbr + ' BALL')}</div>
       </div>
       <div class="situation-bar">
-        <span><strong>${ordSuffix(LIVE_DEMO.down)} & ${LIVE_DEMO.distance}</strong></span>
+        <span><strong>${downText}</strong></span>
         <span>${LIVE_DEMO.yardline}</span>
-        <span>vs <strong>${LIVE_DEMO.opp}</strong></span>
-        <span class="small">HOU TO: ${LIVE_DEMO.efficiency.timeoutsHou} · ${LIVE_DEMO.oppAbbr} TO: ${LIVE_DEMO.efficiency.timeoutsOpp}</span>
+        <span class="fg-pill ${fg.cls}">${fg.text}</span>
       </div>
+      <div class="timeout-row">
+        <span class="to-chip">HOU timeouts: <strong>${LIVE_DEMO.efficiency.timeoutsHou}</strong></span>
+        <span class="to-chip">${LIVE_DEMO.oppAbbr} timeouts: <strong>${LIVE_DEMO.efficiency.timeoutsOpp}</strong></span>
+      </div>
+      <div class="weather-row small">${LIVE_DEMO.weather ? LIVE_DEMO.weather.note : ''}</div>
+      <div class="live-updated" id="dataFreshness">Data fresh · just now</div>
       <div class="demo-toggle">
         <button type="button" class="active" id="btnDemoLive">Demo live</button>
         <button type="button" id="btnDemoRecap">Sample recap</button>
         <button type="button" id="btnDemoUpcoming">Upcoming only</button>
+        <button type="button" id="btnSonMode">${son ? 'Son mode: ON' : 'Son mode: OFF'}</button>
       </div>
     `;
 
@@ -807,9 +873,15 @@ function wireDemoToggles() {
   const live = $('#btnDemoLive');
   const recap = $('#btnDemoRecap');
   const up = $('#btnDemoUpcoming');
+  const sonBtn = $('#btnSonMode');
   if (live) live.onclick = () => { LIVE_DEMO.active = true; renderGameCenter(); renderPBP(); };
   if (recap) recap.onclick = () => { renderRecapDemo(); };
   if (up) up.onclick = () => { LIVE_DEMO.active = false; renderGameCenter(); renderPBP(); };
+  if (sonBtn) sonBtn.onclick = () => {
+    setSonMode(!isSonMode());
+    renderGameCenter();
+    renderPBP();
+  };
 }
 
 function startCountdown(target) {
@@ -845,7 +917,7 @@ function renderPBP() {
     label.textContent = '· Demo live vs BUF';
     const driveHeader = document.createElement('div');
     driveHeader.className = 'drive-header';
-    driveHeader.textContent = `Q${LIVE_DEMO.qtr} ${LIVE_DEMO.clock} · ${LIVE_DEMO.possession === 'HOU' ? 'HOU ball' : LIVE_DEMO.oppAbbr + ' ball'} · ${LIVE_DEMO.down} & ${LIVE_DEMO.distance} · ${LIVE_DEMO.yardline}`;
+    driveHeader.textContent = `Q${LIVE_DEMO.qtr} ${formatClock(LIVE_DEMO.clockSeconds)} · ${LIVE_DEMO.possession === 'HOU' ? 'HOU ball' : LIVE_DEMO.oppAbbr + ' ball'} · ${LIVE_DEMO.down} & ${LIVE_DEMO.distance} · ${LIVE_DEMO.yardline}`;
     list.appendChild(driveHeader);
     LIVE_DEMO.recentPlays.forEach((play) => {
       const div = document.createElement('div');
@@ -1009,19 +1081,21 @@ if ('serviceWorker' in navigator) {
       .then(() => {
         const pill = $('#statusPill');
         if (pill) {
-          pill.textContent = 'v11 · Offline-ready';
+          pill.textContent = 'v12 · Offline-ready';
           pill.classList.remove('live');
         }
       })
       .catch(() => {
         const pill = $('#statusPill');
-        if (pill) pill.textContent = 'v11 · SW optional';
+        if (pill) pill.textContent = 'v12 · SW optional';
       });
   });
 }
 
 /* ---------- Init ---------- */
 function init() {
+  // Restore son-friendly mode if previously enabled
+  if (isSonMode()) document.body.classList.add('son-mode');
   renderSchedule();
   renderGameCenter();
   renderCamp();

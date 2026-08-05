@@ -1,4 +1,4 @@
-/* Texans HQ PWA v11 — High-contrast light theme + TV networks
+/* Texans HQ PWA v12 — High-contrast light theme + TV networks
    White/off-white backgrounds, dark text, semantic color for meaning only
    Navy used for branding accents, red used sparingly for importance
 */
@@ -1048,4 +1048,62 @@ body {
   color: var(--muted);
   text-align: center;
   margin-top: 8px;
+}
+
+
+/* ===== v12 Often-forgotten ===== */
+.timeout-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.to-chip {
+  font-size: 0.8rem;
+  background: #EEF2F5;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 10px;
+  color: var(--text-secondary);
+}
+.to-chip strong { color: var(--navy); }
+.fg-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.fg-pill.fg-in { background: #E8F5EC; color: var(--success); }
+.fg-pill.fg-long { background: #FFF4E5; color: var(--warning); }
+.fg-pill.fg-out { background: #EEF2F5; color: var(--text-secondary); }
+.fg-pill.fg-far { background: #F4F6F8; color: var(--muted); }
+.weather-row {
+  text-align: center;
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+/* Son-friendly mode — larger type, simpler density */
+body.son-mode {
+  font-size: 17px;
+}
+body.son-mode .team-score {
+  font-size: 3rem;
+}
+body.son-mode .possession-pill {
+  font-size: 1rem;
+  padding: 8px 18px;
+}
+body.son-mode .situation-bar {
+  font-size: 1.05rem;
+}
+body.son-mode .play-desc {
+  font-size: 1.05rem;
+}
+body.son-mode .card-title {
+  font-size: 0.85rem;
+}
+body.son-mode .nav-btn {
+  font-size: 0.75rem;
 }
