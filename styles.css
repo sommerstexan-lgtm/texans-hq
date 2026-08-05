@@ -1,4 +1,4 @@
-/* Texans HQ PWA v7 — High-contrast light theme + TV networks
+/* Texans HQ PWA v9 — High-contrast light theme + TV networks
    White/off-white backgrounds, dark text, semantic color for meaning only
    Navy used for branding accents, red used sparingly for importance
 */
@@ -687,4 +687,214 @@ body {
   background: #232F3E;
   color: #FF9900;
   border-color: #232F3E;
+}
+
+
+/* News refresh */
+.card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.btn-refresh {
+  background: var(--navy);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.btn-refresh:active {
+  transform: scale(0.97);
+}
+.btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+
+/* ===== v9 Live game flow ===== */
+.mode-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: #EEF2F5;
+  color: var(--navy);
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.mode-pill.live {
+  background: #FFF0F0;
+  color: var(--danger);
+  border-color: #F5C2C2;
+}
+.possession-row {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0 4px;
+}
+.possession-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--navy);
+  color: white;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 6px 14px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+}
+.possession-pill.away {
+  background: var(--text-secondary);
+}
+.situation-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 14px;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+.situation-bar strong {
+  color: var(--text);
+}
+.tendency-bars {
+  margin-top: 6px;
+}
+.tend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.tend-label {
+  min-width: 48px;
+  color: var(--text);
+}
+.tend-track {
+  flex: 1;
+  height: 10px;
+  background: #E8ECF0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.tend-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--navy);
+}
+.tend-fill.pass { background: var(--success); }
+.tend-pct {
+  min-width: 40px;
+  text-align: right;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+.tend-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.drive-meta {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.drive-meta strong { color: var(--text); }
+.player-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #FAFBFC;
+}
+.player-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.player-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text);
+}
+.player-pos {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--navy);
+  background: #EEF2F5;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.player-note {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.player-stats {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.recap-score {
+  font-size: 1.4rem;
+  font-weight: 800;
+  text-align: center;
+  margin: 8px 0;
+  color: var(--navy);
+}
+.recap-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 10px 0;
+  font-size: 0.85rem;
+}
+.recap-stats div {
+  background: #EEF2F5;
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+}
+.spotlight-block { margin-top: 10px; }
+.spotlight-block h4 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.spotlight-block.outstanding h4 { color: var(--success); }
+.spotlight-block.quiet h4 { color: var(--warning); }
+.demo-toggle {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.demo-toggle button {
+  font-size: 0.75rem;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+}
+.demo-toggle button.active {
+  background: var(--navy);
+  color: white;
+  border-color: var(--navy);
 }

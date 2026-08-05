@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v7.0
+   Texans HQ — Personal PWA  v9.0
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -163,14 +163,70 @@ const TEAM_STATS_2025 = [
 ];
 
 const KEY_PLAYERS = [
-  { name: 'C.J. Stroud', pos: 'QB', note: 'Franchise QB, Year 4' },
-  { name: 'Nico Collins', pos: 'WR', note: 'Pro Bowl target' },
-  { name: 'Jayden Higgins', pos: 'WR', note: 'Rising Year-2 breakout candidate' },
-  { name: 'Will Anderson Jr.', pos: 'DE', note: 'Edge force' },
-  { name: 'Derek Stingley Jr.', pos: 'CB', note: 'All-Pro shutdown corner' },
-  { name: 'Azeez Al-Shaair', pos: 'LB', note: 'Defensive leader' },
-  { name: 'Jadeveon Clowney', pos: 'DE', note: 'Hometown reunion 2026' }
+  { name: 'C.J. Stroud', pos: 'QB', num: '7', note: 'Franchise QB, Year 4', stats: '2025: 3,700+ pass yds · 20+ TD' },
+  { name: 'Nico Collins', pos: 'WR', num: '12', note: 'Pro Bowl target', stats: 'Big-play X receiver' },
+  { name: 'Jayden Higgins', pos: 'WR', num: '—', note: 'Year-2 breakout candidate', stats: 'Camp standout vs Stingley' },
+  { name: 'Joe Mixon', pos: 'RB', num: '28', note: 'Lead back', stats: 'Between-the-tackles + pass game' },
+  { name: 'Dalton Schultz', pos: 'TE', num: '86', note: 'Safety valve / red zone', stats: 'Reliable 3rd-down target' },
+  { name: 'Will Anderson Jr.', pos: 'DE', num: '51', note: 'Edge force', stats: 'Primary pass-rush threat' },
+  { name: 'Derek Stingley Jr.', pos: 'CB', num: '24', note: 'All-Pro shutdown corner', stats: 'Shadows top WR' },
+  { name: 'Azeez Al-Shaair', pos: 'LB', num: '0', note: 'Defensive leader', stats: 'Run fit + communication' },
+  { name: 'Jadeveon Clowney', pos: 'DE', num: '—', note: 'Hometown reunion 2026', stats: 'Veteran edge rotation' }
 ];
+
+/* Demo live state — for testing UI before real 2026 games start */
+const LIVE_DEMO = {
+  active: true,
+  home: true,
+  opp: 'Buffalo Bills',
+  oppAbbr: 'BUF',
+  houScore: 17,
+  oppScore: 14,
+  qtr: 3,
+  clock: '6:12',
+  possession: 'HOU', // HOU or OPP
+  down: 2,
+  distance: 7,
+  yardline: 'Opp 38',
+  tendency: { pass: 61, run: 39, note: 'Season early-down + small game tilt' },
+  drive: {
+    plays: 5,
+    yards: 42,
+    time: '2:18',
+    summary: 'HOU ball at Opp 38 · 2nd & 7'
+  },
+  recentPlays: [
+    { qtr: 3, clock: '6:12', team: 'HOU', desc: 'C.J. Stroud pass complete to Nico Collins for 12 yards to the BUF 38. FIRST DOWN.', big: true },
+    { qtr: 3, clock: '6:41', team: 'HOU', desc: 'Joe Mixon rush left tackle for 5 yards to the BUF 50.', big: false },
+    { qtr: 3, clock: '7:15', team: 'HOU', desc: 'C.J. Stroud pass complete to Dalton Schultz for 8 yards to the HOU 45.', big: false },
+    { qtr: 3, clock: '7:48', team: 'HOU', desc: 'Joe Mixon rush up the middle for 4 yards to the HOU 37.', big: false }
+  ]
+};
+
+/* Sample completed game recap (demo) */
+const SAMPLE_RECAP = {
+  opp: 'Los Angeles Chargers',
+  oppAbbr: 'LAC',
+  result: 'W 21-17',
+  houScore: 21,
+  oppScore: 17,
+  teamStats: [
+    { label: 'Total yards', hou: 352, opp: 318 },
+    { label: 'Pass yards', hou: 241, opp: 198 },
+    { label: 'Rush yards', hou: 111, opp: 120 },
+    { label: 'Turnovers', hou: 1, opp: 2 }
+  ],
+  outstanding: [
+    'Nico Collins  7-118-1',
+    'Will Anderson  2 sacks'
+  ],
+  solid: [
+    'C.J. Stroud  21/33, 241 yds, 2 TD, 1 INT'
+  ],
+  quiet: [
+    'Joe Mixon  12 car, 38 yds'
+  ]
+};
 
 /* ---------- State ---------- */
 let currentSection = 'game';
@@ -189,7 +245,7 @@ function showSection(id) {
     b.classList.toggle('active', b.dataset.sec === id);
   });
   if (id === 'pbp') renderPBP();
-  if (id === 'news') loadNews();
+  if (id === 'news') loadNews(false);
 }
 
 $$('.nav-btn').forEach((btn) => {
@@ -277,33 +333,102 @@ function getNextGame() {
 }
 
 function renderGameCenter() {
-  const next = getNextGame();
   const content = $('#gameCenterContent');
+  const modePill = $('#gameModePill');
+  const tendencyCard = $('#tendencyCard');
+  const driveCard = $('#driveCard');
+  const recapCard = $('#recapCard');
+  const upcomingCard = $('#upcomingCard');
 
+  // Demo live mode for testing high-value live UI (no real 2026 game yet)
+  if (LIVE_DEMO.active) {
+    if (modePill) {
+      modePill.textContent = 'Demo live';
+      modePill.classList.add('live');
+    }
+    const possHou = LIVE_DEMO.possession === 'HOU';
+    content.innerHTML = `
+      <div class="score-row">
+        <div class="team-block">
+          <div class="team-abbr">HOU</div>
+          <div class="team-score home">${LIVE_DEMO.houScore}</div>
+        </div>
+        <div class="vs-clock">
+          <div style="font-size:1rem;font-weight:700;color:var(--danger)">LIVE</div>
+          <div style="margin-top:4px">Q${LIVE_DEMO.qtr} · ${LIVE_DEMO.clock}</div>
+        </div>
+        <div class="team-block">
+          <div class="team-abbr">${LIVE_DEMO.oppAbbr}</div>
+          <div class="team-score">${LIVE_DEMO.oppScore}</div>
+        </div>
+      </div>
+      <div class="possession-row">
+        <div class="possession-pill ${possHou ? '' : 'away'}">${possHou ? 'HOU BALL' : LIVE_DEMO.oppAbbr + ' BALL'}</div>
+      </div>
+      <div class="situation-bar">
+        <span><strong>${LIVE_DEMO.down}${LIVE_DEMO.down === 1 ? 'st' : LIVE_DEMO.down === 2 ? 'nd' : LIVE_DEMO.down === 3 ? 'rd' : 'th'} & ${LIVE_DEMO.distance}</strong></span>
+        <span>${LIVE_DEMO.yardline}</span>
+        <span>vs <strong>${LIVE_DEMO.opp}</strong></span>
+      </div>
+      <div class="demo-toggle">
+        <button type="button" class="active" id="btnDemoLive">Demo live</button>
+        <button type="button" id="btnDemoRecap">Sample recap</button>
+        <button type="button" id="btnDemoUpcoming">Upcoming only</button>
+      </div>
+    `;
+    // Tendency (only meaningful on HOU possession)
+    if (tendencyCard && possHou) {
+      tendencyCard.style.display = '';
+      const t = LIVE_DEMO.tendency;
+      $('#tendencyContent').innerHTML = `
+        <div class="tendency-bars">
+          <div class="tend-row">
+            <span class="tend-label">Pass</span>
+            <div class="tend-track"><div class="tend-fill pass" style="width:${t.pass}%"></div></div>
+            <span class="tend-pct">${t.pass}%</span>
+          </div>
+          <div class="tend-row">
+            <span class="tend-label">Run</span>
+            <div class="tend-track"><div class="tend-fill" style="width:${t.run}%"></div></div>
+            <span class="tend-pct">${t.run}%</span>
+          </div>
+        </div>
+        <div class="tend-note">${t.note} · not a guarantee</div>
+      `;
+    } else if (tendencyCard) {
+      tendencyCard.style.display = 'none';
+    }
+    // Drive
+    if (driveCard) {
+      driveCard.style.display = '';
+      const d = LIVE_DEMO.drive;
+      $('#driveSummary').innerHTML = `
+        <div class="drive-meta"><strong>${d.plays} plays</strong> · ${d.yards} yards · ${d.time}<br>${d.summary}</div>
+        <div class="small">Latest: ${LIVE_DEMO.recentPlays[0].desc}</div>
+      `;
+    }
+    if (recapCard) recapCard.style.display = 'none';
+    if (upcomingCard) upcomingCard.style.display = 'none';
+    wireDemoToggles();
+    return;
+  }
+
+  // Upcoming mode (default when demo off)
+  if (modePill) {
+    modePill.textContent = 'Upcoming';
+    modePill.classList.remove('live');
+  }
+  if (tendencyCard) tendencyCard.style.display = 'none';
+  if (driveCard) driveCard.style.display = 'none';
+  if (recapCard) recapCard.style.display = 'none';
+  if (upcomingCard) upcomingCard.style.display = '';
+
+  const next = getNextGame();
   if (!next) {
     content.innerHTML = `<div class="empty">Season complete or schedule ended.</div>`;
     return;
   }
-
   const kick = new Date(next.date + 'T' + (next.time || '12:00') + ':00');
-  const isLive = false; // No live game right now (Aug 4 2026 — still camp)
-
-  content.innerHTML = `
-    <div class="team-block">
-      <div class="team-abbr">${next.home ? 'HOU' : next.oppAbbr}</div>
-      <div class="team-score ${next.home ? 'home' : ''}">—</div>
-    </div>
-    <div class="vs-clock">
-      <div style="font-size:1.1rem;font-weight:700;color:var(--red-bright)">${isLive ? 'LIVE' : 'UPCOMING'}</div>
-      <div>${next.type === 'pre' ? 'Preseason' : 'Week ' + next.week}</div>
-    </div>
-    <div class="team-block">
-      <div class="team-abbr">${next.home ? next.oppAbbr : 'HOU'}</div>
-      <div class="team-score ${!next.home ? 'home' : ''}">—</div>
-    </div>
-  `;
-
-  // Rebuild score-row properly
   content.innerHTML = `
     <div class="score-row">
       <div class="team-block">
@@ -311,25 +436,85 @@ function renderGameCenter() {
         <div class="team-score ${next.home ? 'home' : ''}">—</div>
       </div>
       <div class="vs-clock">
-        <div style="font-size:1rem;font-weight:700;color:var(--red-bright)">${isLive ? 'LIVE' : 'UPCOMING'}</div>
+        <div style="font-size:1rem;font-weight:700;color:var(--navy)">UPCOMING</div>
         <div style="margin-top:4px">${next.type === 'pre' ? 'Preseason' : 'Wk ' + next.week}</div>
       </div>
       <div class="team-block">
         <div class="team-abbr">${next.home ? next.oppAbbr : 'HOU'}</div>
-        <div class="team-score">${!next.home ? '—' : '—'}</div>
+        <div class="team-score">—</div>
       </div>
     </div>
-    <div class="situation">
+    <div class="situation-bar">
       <span>${next.home ? 'vs' : '@'} <strong>${next.opp}</strong></span>
       <span>${kick.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${formatTime(next.time)}</span>
-      ${next.note ? `<span>${next.note}</span>` : ''}
       ${next.tv ? `<span class="tv-badge${next.tv === 'Prime Video' ? ' prime' : ''}">${next.tv}</span>` : ''}
     </div>
+    <div class="demo-toggle">
+      <button type="button" id="btnDemoLive">Demo live</button>
+      <button type="button" id="btnDemoRecap">Sample recap</button>
+      <button type="button" class="active" id="btnDemoUpcoming">Upcoming only</button>
+    </div>
   `;
-
-  // Next preview + countdown
   $('#nextGamePreview').textContent = `${next.home ? 'vs' : '@'} ${next.opp} · ${kick.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
   startCountdown(kick);
+  wireDemoToggles();
+}
+
+function renderRecapDemo() {
+  const content = $('#gameCenterContent');
+  const modePill = $('#gameModePill');
+  const tendencyCard = $('#tendencyCard');
+  const driveCard = $('#driveCard');
+  const recapCard = $('#recapCard');
+  const upcomingCard = $('#upcomingCard');
+  LIVE_DEMO.active = false;
+  if (modePill) {
+    modePill.textContent = 'Sample recap';
+    modePill.classList.remove('live');
+  }
+  if (tendencyCard) tendencyCard.style.display = 'none';
+  if (driveCard) driveCard.style.display = 'none';
+  if (upcomingCard) upcomingCard.style.display = 'none';
+  if (recapCard) recapCard.style.display = '';
+
+  const r = SAMPLE_RECAP;
+  content.innerHTML = `
+    <div class="recap-score">HOU ${r.houScore} – ${r.oppScore} ${r.oppAbbr}</div>
+    <div class="text-center small">${r.result} · Preseason sample</div>
+    <div class="demo-toggle">
+      <button type="button" id="btnDemoLive">Demo live</button>
+      <button type="button" class="active" id="btnDemoRecap">Sample recap</button>
+      <button type="button" id="btnDemoUpcoming">Upcoming only</button>
+    </div>
+  `;
+  $('#recapContent').innerHTML = `
+    <div class="recap-stats">
+      ${r.teamStats.map(s => `<div><strong>${s.label}</strong><br>HOU ${s.hou} · ${s.opp}</div>`).join('')}
+    </div>
+    <div class="spotlight-block outstanding">
+      <h4>Outstanding</h4>
+      ${r.outstanding.map(x => `<div>${x}</div>`).join('')}
+    </div>
+    <div class="spotlight-block">
+      <h4>Solid</h4>
+      ${r.solid.map(x => `<div>${x}</div>`).join('')}
+    </div>
+    <div class="spotlight-block quiet">
+      <h4>Quiet</h4>
+      ${r.quiet.map(x => `<div>${x}</div>`).join('')}
+    </div>
+    <p class="tend-note">Rule-based labels from public-style box score thresholds — not official grades.</p>
+  `;
+  wireDemoToggles();
+}
+
+function wireDemoToggles() {
+  const live = $('#btnDemoLive');
+  const recap = $('#btnDemoRecap');
+  const up = $('#btnDemoUpcoming');
+  if (live) live.onclick = () => { LIVE_DEMO.active = true; renderGameCenter(); renderPBP(); };
+  if (recap) recap.onclick = () => { renderRecapDemo(); };
+  if (up) up.onclick = () => { LIVE_DEMO.active = false; renderGameCenter(); renderPBP(); };
 }
 
 function startCountdown(target) {
@@ -359,6 +544,25 @@ function startCountdown(target) {
 function renderPBP() {
   const list = $('#pbpList');
   const label = $('#pbpGameLabel');
+  list.innerHTML = '';
+
+  if (LIVE_DEMO.active) {
+    label.textContent = '· Demo live vs BUF';
+    const driveHeader = document.createElement('div');
+    driveHeader.className = 'drive-header';
+    driveHeader.textContent = `Q${LIVE_DEMO.qtr} ${LIVE_DEMO.clock} · ${LIVE_DEMO.possession === 'HOU' ? 'HOU ball' : LIVE_DEMO.oppAbbr + ' ball'} · ${LIVE_DEMO.down} & ${LIVE_DEMO.distance} · ${LIVE_DEMO.yardline}`;
+    list.appendChild(driveHeader);
+    LIVE_DEMO.recentPlays.forEach((play) => {
+      const div = document.createElement('div');
+      div.className = 'play' + (play.big ? ' big' : '');
+      div.innerHTML = `
+        <div class="play-time">Q${play.qtr}<br>${play.clock}</div>
+        <div class="play-body"><div class="play-desc">${play.desc}</div></div>
+      `;
+      list.appendChild(div);
+    });
+    return;
+  }
 
   if (selectedGame) {
     label.textContent = `· ${selectedGame.home ? 'vs' : '@'} ${selectedGame.oppAbbr}`;
@@ -366,30 +570,24 @@ function renderPBP() {
     label.textContent = '· Sample scoring drive';
   }
 
-  // For v1 we show rich sample PBP (real live requires game in progress + CORS-friendly endpoint)
-  // Structure is ready for future live injection
-  list.innerHTML = '';
   const driveHeader = document.createElement('div');
   driveHeader.className = 'drive-header';
   driveHeader.textContent = selectedGame
-    ? `Sample drive illustration — real play-by-play appears when a game is live / recently finished (public ESPN data).`
-    : `Sample scoring drive (Texans style) — real data loads when available.`;
+    ? `Sample drive illustration — real play-by-play appears when a game is live / recently finished (public data).`
+    : `Sample scoring drive (Texans style) — switch Game Center to Demo live for full live UI.`;
   list.appendChild(driveHeader);
 
-  SAMPLE_PBP.slice().reverse().forEach((p) => {
+  SAMPLE_PBP.slice().reverse().forEach((play) => {
     const div = document.createElement('div');
-    div.className = 'play' + (p.big ? ' big' : '') + (p.score ? ' score' : '') + (p.td ? ' td' : '');
+    div.className = 'play' + (play.big ? ' big' : '') + (play.score ? ' score' : '') + (play.td ? ' td' : '');
     div.innerHTML = `
-      <div class="play-time">Q${p.qtr}<br>${p.clock}</div>
-      <div class="play-body">
-        <div class="play-desc">${p.desc}</div>
-      </div>
+      <div class="play-time">Q${play.qtr}<br>${play.clock}</div>
+      <div class="play-body"><div class="play-desc">${play.desc}</div></div>
     `;
     list.appendChild(div);
   });
 }
 
-/* ---------- Training Camp ---------- */
 function renderCamp() {
   const box = $('#campUpdates');
   box.innerHTML = '';
@@ -413,29 +611,57 @@ function renderStats() {
     </div>
   `).join('');
 
-  $('#playerWatch').innerHTML = KEY_PLAYERS.map((p) =>
-    `<div style="padding:6px 0"><strong>${p.name}</strong> <span style="color:var(--muted)">(${p.pos})</span> — ${p.note}</div>`
-  ).join('');
+  $('#playerWatch').innerHTML = KEY_PLAYERS.map((p) => `
+    <div class="player-card">
+      <div class="player-card-top">
+        <span class="player-name">${p.num && p.num !== '—' ? '#' + p.num + ' ' : ''}${p.name}</span>
+        <span class="player-pos">${p.pos}</span>
+      </div>
+      <div class="player-note">${p.note}</div>
+      <div class="player-stats">${p.stats || ''}</div>
+    </div>
+  `).join('');
 }
 
 /* ---------- News (public ESPN endpoint — best effort) ---------- */
-async function loadNews() {
+async function loadNews(fromButton) {
   const list = $('#newsList');
+  const btn = $('#newsRefreshBtn');
+  if (!list) return;
+  if (fromButton && btn) {
+    btn.disabled = true;
+    btn.textContent = 'Refreshing…';
+  }
+  list.innerHTML = '<div class="loading">Fetching public headlines…</div>';
   try {
-    const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=8', {
-      mode: 'cors'
-    });
-    if (!res.ok) throw new Error('Network');
-    const data = await res.json();
-    const articles = (data.articles || []).slice(0, 8);
+    // Prefer team-focused feed, fall back to general NFL news
+    let articles = [];
+    const urls = [
+      'https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=10&team=hou',
+      'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/34/news',
+      'https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=8'
+    ];
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { mode: 'cors' });
+        if (!res.ok) continue;
+        const data = await res.json();
+        articles = (data.articles || data.headlines || []).slice(0, 10);
+        if (articles.length) break;
+      } catch (_) { /* try next */ }
+    }
     if (!articles.length) throw new Error('Empty');
 
-    list.innerHTML = articles.map((a) => `
-      <div class="news-item">
-        <a href="${a.links?.web?.href || '#'}" target="_blank" rel="noopener">${a.headline}</a>
-        <div class="news-meta">${a.published ? new Date(a.published).toLocaleDateString() : ''} · ${a.description || ''}</div>
-      </div>
-    `).join('');
+    list.innerHTML = articles.map((a) => {
+      const href = a.links?.web?.href || a.link || '#';
+      const title = a.headline || a.title || 'Headline';
+      const when = a.published ? new Date(a.published).toLocaleString() : (a.publishedAt || '');
+      const desc = a.description || '';
+      return `<div class="news-item">
+        <a href="${href}" target="_blank" rel="noopener">${title}</a>
+        <div class="news-meta">${when}${desc ? ' · ' + desc : ''}</div>
+      </div>`;
+    }).join('');
   } catch (e) {
     list.innerHTML = `
       <div class="empty">
@@ -451,6 +677,11 @@ async function loadNews() {
         <div class="news-meta">Public source</div>
       </div>
     `;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Refresh';
+    }
   }
 }
 
@@ -482,13 +713,13 @@ if ('serviceWorker' in navigator) {
       .then(() => {
         const pill = $('#statusPill');
         if (pill) {
-          pill.textContent = 'v7 · Offline-ready';
+          pill.textContent = 'v9 · Offline-ready';
           pill.classList.remove('live');
         }
       })
       .catch(() => {
         const pill = $('#statusPill');
-        if (pill) pill.textContent = 'v7 · SW optional';
+        if (pill) pill.textContent = 'v9 · SW optional';
       });
   });
 }
@@ -500,8 +731,12 @@ function init() {
   renderCamp();
   renderStats();
   loadNotes();
+  const newsBtn = $('#newsRefreshBtn');
+  if (newsBtn) {
+    newsBtn.addEventListener('click', () => loadNews(true));
+  }
   // Pre-warm news in background
-  setTimeout(loadNews, 800);
+  setTimeout(() => loadNews(false), 800);
 }
 
 /* Start: check password first */

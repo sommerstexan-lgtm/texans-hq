@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
-  <!-- PASSWORD LOCK SCREEN (v7) -->
+  <!-- PASSWORD LOCK SCREEN (v9) -->
   <div id="lockScreen" class="lock-screen">
     <div class="lock-card">
       <div class="lock-logo">H</div>
@@ -33,23 +33,34 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v7 · Offline-ready</div>
+      <div id="statusPill" class="status-pill">v9 · Offline-ready</div>
     </header>
 
     <main class="main">
       <!-- 1. GAME CENTER -->
       <section id="sec-game" class="section active">
         <div class="card scoreboard">
-          <div class="card-title">Game Center</div>
+          <div class="card-title-row">
+            <div class="card-title" style="margin-bottom:0">Game Center</div>
+            <span id="gameModePill" class="mode-pill">Demo live</span>
+          </div>
           <div id="gameCenterContent">
             <div class="loading">Loading…</div>
           </div>
         </div>
-        <div class="card" id="driveCard" style="display:none">
-          <div class="card-title">Current / Last Drive</div>
+        <div class="card" id="tendencyCard">
+          <div class="card-title">Offensive tendency (HOU ball)</div>
+          <div id="tendencyContent"></div>
+        </div>
+        <div class="card" id="driveCard">
+          <div class="card-title">This drive</div>
           <div id="driveSummary"></div>
         </div>
-        <div class="card">
+        <div class="card" id="recapCard" style="display:none">
+          <div class="card-title">Game recap</div>
+          <div id="recapContent"></div>
+        </div>
+        <div class="card" id="upcomingCard">
           <div class="card-title">Next Up</div>
           <div id="nextGamePreview" class="text-center small">—</div>
           <div id="countdown" class="countdown"></div>
@@ -93,15 +104,19 @@
           <div class="stat-grid" id="teamStats"></div>
         </div>
         <div class="card">
-          <div class="card-title">Key Players to Watch</div>
-          <div id="playerWatch" class="small"></div>
+          <div class="card-title">Player cards</div>
+          <div id="playerWatch"></div>
         </div>
       </section>
 
       <!-- 6. NEWS / PULSE -->
       <section id="sec-news" class="section">
         <div class="card">
-          <div class="card-title">News & Pulse (public sources)</div>
+          <div class="card-title-row">
+            <div class="card-title" style="margin-bottom:0">News & Pulse</div>
+            <button type="button" class="btn-refresh" id="newsRefreshBtn" aria-label="Refresh news">Refresh</button>
+          </div>
+          <p class="small" style="margin:6px 0 10px">Public sources · tap Refresh for latest</p>
           <div id="newsList">
             <div class="loading">Fetching public headlines…</div>
           </div>
@@ -141,6 +156,10 @@
       <button class="nav-btn" data-sec="stats" aria-label="Stats">
         <svg viewBox="0 0 24 24"><path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2V4h-2v13zm4 0h2v-9h-2v9z"/></svg>
         Stats
+      </button>
+      <button class="nav-btn" data-sec="news" aria-label="News">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/></svg>
+        News
       </button>
       <button class="nav-btn" data-sec="notes" aria-label="Notes">
         <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
