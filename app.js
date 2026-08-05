@@ -1,13 +1,13 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v14.1
+   Texans HQ — Personal PWA  v14.2
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v14.1';
-const APP_VERSION_LABEL = 'v14.1 · Live camp/news';
+const APP_VERSION = 'v14.2';
+const APP_VERSION_LABEL = 'v14.2 · Texans+ESPN feeds';
 /* Stable key — never changes across versions so the device stays unlocked */
 const UNLOCK_KEY = 'texans-hq-device-unlocked';
 /* Old keys from previous versions (for one-time migration) */
@@ -934,9 +934,13 @@ function renderPBP() {
   });
 }
 
-/* ---------- Training Camp (live ESPN + offline fallback) ---------- */
-const CAMP_CACHE_KEY = 'texans-hq-camp-cache-v1';
-const NEWS_CACHE_KEY = 'texans-hq-news-cache-v1';
+/* ---------- Training Camp + News (Texans.com RSS + ESPN) ---------- */
+/* Why 8/4 lingered on 8/5 morning:
+   ESPN team feed often lags same-day team posts. Official houstontexans.com/rss/news
+   already had "Transactions (8-5-2026)" at ~7:47am CT while ESPN's newest HOU item
+   was still prior-evening. v14.2 merges both sources and sorts by published time. */
+const CAMP_CACHE_KEY = 'texans-hq-camp-cache-v2';
+const NEWS_CACHE_KEY = 'texans-hq-news-cache-v2';
 
 function renderCampStaticFallback(reason) {
   const box = $('#campUpdates');
@@ -958,10 +962,25 @@ function campItemHtml(item) {
   return `<div class="camp-note">
     <div class="camp-date">${item.date || ''}${item.source ? ' · ' + item.source : ''}</div>
     <div class="camp-text">${item.href
-      ? `<a href="${item.href}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;font-weight:600">${item.title}</a>`
-      : item.title || ''}
-    ${item.desc ? `<div class="small" style="margin-top:4px">${item.desc}</div>` : ''}</div>
+      ? `<a href="${item.href}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;font-weight:600">${escapeHtml(item.title)}</a>`
+      : escapeHtml(item.title || '')}
+    ${item.desc ? `<div class="small" style="margin-top:4px">${escapeHtml(item.desc)}</div>` : ''}</div>
   </div>`;
+}
+
+function newsItemHtml(a) {
+  return `<div class="news-item">
+    <a href="${a.href || '#'}" target="_blank" rel="noopener">${escapeHtml(a.title || 'Headline')}</a>
+    <div class="news-meta">${a.date || ''}${a.source ? ' · ' + a.source : ''}${a.desc ? ' · ' + escapeHtml(a.desc) : ''}</div>
+  </div>`;
+}
+
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function freshnessLine(ts, isCached, extra) {
@@ -978,31 +997,50 @@ function writeJsonCache(key, payload) {
   try { localStorage.setItem(key, JSON.stringify(payload)); } catch (e) {}
 }
 
-function articleToItem(a) {
-  const href = (a.links && a.links.web && a.links.web.href) || a.link || '#';
-  const title = a.headline || a.title || 'Headline';
-  const published = a.published || a.lastModified || '';
-  let date = '';
-  if (published) {
-    try {
-      date = new Date(published).toLocaleString('en-US', {
-        weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
-      });
-    } catch (e) { date = published; }
+function formatPubDate(published) {
+  if (!published) return '';
+  try {
+    const d = new Date(published);
+    if (isNaN(d.getTime())) return String(published);
+    return d.toLocaleString('en-US', {
+      timeZone: 'America/Chicago',
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit'
+    }) + ' CT';
+  } catch (e) {
+    return String(published);
   }
+}
+
+function articleToItem(a, source) {
+  const href = (a.links && a.links.web && a.links.web.href) || a.link || a.href || '#';
+  const title = a.headline || a.title || 'Headline';
+  const published = a.published || a.lastModified || a.pubDate || '';
   return {
-    title,
-    desc: a.description || '',
+    title: String(title).trim(),
+    desc: String(a.description || a.desc || '').trim(),
     href,
-    date,
-    published,
-    source: 'ESPN'
+    date: formatPubDate(published),
+    published: published ? new Date(published).getTime() : 0,
+    source: source || 'ESPN'
   };
 }
 
 function isCampRelated(item) {
   const t = ((item.title || '') + ' ' + (item.desc || '')).toLowerCase();
-  return /camp|practice|pads|joint practice|training|roster cut|preseason|injury|walk-through|walkthrough/.test(t);
+  return /camp|practice|pads|joint practice|training|roster|transaction|cut|signed|waived|injured|walk-through|walkthrough|one-on-one|ol\/dl|depth chart|preseason/.test(t);
+}
+
+function dedupeItems(items) {
+  const out = [];
+  const seen = new Set();
+  items.forEach((it) => {
+    const key = (it.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 80);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(it);
+  });
+  return out;
 }
 
 async function fetchEspnArticles() {
@@ -1019,15 +1057,62 @@ async function fetchEspnArticles() {
       const data = await res.json();
       const list = data.articles || data.headlines || [];
       if (Array.isArray(list) && list.length) {
-        articles = list;
+        articles = list.map((a) => articleToItem(a, 'ESPN'));
         break;
       }
     } catch (e) {
       lastErr = (e && e.message) ? e.message : 'network';
     }
   }
-  if (!articles.length) throw new Error(lastErr || 'No articles');
-  return articles.map(articleToItem);
+  if (!articles.length) throw new Error(lastErr || 'ESPN empty');
+  return articles;
+}
+
+/** Official team RSS — usually ahead of ESPN for same-day transactions & camp posts */
+async function fetchTexansRss() {
+  const url = 'https://www.houstontexans.com/rss/news';
+  const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+  if (!res.ok) throw new Error('Texans RSS HTTP ' + res.status);
+  const text = await res.text();
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.querySelector('parsererror')) throw new Error('Texans RSS parse error');
+  const items = [];
+  doc.querySelectorAll('item').forEach((node) => {
+    const title = (node.querySelector('title') && node.querySelector('title').textContent || '').trim();
+    const link = (node.querySelector('link') && node.querySelector('link').textContent || '').trim();
+    const pubDate = (node.querySelector('pubDate') && node.querySelector('pubDate').textContent || '').trim();
+    const desc = (node.querySelector('description') && node.querySelector('description').textContent || '').trim();
+    if (!title) return;
+    items.push(articleToItem({
+      title,
+      link,
+      pubDate,
+      description: desc.replace(/<[^>]+>/g, '').slice(0, 180)
+    }, 'Texans.com'));
+  });
+  if (!items.length) throw new Error('Texans RSS empty');
+  return items;
+}
+
+/** Merge official team feed + ESPN; newest first */
+async function fetchAllNewsItems() {
+  const batches = await Promise.allSettled([fetchTexansRss(), fetchEspnArticles()]);
+  let items = [];
+  const sources = [];
+  batches.forEach((r, i) => {
+    const name = i === 0 ? 'Texans.com' : 'ESPN';
+    if (r.status === 'fulfilled' && r.value && r.value.length) {
+      items = items.concat(r.value);
+      sources.push(name);
+    }
+  });
+  if (!items.length) {
+    const errs = batches.map((r) => r.status === 'rejected' ? (r.reason && r.reason.message) : null).filter(Boolean);
+    throw new Error(errs.join('; ') || 'All feeds failed');
+  }
+  items.sort((a, b) => (b.published || 0) - (a.published || 0));
+  items = dedupeItems(items);
+  return { items, sources };
 }
 
 async function loadCamp(fromButton) {
@@ -1038,31 +1123,28 @@ async function loadCamp(fromButton) {
     btn.disabled = true;
     btn.textContent = 'Refreshing…';
   }
-  // Always paint open-practice dates (static schedule of open sessions)
   const datesEl = $('#campDates');
   if (datesEl) {
     const today = new Date();
-    const todayLabel = today.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const md = today.toLocaleDateString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric' });
     datesEl.innerHTML = CAMP_OPEN_DATES.map((d) => {
-      const isToday = d.toLowerCase().indexOf(todayLabel.toLowerCase().replace(',', '')) !== -1
-        || d.toLowerCase().indexOf(today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase()) !== -1;
+      const isToday = d.toLowerCase().indexOf(md.toLowerCase()) !== -1;
       return `<div style="padding:4px 0">${isToday ? '<strong style="color:var(--navy)">TODAY · </strong>' : ''}${d}</div>`;
     }).join('');
   }
 
   box.innerHTML = '<div class="loading">Fetching camp updates…</div>';
   try {
-    const items = await fetchEspnArticles();
-    // Prefer camp/practice stories; if few, keep top Texans headlines as pulse
+    const { items, sources } = await fetchAllNewsItems();
     let campItems = items.filter(isCampRelated);
-    if (campItems.length < 3) {
-      const rest = items.filter((it) => !campItems.includes(it));
-      campItems = campItems.concat(rest).slice(0, 8);
+    if (campItems.length < 4) {
+      campItems = dedupeItems(campItems.concat(items)).slice(0, 10);
     } else {
-      campItems = campItems.slice(0, 8);
+      campItems = campItems.slice(0, 10);
     }
     writeJsonCache(CAMP_CACHE_KEY, { savedAt: Date.now(), items: campItems });
-    box.innerHTML = freshnessLine(Date.now(), false) + campItems.map(campItemHtml).join('');
+    box.innerHTML = freshnessLine(Date.now(), false, sources.join(' + ')) +
+      campItems.map(campItemHtml).join('');
   } catch (e) {
     renderCampStaticFallback('Live camp feed unavailable (' + (e.message || 'offline') + ')');
   } finally {
@@ -1074,35 +1156,10 @@ async function loadCamp(fromButton) {
 }
 
 function renderCamp() {
-  // Initial paint: show cache/static immediately, then refresh in background
   renderCampStaticFallback('');
   loadCamp(false);
 }
 
-/* ---------- Stats ---------- */
-function renderStats() {
-  const grid = $('#teamStats');
-  grid.innerHTML = TEAM_STATS_2025.map((s) => `
-    <div class="stat-item">
-      <div class="stat-value">${s.value}</div>
-      <div class="stat-label">${s.label}</div>
-    </div>
-  `).join('');
-
-  $('#playerWatch').innerHTML = KEY_PLAYERS.map((p) => `
-    <div class="player-card">
-      <div class="player-card-top">
-        <span class="player-name">${p.num && p.num !== '—' ? '#' + p.num + ' ' : ''}${p.name}</span>
-        <span class="player-pos">${p.pos}</span>
-      </div>
-      <div class="player-note">${p.note}</div>
-      <div class="player-stats">${p.stats || ''}</div>
-    </div>
-  `).join('');
-  renderDepthChart();
-}
-
-/* ---------- News (public ESPN endpoint — best effort) ---------- */
 async function loadNews(fromButton) {
   const list = $('#newsList');
   const btn = $('#newsRefreshBtn');
@@ -1121,10 +1178,11 @@ async function loadNews(fromButton) {
   }
 
   try {
-    const items = await fetchEspnArticles();
-    const trimmed = items.slice(0, 10);
+    const { items, sources } = await fetchAllNewsItems();
+    const trimmed = items.slice(0, 12);
     writeJsonCache(NEWS_CACHE_KEY, { savedAt: Date.now(), items: trimmed });
-    list.innerHTML = freshnessLine(Date.now(), false) + trimmed.map(newsItemHtml).join('');
+    list.innerHTML = freshnessLine(Date.now(), false, sources.join(' + ')) +
+      trimmed.map(newsItemHtml).join('');
   } catch (e) {
     if (cached && cached.items && cached.items.length) {
       list.innerHTML = freshnessLine(cached.savedAt, true, 'live fetch failed — ' + (e.message || 'offline')) +
@@ -1133,7 +1191,7 @@ async function loadNews(fromButton) {
     } else {
       list.innerHTML = `
       <div class="empty">
-        Could not reach public news feed (offline or blocked).<br>
+        Could not reach public news feeds (offline or blocked).<br>
         Camp notes and schedule remain fully available offline.
       </div>
       <div class="news-item">
@@ -1151,13 +1209,6 @@ async function loadNews(fromButton) {
       btn.textContent = 'Refresh';
     }
   }
-}
-
-function newsItemHtml(a) {
-  return `<div class="news-item">
-    <a href="${a.href || '#'}" target="_blank" rel="noopener">${a.title || 'Headline'}</a>
-    <div class="news-meta">${a.date || ''}${a.desc ? ' · ' + a.desc : ''}</div>
-  </div>`;
 }
 
 /* ---------- Local Notes ---------- */
