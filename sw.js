@@ -1,8 +1,8 @@
-/* Texans HQ PWA — Service Worker v14
-   Network-first for app shell so Camp/News logic updates deploy.
-   Cache fallback keeps offline shell working.
+/* Texans HQ PWA — Service Worker v14.1
+   Network-first app shell (cache: no-store) so deploys are visible after one reload.
+   skipWaiting on install + on message; claim clients on activate.
 */
-const CACHE_NAME = 'texans-hq-v14';
+const CACHE_NAME = 'texans-hq-v14.1';
 const APP_SHELL = [
   './',
   './index.html',
@@ -27,6 +27,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 function isAppShell(url) {
   const path = url.pathname;
   return (
@@ -46,10 +52,10 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  // App shell: network-first, cache fallback (fixes "Camp never updates after deploy")
+  // App shell: network-first, bypass HTTP cache, then store, offline → cache
   if (url.origin === self.location.origin && isAppShell(url)) {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-store' })
         .then((res) => {
           if (res && res.ok) {
             const clone = res.clone();
@@ -62,7 +68,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ESPN / external: network-first, optional cache of successful responses
+  // ESPN / external
   event.respondWith(
     fetch(req, { cache: 'no-store' })
       .then((res) => {

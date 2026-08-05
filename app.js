@@ -1,11 +1,13 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v13.0
+   Texans HQ — Personal PWA  v14.1
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
+const APP_VERSION = 'v14.1';
+const APP_VERSION_LABEL = 'v14.1 · Live camp/news';
 /* Stable key — never changes across versions so the device stays unlocked */
 const UNLOCK_KEY = 'texans-hq-device-unlocked';
 /* Old keys from previous versions (for one-time migration) */
@@ -1180,25 +1182,75 @@ $('#clearNotesBtn').addEventListener('click', () => {
 });
 
 /* ---------- Service Worker ---------- */
+/* ---------- Service Worker (reliable updates) ----------
+   Why you had to hard-close twice:
+   1) Old SW kept controlling the open page after a deploy.
+   2) New SW installed + activated in the background, but the page never reloaded,
+      so the header still showed the old version string from in-memory HTML/JS.
+   3) First reopen sometimes still lost a race (HTTP cache / activate not finished).
+   Fix: force update check, skip waiting, reload once on controllerchange,
+   and set the version pill from APP_VERSION as soon as JS runs.
+*/
+function setVersionPill(extra) {
+  const pill = $('#statusPill');
+  if (!pill) return;
+  pill.textContent = extra || APP_VERSION_LABEL;
+  pill.classList.remove('live');
+}
+
 if ('serviceWorker' in navigator) {
+  // If a new SW takes control of this tab/window, reload once so UI matches the new files.
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    // One reload is enough — do not loop
+    window.location.reload();
+  });
+
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(() => {
-        const pill = $('#statusPill');
-        if (pill) {
-          pill.textContent = 'v14 · Live camp/news';
-          pill.classList.remove('live');
+    setVersionPill();
+
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+      .then((reg) => {
+        setVersionPill();
+
+        // Force a fresh sw.js byte check (important on iOS PWAs)
+        try { reg.update(); } catch (e) {}
+
+        // If a worker is already waiting (updated while we were open), activate it now
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
+
+        // When an updated worker is found and installs, tell it to activate immediately
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              // New version ready — activate; controllerchange handler will reload
+              nw.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+
+        // Periodic update check while app stays open (iOS often delays SW checks)
+        setInterval(() => {
+          try { reg.update(); } catch (e) {}
+        }, 60 * 60 * 1000);
       })
       .catch(() => {
-        const pill = $('#statusPill');
-        if (pill) pill.textContent = 'v14 · SW optional';
+        setVersionPill(APP_VERSION + ' · SW optional');
       });
   });
+} else {
+  window.addEventListener('load', () => setVersionPill(APP_VERSION + ' · no SW'));
 }
 
 /* ---------- Init ---------- */
 function init() {
+  setVersionPill();
   renderSchedule();
   renderGameCenter();
   renderCamp();
