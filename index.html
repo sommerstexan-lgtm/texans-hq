@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v14.4 · Safe header</div>
+      <div id="statusPill" class="status-pill">v14.6 · Ranked videos</div>
     </header>
 
     <main class="main">
@@ -158,6 +158,21 @@
         </div>
       </section>
 
+      <!-- 7. VIDEOS -->
+      <section id="sec-videos" class="section">
+        <div class="card">
+          <div class="card-title-row">
+            <div class="card-title" style="margin-bottom:0">Best videos right now</div>
+            <button type="button" class="btn-refresh" id="videosRefreshBtn" aria-label="Refresh videos">Refresh</button>
+          </div>
+          <p class="small" style="margin:6px 0 10px">Ranked top picks from trusted Texans channels · best → worst · tap to watch in YouTube</p>
+          <div id="videoChannels" class="video-channels"></div>
+          <div id="videoList" class="video-list">
+            <div class="loading">Loading videos…</div>
+          </div>
+        </div>
+      </section>
+
       <!-- 7. NOTES -->
       <section id="sec-notes" class="section">
         <div class="card">
@@ -196,7 +211,11 @@
         <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/></svg>
         News
       </button>
-      <button class="nav-btn" data-sec="notes" aria-label="Notes">
+            <button class="nav-btn" data-sec="videos" aria-label="Videos">
+        <svg viewBox="0 0 24 24"><path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+        Vids
+      </button>
+<button class="nav-btn" data-sec="notes" aria-label="Notes">
         <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
         Notes
       </button>

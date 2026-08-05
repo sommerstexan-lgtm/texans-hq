@@ -1,13 +1,13 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v14.4
+   Texans HQ — Personal PWA  v14.6
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v14.4';
-const APP_VERSION_LABEL = 'v14.4 · Safe header';
+const APP_VERSION = 'v14.6';
+const APP_VERSION_LABEL = 'v14.6 · Ranked videos';
 /* Stable key — never changes across versions so the device stays unlocked */
 const UNLOCK_KEY = 'texans-hq-device-unlocked';
 /* Old keys from previous versions (for one-time migration) */
@@ -374,6 +374,7 @@ function showSection(id) {
   if (id === 'news') loadNews(false);
   if (id === 'camp') loadCamp(false);
   if (id === 'stats') renderStats();
+  if (id === 'videos') loadVideos(false);
 }
 
 $$('.nav-btn').forEach((btn) => {
@@ -975,7 +976,7 @@ function renderPBP() {
 /* Why 8/4 lingered on 8/5 morning:
    ESPN team feed often lags same-day team posts. Official houstontexans.com/rss/news
    already had "Transactions (8-5-2026)" at ~7:47am CT while ESPN's newest HOU item
-   was still prior-evening. v14.4 merges both sources and sorts by published time. */
+   was still prior-evening. v14.6 merges both sources and sorts by published time. */
 const CAMP_CACHE_KEY = 'texans-hq-camp-cache-v2';
 const NEWS_CACHE_KEY = 'texans-hq-news-cache-v2';
 
@@ -1248,6 +1249,239 @@ async function loadNews(fromButton) {
   }
 }
 
+
+/* ---------- Videos — ranked Texans picks (no manual YouTube hunting) ----------
+   Lightweight "search engine":
+   1) Pull recent uploads from trusted Texans-focused YouTube channels
+   2) Score each video (recency + views + title relevance + channel weight)
+   3) Show the top 8, best → worst
+   This is not the full YouTube algorithm (needs Google API keys). It is a
+   reliable, offline-cacheable ranker tuned for "what should I watch now?"
+*/
+const VIDEO_CACHE_KEY = 'texans-hq-videos-cache-v2';
+const VIDEO_TOP_N = 8;           // best 5–10 band; 8 is the sweet spot
+const VIDEO_FETCH_PER_CHANNEL = 10;
+
+const VIDEO_CHANNELS = [
+  {
+    id: 'UCXWwSKD3KIj78GrIlDhtFYw',
+    name: 'Seth Payne',
+    short: 'Seth Payne',
+    url: 'https://www.youtube.com/@SethPayneShow',
+    weight: 1.25   // strong analysis signal
+  },
+  {
+    id: 'UCiFQGjNHUQPVrg-aQL5FtgA',
+    name: 'Locked On Texans',
+    short: 'Locked On',
+    url: 'https://www.youtube.com/@LockedOnTexans',
+    weight: 1.15
+  },
+  {
+    id: 'UCa_FcpOBe8G6VAR18RYS-aA',
+    name: 'Houston Texans',
+    short: 'Official',
+    url: 'https://www.youtube.com/@HoustonTexans',
+    weight: 1.0
+  }
+];
+
+/* Title tokens that mark a video as on-topic for this HQ */
+const TEXANS_TITLE_RE = /texan|houston|stroud|higgins|stingley|demeco|ryans|clowney|mixon|collins|anderson|camp|preseason|nrg|afc south|caserio|schultz|al-shaair|to\'oto\'o|tootoo/i;
+
+function renderVideoChannels() {
+  const el = $('#videoChannels');
+  if (!el) return;
+  el.innerHTML = VIDEO_CHANNELS.map((c) =>
+    `<a class="video-channel-chip" href="${c.url}" target="_blank" rel="noopener">${c.short}</a>`
+  ).join('') +
+    `<a class="video-channel-chip" href="https://www.youtube.com/results?search_query=Houston+Texans+training+camp+2026" target="_blank" rel="noopener">YouTube search</a>`;
+}
+
+function videoItemHtml(v, rank) {
+  const thumb = v.thumbnail
+    ? `<img class="video-thumb" src="${v.thumbnail}" alt="" loading="lazy" width="120" height="68" />`
+    : `<div class="video-thumb video-thumb-ph">▶</div>`;
+  const views = v.views ? formatViews(v.views) + ' views · ' : '';
+  const rankBadge = typeof rank === 'number'
+    ? `<span class="video-rank">#${rank}</span>`
+    : '';
+  return `<a class="video-item" href="${v.href}" target="_blank" rel="noopener">
+    <div class="video-rank-col">${rankBadge}</div>
+    ${thumb}
+    <div class="video-body">
+      <div class="video-title">${escapeHtml(v.title)}</div>
+      <div class="video-meta">${escapeHtml(v.channel)} · ${views}${v.date || ''}</div>
+    </div>
+  </a>`;
+}
+
+function formatViews(n) {
+  n = parseInt(n, 10);
+  if (!n || n < 0) return '';
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(n);
+}
+
+/**
+ * Rank score — higher = better pick for "watch next"
+ * - Recency dominates (today's camp tape > last month's viral clip)
+ * - log(views) rewards traction without letting old megahits win forever
+ * - Title relevance filters random non-Texans uploads on shared feeds
+ * - Channel weight slightly prefers analysis channels
+ */
+function scoreVideo(v, now) {
+  now = now || Date.now();
+  const ageMs = Math.max(0, now - (v.published || now));
+  const ageHours = ageMs / 3600000;
+  // ~24h half-life style: 1.0 when fresh, ~0.5 at 1 day, ~0.2 at 4 days
+  const recency = 1 / (1 + ageHours / 24);
+
+  const viewScore = Math.log10((v.views || 0) + 1); // 0–6 typical
+
+  const title = v.title || '';
+  let relevance = TEXANS_TITLE_RE.test(title) ? 1 : 0.35;
+  // Extra boost for analysis / interview-style titles
+  if (/breakdown|reaction|camp|analysis|film|preview|press conference|availability|full q&a|interview|address the media|on c\.j|on the/i.test(title)) {
+    relevance += 0.45;
+  }
+  // Penalize ultra-short official flashes (emoji-only / three-character hype clips)
+  const isOfficial = v.channelId === 'UCa_FcpOBe8G6VAR18RYS-aA';
+  const wordCount = (title.match(/[A-Za-z0-9']+/g) || []).length;
+  if (isOfficial && (title.length < 22 || wordCount <= 3)) {
+    relevance *= 0.35; // keep them discoverable via channel chip, not top of ranked list
+  }
+
+  const channelWeight = v.channelWeight || 1;
+
+  // Fresh analysis should beat same-day 5-second official hype clips
+  const score =
+    recency * 10 +
+    viewScore * 1.6 +
+    relevance * 4 +
+    channelWeight * 1.5;
+
+  return score;
+}
+
+async function fetchChannelVideos(channel) {
+  const rss = 'https://www.youtube.com/feeds/videos.xml?channel_id=' + encodeURIComponent(channel.id);
+  const api = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rss) +
+    '&count=' + VIDEO_FETCH_PER_CHANNEL;
+  const res = await fetch(api, { cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if (data.status !== 'ok' || !Array.isArray(data.items)) throw new Error('Bad feed');
+  return data.items.map((it) => {
+    const idMatch = (it.link || '').match(/[?&]v=([\w-]{6,})/) ||
+      (it.guid || '').match(/yt:video:([\w-]{6,})/);
+    const vid = idMatch ? idMatch[1] : '';
+    const href = vid ? ('https://www.youtube.com/watch?v=' + vid) : (it.link || channel.url);
+    let views = 0;
+    if (it.viewCount) views = parseInt(it.viewCount, 10) || 0;
+    // rss2json sometimes embeds stats only in raw; leave 0 if unknown
+    const pub = it.pubDate || it.published || '';
+    let ts = 0;
+    try { ts = pub ? new Date(pub).getTime() : 0; } catch (e) {}
+    return {
+      title: it.title || 'Video',
+      href,
+      channel: channel.name,
+      channelId: channel.id,
+      channelWeight: channel.weight || 1,
+      thumbnail: (it.thumbnail && it.thumbnail.startsWith('http') ? it.thumbnail : null) ||
+        (vid ? ('https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg') : ''),
+      views,
+      published: ts,
+      date: formatPubDate(pub)
+    };
+  });
+}
+
+/** Score → sort best to worst → top N. Dedupe by video URL. */
+function rankVideos(all) {
+  const now = Date.now();
+  const seen = new Set();
+  const scored = [];
+  all.forEach((v) => {
+    const key = v.href || v.title;
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    // Drop clearly off-topic unless from official/analysis channels with low title signal
+    const s = scoreVideo(v, now);
+    if (s < 3.5 && !TEXANS_TITLE_RE.test(v.title || '')) return;
+    scored.push(Object.assign({}, v, { _score: s }));
+  });
+  scored.sort((a, b) => b._score - a._score);
+  return scored.slice(0, VIDEO_TOP_N);
+}
+
+async function loadVideos(fromButton) {
+  const list = $('#videoList');
+  const btn = $('#videosRefreshBtn');
+  if (!list) return;
+  renderVideoChannels();
+  if (fromButton && btn) {
+    btn.disabled = true;
+    btn.textContent = 'Ranking…';
+  }
+
+  const cached = readJsonCache(VIDEO_CACHE_KEY);
+  if (cached && cached.items && cached.items.length) {
+    list.innerHTML = freshnessLine(cached.savedAt, true, 'last ranked list') +
+      cached.items.map((v, i) => videoItemHtml(v, i + 1)).join('');
+  } else {
+    list.innerHTML = '<div class="loading">Finding the best Texans videos…</div>';
+  }
+
+  try {
+    const results = await Promise.allSettled(VIDEO_CHANNELS.map(fetchChannelVideos));
+    let all = [];
+    const okNames = [];
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled' && r.value && r.value.length) {
+        all = all.concat(r.value);
+        okNames.push(VIDEO_CHANNELS[i].short);
+      }
+    });
+    if (!all.length) throw new Error('No video feeds available');
+
+    const ranked = rankVideos(all);
+    writeJsonCache(VIDEO_CACHE_KEY, { savedAt: Date.now(), items: ranked });
+    list.innerHTML =
+      freshnessLine(Date.now(), false, 'ranked · ' + okNames.join(' + ')) +
+      `<p class="video-rank-explainer">Top ${ranked.length} right now — scored by freshness, traction, and Texans relevance (not a raw YouTube popularity sort).</p>` +
+      ranked.map((v, i) => videoItemHtml(v, i + 1)).join('') +
+      `<p class="tend-note">Tap any row to watch in YouTube. Refresh re-runs the ranker. Channel chips open full feeds if you want to browse more.</p>`;
+  } catch (e) {
+    if (cached && cached.items && cached.items.length) {
+      list.innerHTML = freshnessLine(cached.savedAt, true, 'live rank failed — showing last list') +
+        cached.items.map((v, i) => videoItemHtml(v, i + 1)).join('');
+    } else {
+      list.innerHTML = `
+        <div class="empty">Could not rank videos right now (offline or feed blocked).</div>
+        <a class="video-item" href="https://www.youtube.com/@SethPayneShow" target="_blank" rel="noopener">
+          <div class="video-thumb video-thumb-ph">▶</div>
+          <div class="video-body"><div class="video-title">Seth Payne on YouTube</div><div class="video-meta">Open channel</div></div>
+        </a>
+        <a class="video-item" href="https://www.youtube.com/@LockedOnTexans" target="_blank" rel="noopener">
+          <div class="video-thumb video-thumb-ph">▶</div>
+          <div class="video-body"><div class="video-title">Locked On Texans</div><div class="video-meta">Open channel</div></div>
+        </a>
+        <a class="video-item" href="https://www.youtube.com/results?search_query=Houston+Texans+training+camp" target="_blank" rel="noopener">
+          <div class="video-thumb video-thumb-ph">▶</div>
+          <div class="video-body"><div class="video-title">YouTube: Texans training camp</div><div class="video-meta">Open search</div></div>
+        </a>`;
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Refresh';
+    }
+  }
+}
+
 /* ---------- Local Notes ---------- */
 function loadNotes() {
   const saved = localStorage.getItem('texans-hq-notes-v1');
@@ -1337,7 +1571,7 @@ if ('serviceWorker' in navigator) {
 }
 
 
-/* ---------- Stats (restored in v14.4 — was dropped in v14.4 feed rewrite) ---------- */
+/* ---------- Stats (restored in v14.6 — was dropped in v14.6 feed rewrite) ---------- */
 function renderStats() {
   const grid = $('#teamStats');
   if (!grid) return;
@@ -1420,9 +1654,14 @@ function init() {
   if (campBtn) {
     campBtn.addEventListener('click', () => loadCamp(true));
   }
-  // Pre-warm news + camp in background (network, non-blocking)
+  const videosBtn = $('#videosRefreshBtn');
+  if (videosBtn) {
+    videosBtn.addEventListener('click', () => loadVideos(true));
+  }
+  // Pre-warm feeds in background (network, non-blocking)
   setTimeout(() => loadNews(false), 600);
   setTimeout(() => loadCamp(false), 900);
+  setTimeout(() => loadVideos(false), 1200);
 }
 
 /* Start: check password first */

@@ -1154,3 +1154,114 @@ button.depth-chip {
 button.depth-chip:active {
   transform: scale(0.97);
 }
+
+
+/* ===== v14.5 Videos ===== */
+.video-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+a.video-channel-chip {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--navy);
+  background: #EEF2F5;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  text-decoration: none;
+}
+a.video-channel-chip:active {
+  background: var(--navy);
+  color: white;
+}
+.video-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+a.video-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  align-items: flex-start;
+}
+a.video-item:last-child {
+  border-bottom: none;
+}
+a.video-item:active {
+  background: #F0F3F6;
+}
+.video-thumb {
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #EEF2F5;
+  flex-shrink: 0;
+}
+.video-thumb-ph {
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  color: var(--navy);
+  font-weight: 800;
+}
+.video-body {
+  flex: 1;
+  min-width: 0;
+}
+.video-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.35;
+}
+.video-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+/* Slightly tighter nav when 8 tabs */
+.nav-btn {
+  font-size: 0.6rem;
+}
+.nav-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+
+/* ===== v14.6 Ranked videos ===== */
+.video-rank-col {
+  width: 28px;
+  flex-shrink: 0;
+  padding-top: 22px;
+}
+.video-rank {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--navy);
+  background: #EEF2F5;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 5px;
+  min-width: 24px;
+  text-align: center;
+}
+.video-rank-explainer {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+a.video-item {
+  align-items: flex-start;
+}
