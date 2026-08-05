@@ -1,13 +1,13 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v14.6
+   Texans HQ — Personal PWA  v14.7
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v14.6';
-const APP_VERSION_LABEL = 'v14.6 · Ranked videos';
+const APP_VERSION = 'v14.7';
+const APP_VERSION_LABEL = 'v14.7 · Green nav';
 /* Stable key — never changes across versions so the device stays unlocked */
 const UNLOCK_KEY = 'texans-hq-device-unlocked';
 /* Old keys from previous versions (for one-time migration) */
@@ -976,7 +976,7 @@ function renderPBP() {
 /* Why 8/4 lingered on 8/5 morning:
    ESPN team feed often lags same-day team posts. Official houstontexans.com/rss/news
    already had "Transactions (8-5-2026)" at ~7:47am CT while ESPN's newest HOU item
-   was still prior-evening. v14.6 merges both sources and sorts by published time. */
+   was still prior-evening. v14.7 merges both sources and sorts by published time. */
 const CAMP_CACHE_KEY = 'texans-hq-camp-cache-v2';
 const NEWS_CACHE_KEY = 'texans-hq-news-cache-v2';
 
@@ -1571,7 +1571,7 @@ if ('serviceWorker' in navigator) {
 }
 
 
-/* ---------- Stats (restored in v14.6 — was dropped in v14.6 feed rewrite) ---------- */
+/* ---------- Stats (restored in v14.7 — was dropped in v14.7 feed rewrite) ---------- */
 function renderStats() {
   const grid = $('#teamStats');
   if (!grid) return;

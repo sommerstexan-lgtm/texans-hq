@@ -527,8 +527,11 @@ body {
 }
 
 .nav-btn.active {
-  color: var(--navy);
-  font-weight: 600;
+  color: var(--success);
+  font-weight: 700;
+}
+.nav-btn.active svg {
+  fill: var(--success);
 }
 
 .nav-btn svg {
