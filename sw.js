@@ -1,5 +1,5 @@
-/* Texans HQ PWA — Service Worker v3 */
-const CACHE_NAME = 'texans-hq-v3';
+/* Texans HQ PWA — Service Worker v4 */
+const CACHE_NAME = 'texans-hq-v4';
 const APP_SHELL = [
   './',
   './index.html',
