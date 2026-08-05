@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v9.0
+   Texans HQ — Personal PWA  v10.0
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -189,6 +189,14 @@ const LIVE_DEMO = {
   distance: 7,
   yardline: 'Opp 38',
   tendency: { pass: 61, run: 39, note: 'Season early-down + small game tilt' },
+  efficiency: {
+    thirdDown: '4/9',
+    thirdPct: '44%',
+    redZone: '1/2',
+    redPct: '50% TD',
+    timeoutsHou: 2,
+    timeoutsOpp: 3
+  },
   drive: {
     plays: 5,
     yards: 42,
@@ -201,6 +209,48 @@ const LIVE_DEMO = {
     { qtr: 3, clock: '7:15', team: 'HOU', desc: 'C.J. Stroud pass complete to Dalton Schultz for 8 yards to the HOU 45.', big: false },
     { qtr: 3, clock: '7:48', team: 'HOU', desc: 'Joe Mixon rush up the middle for 4 yards to the HOU 37.', big: false }
   ]
+};
+
+/* Injury / availability (demo — public-style report for testing) */
+const INJURY_REPORT = [
+  { name: 'Tank Dell', pos: 'WR', status: 'Out', note: 'Season-ending injury recovery path (monitor reports)' },
+  { name: 'Azeez Al-Shaair', pos: 'LB', status: 'Questionable', note: 'Bumped in camp; practiced in limited capacity' },
+  { name: 'Nico Collins', pos: 'WR', status: 'Probable', note: 'Rest day earlier in camp; expected available' }
+];
+
+/* Opponent one-pager (low-bias, public facts style) keyed by abbr */
+const OPPONENT_PREVIEWS = {
+  BUF: {
+    title: 'Buffalo Bills',
+    record: '2025 context: perennial AFC contender',
+    bullets: [
+      'Elite QB play — game script often runs through the pass game.',
+      'Strong skill group; expect condensed splits and motion.',
+      'Defense can generate pressure; protect edges and help center.',
+      'Red-zone efficiency is typically a strength — finish drives.',
+      'Last meetings: competitive AFC-style games; points at a premium.'
+    ],
+    sources: 'Public season trends · neutral matchup notes · not a prediction'
+  },
+  LAC: {
+    title: 'Los Angeles Chargers',
+    record: 'Preseason opponent',
+    bullets: [
+      'Preseason focus: evaluate depth and starter snaps carefully.',
+      'Watch young receivers and secondary depth under live speed.',
+      'Special teams and tackle consistency often tell the real story early.'
+    ],
+    sources: 'Preseason context · public roster notes'
+  },
+  DEFAULT: {
+    title: 'Opponent',
+    record: 'Preview available closer to kickoff',
+    bullets: [
+      'Record, main weapons, and schematic notes will appear here.',
+      'Injury line and TV channel stay on the schedule card.'
+    ],
+    sources: 'Updated from public sources before game week'
+  }
 };
 
 /* Sample completed game recap (demo) */
@@ -336,11 +386,16 @@ function renderGameCenter() {
   const content = $('#gameCenterContent');
   const modePill = $('#gameModePill');
   const tendencyCard = $('#tendencyCard');
+  const efficiencyCard = $('#efficiencyCard');
   const driveCard = $('#driveCard');
+  const injuryCard = $('#injuryCard');
+  const opponentCard = $('#opponentCard');
   const recapCard = $('#recapCard');
   const upcomingCard = $('#upcomingCard');
 
-  // Demo live mode for testing high-value live UI (no real 2026 game yet)
+  renderInjuryCard();
+  renderOpponentCard();
+
   if (LIVE_DEMO.active) {
     if (modePill) {
       modePill.textContent = 'Demo live';
@@ -366,9 +421,10 @@ function renderGameCenter() {
         <div class="possession-pill ${possHou ? '' : 'away'}">${possHou ? 'HOU BALL' : LIVE_DEMO.oppAbbr + ' BALL'}</div>
       </div>
       <div class="situation-bar">
-        <span><strong>${LIVE_DEMO.down}${LIVE_DEMO.down === 1 ? 'st' : LIVE_DEMO.down === 2 ? 'nd' : LIVE_DEMO.down === 3 ? 'rd' : 'th'} & ${LIVE_DEMO.distance}</strong></span>
+        <span><strong>${ordSuffix(LIVE_DEMO.down)} & ${LIVE_DEMO.distance}</strong></span>
         <span>${LIVE_DEMO.yardline}</span>
         <span>vs <strong>${LIVE_DEMO.opp}</strong></span>
+        <span class="small">HOU TO: ${LIVE_DEMO.efficiency.timeoutsHou} · ${LIVE_DEMO.oppAbbr} TO: ${LIVE_DEMO.efficiency.timeoutsOpp}</span>
       </div>
       <div class="demo-toggle">
         <button type="button" class="active" id="btnDemoLive">Demo live</button>
@@ -376,7 +432,7 @@ function renderGameCenter() {
         <button type="button" id="btnDemoUpcoming">Upcoming only</button>
       </div>
     `;
-    // Tendency (only meaningful on HOU possession)
+
     if (tendencyCard && possHou) {
       tendencyCard.style.display = '';
       const t = LIVE_DEMO.tendency;
@@ -398,29 +454,58 @@ function renderGameCenter() {
     } else if (tendencyCard) {
       tendencyCard.style.display = 'none';
     }
-    // Drive
+
+    if (efficiencyCard) {
+      efficiencyCard.style.display = '';
+      const e = LIVE_DEMO.efficiency;
+      $('#efficiencyContent').innerHTML = `
+        <div class="eff-grid">
+          <div class="eff-item">
+            <div class="eff-value">${e.thirdDown}</div>
+            <div class="eff-label">3rd down · ${e.thirdPct}</div>
+          </div>
+          <div class="eff-item">
+            <div class="eff-value">${e.redZone}</div>
+            <div class="eff-label">Red zone · ${e.redPct}</div>
+          </div>
+        </div>
+        <div class="tend-note mt-8">This-game snapshot · updates with live data when available</div>
+      `;
+    }
+
     if (driveCard) {
       driveCard.style.display = '';
       const d = LIVE_DEMO.drive;
+      const mini = LIVE_DEMO.recentPlays.slice(0, 3).map(pl =>
+        `<div>Q${pl.qtr} ${pl.clock} — ${pl.desc}</div>`
+      ).join('');
       $('#driveSummary').innerHTML = `
-        <div class="drive-meta"><strong>${d.plays} plays</strong> · ${d.yards} yards · ${d.time}<br>${d.summary}</div>
-        <div class="small">Latest: ${LIVE_DEMO.recentPlays[0].desc}</div>
+        <div class="drive-meta">
+          <strong>${d.plays} plays</strong> · ${d.yards} yards · ${d.time}<br>${d.summary}
+        </div>
+        <div class="drive-plays-mini">${mini}</div>
       `;
     }
+
+    if (injuryCard) injuryCard.style.display = '';
+    if (opponentCard) opponentCard.style.display = '';
     if (recapCard) recapCard.style.display = 'none';
     if (upcomingCard) upcomingCard.style.display = 'none';
     wireDemoToggles();
     return;
   }
 
-  // Upcoming mode (default when demo off)
+  // Upcoming mode
   if (modePill) {
     modePill.textContent = 'Upcoming';
     modePill.classList.remove('live');
   }
   if (tendencyCard) tendencyCard.style.display = 'none';
+  if (efficiencyCard) efficiencyCard.style.display = 'none';
   if (driveCard) driveCard.style.display = 'none';
   if (recapCard) recapCard.style.display = 'none';
+  if (injuryCard) injuryCard.style.display = '';
+  if (opponentCard) opponentCard.style.display = '';
   if (upcomingCard) upcomingCard.style.display = '';
 
   const next = getNextGame();
@@ -460,11 +545,51 @@ function renderGameCenter() {
   wireDemoToggles();
 }
 
+function ordSuffix(n) {
+  if (n === 1) return '1st';
+  if (n === 2) return '2nd';
+  if (n === 3) return '3rd';
+  return n + 'th';
+}
+
+function renderInjuryCard() {
+  const el = $('#injuryContent');
+  if (!el) return;
+  el.innerHTML = INJURY_REPORT.map((r) => {
+    const cls = r.status.toLowerCase();
+    return `<div class="injury-row">
+      <span class="injury-status ${cls}">${r.status}</span>
+      <div><strong>${r.name}</strong> <span class="small">(${r.pos})</span><br><span class="small">${r.note}</span></div>
+    </div>`;
+  }).join('') + `<p class="tend-note">Demo/public-style list — replace with official report closer to games. Always verify on team/NFL sources.</p>`;
+}
+
+function renderOpponentCard() {
+  const el = $('#opponentContent');
+  if (!el) return;
+  let abbr = 'BUF';
+  if (LIVE_DEMO.active) abbr = LIVE_DEMO.oppAbbr;
+  else {
+    const next = getNextGame();
+    if (next) abbr = next.oppAbbr;
+  }
+  const prev = OPPONENT_PREVIEWS[abbr] || OPPONENT_PREVIEWS.DEFAULT;
+  el.innerHTML = `
+    <div style="font-weight:700;margin-bottom:4px">${prev.title}</div>
+    <div class="small" style="margin-bottom:8px">${prev.record}</div>
+    <ul class="opp-bullets">${prev.bullets.map(b => `<li>${b}</li>`).join('')}</ul>
+    <div class="opp-meta">${prev.sources}</div>
+  `;
+}
+
 function renderRecapDemo() {
   const content = $('#gameCenterContent');
   const modePill = $('#gameModePill');
   const tendencyCard = $('#tendencyCard');
+  const efficiencyCard = $('#efficiencyCard');
   const driveCard = $('#driveCard');
+  const injuryCard = $('#injuryCard');
+  const opponentCard = $('#opponentCard');
   const recapCard = $('#recapCard');
   const upcomingCard = $('#upcomingCard');
   LIVE_DEMO.active = false;
@@ -473,7 +598,10 @@ function renderRecapDemo() {
     modePill.classList.remove('live');
   }
   if (tendencyCard) tendencyCard.style.display = 'none';
+  if (efficiencyCard) efficiencyCard.style.display = 'none';
   if (driveCard) driveCard.style.display = 'none';
+  if (injuryCard) injuryCard.style.display = 'none';
+  if (opponentCard) opponentCard.style.display = 'none';
   if (upcomingCard) upcomingCard.style.display = 'none';
   if (recapCard) recapCard.style.display = '';
 
@@ -713,13 +841,13 @@ if ('serviceWorker' in navigator) {
       .then(() => {
         const pill = $('#statusPill');
         if (pill) {
-          pill.textContent = 'v9 · Offline-ready';
+          pill.textContent = 'v10 · Offline-ready';
           pill.classList.remove('live');
         }
       })
       .catch(() => {
         const pill = $('#statusPill');
-        if (pill) pill.textContent = 'v9 · SW optional';
+        if (pill) pill.textContent = 'v10 · SW optional';
       });
   });
 }

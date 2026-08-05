@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
-  <!-- PASSWORD LOCK SCREEN (v9) -->
+  <!-- PASSWORD LOCK SCREEN (v10) -->
   <div id="lockScreen" class="lock-screen">
     <div class="lock-card">
       <div class="lock-logo">H</div>
@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v9 · Offline-ready</div>
+      <div id="statusPill" class="status-pill">v10 · Offline-ready</div>
     </header>
 
     <main class="main">
@@ -52,9 +52,21 @@
           <div class="card-title">Offensive tendency (HOU ball)</div>
           <div id="tendencyContent"></div>
         </div>
+        <div class="card" id="efficiencyCard">
+          <div class="card-title">This game efficiency</div>
+          <div id="efficiencyContent"></div>
+        </div>
         <div class="card" id="driveCard">
           <div class="card-title">This drive</div>
           <div id="driveSummary"></div>
+        </div>
+        <div class="card" id="injuryCard">
+          <div class="card-title">Injury / availability</div>
+          <div id="injuryContent"></div>
+        </div>
+        <div class="card" id="opponentCard">
+          <div class="card-title">Opponent preview</div>
+          <div id="opponentContent"></div>
         </div>
         <div class="card" id="recapCard" style="display:none">
           <div class="card-title">Game recap</div>

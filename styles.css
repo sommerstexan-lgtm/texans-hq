@@ -1,4 +1,4 @@
-/* Texans HQ PWA v9 — High-contrast light theme + TV networks
+/* Texans HQ PWA v10 — High-contrast light theme + TV networks
    White/off-white backgrounds, dark text, semantic color for meaning only
    Navy used for branding accents, red used sparingly for importance
 */
@@ -898,3 +898,74 @@ body {
   color: white;
   border-color: var(--navy);
 }
+
+
+/* ===== v10 Strong value ===== */
+.eff-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.eff-item {
+  background: #EEF2F5;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+.eff-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--navy);
+}
+.eff-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.injury-row {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+  font-size: 0.9rem;
+}
+.injury-row:last-child { border-bottom: none; }
+.injury-status {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  min-width: 72px;
+  text-align: center;
+}
+.injury-status.out { background: #FDE8E8; color: var(--danger); }
+.injury-status.doubtful { background: #FFF4E5; color: var(--warning); }
+.injury-status.questionable { background: #EEF2F5; color: var(--text-secondary); }
+.injury-status.probable { background: #E8F5EC; color: var(--success); }
+.opp-bullets {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.opp-bullets li { margin: 6px 0; }
+.opp-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.drive-plays-mini {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.drive-plays-mini div {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.drive-plays-mini div:last-child { border-bottom: none; }
