@@ -1,11 +1,12 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v2.0
+   Texans HQ — Personal PWA  v3.0
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
+   High-contrast light theme
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const UNLOCK_KEY = 'texans-hq-unlocked-v2';
+const UNLOCK_KEY = 'texans-hq-unlocked-v3';
 
 const TEXANS = {
   id: 34,
@@ -453,13 +454,13 @@ if ('serviceWorker' in navigator) {
       .then(() => {
         const pill = $('#statusPill');
         if (pill) {
-          pill.textContent = 'v2 · Offline-ready';
+          pill.textContent = 'v3 · Offline-ready';
           pill.classList.remove('live');
         }
       })
       .catch(() => {
         const pill = $('#statusPill');
-        if (pill) pill.textContent = 'v2 · SW optional';
+        if (pill) pill.textContent = 'v3 · SW optional';
       });
   });
 }

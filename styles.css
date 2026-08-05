@@ -1,18 +1,27 @@
-/* Texans HQ PWA v2 — Deep navy / battle red / white, mobile-first, dark-mode friendly + password lock */
+/* Texans HQ PWA v3 — High-contrast light theme
+   White/off-white backgrounds, dark text, semantic color for meaning only
+   Navy used for branding accents, red used sparingly for importance
+*/
+
 :root {
   --navy: #03202F;
-  --navy-deep: #021018;
+  --navy-mid: #0A3A4F;
   --red: #A71930;
   --red-bright: #C41E3A;
   --white: #FFFFFF;
-  --off-white: #F5F7FA;
-  --muted: #8B9AAB;
-  --card: #0A2A3C;
-  --success: #2ECC71;
-  --warning: #F39C12;
+  --bg: #F4F6F8;
+  --card: #FFFFFF;
+  --text: #1A1F24;
+  --text-secondary: #4A5560;
+  --muted: #6B7785;
+  --border: #E2E6EA;
+  --success: #1B7A3D;
+  --warning: #B86E00;
+  --danger: #A71930;
   --radius: 12px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --nav-h: 64px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
 }
 
 * {
@@ -25,8 +34,8 @@
 html, body {
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: var(--navy-deep);
-  color: var(--white);
+  background: var(--bg);
+  color: var(--text);
   line-height: 1.45;
   overflow-x: hidden;
 }
@@ -35,13 +44,13 @@ body {
   padding-bottom: calc(var(--nav-h) + var(--safe-bottom));
 }
 
-/* Header */
+/* Header — navy branding bar, white text */
 .app-header {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: linear-gradient(180deg, var(--navy) 0%, var(--navy-deep) 100%);
-  border-bottom: 2px solid var(--red);
+  background: var(--navy);
+  border-bottom: 3px solid var(--red);
   padding: 12px 16px 10px;
   display: flex;
   align-items: center;
@@ -64,6 +73,7 @@ body {
   place-items: center;
   font-weight: 800;
   font-size: 18px;
+  color: var(--white);
   letter-spacing: -0.5px;
   box-shadow: 0 0 0 2px var(--white);
 }
@@ -72,24 +82,25 @@ body {
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.3px;
+  color: var(--white);
 }
 
 .app-title span {
-  color: var(--red);
+  color: #FF8A9A;
 }
 
 .status-pill {
   font-size: 0.7rem;
-  background: var(--card);
-  border: 1px solid var(--muted);
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25);
   padding: 4px 10px;
   border-radius: 999px;
-  color: var(--muted);
+  color: rgba(255,255,255,0.9);
 }
 
 .status-pill.live {
-  border-color: var(--red);
-  color: var(--red-bright);
+  border-color: #FF8A9A;
+  color: #FF8A9A;
   animation: pulse 1.5s infinite;
 }
 
@@ -118,13 +129,14 @@ body {
   to { opacity: 1; transform: none; }
 }
 
-/* Cards */
+/* Cards — white, high contrast */
 .card {
   background: var(--card);
   border-radius: var(--radius);
   padding: 14px 16px;
   margin-bottom: 12px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
 .card-title {
@@ -165,10 +177,11 @@ body {
   font-size: 2.6rem;
   font-weight: 800;
   line-height: 1;
+  color: var(--text);
 }
 
 .team-score.home {
-  color: var(--red-bright);
+  color: var(--navy);
 }
 
 .vs-clock {
@@ -184,11 +197,11 @@ body {
   flex-wrap: wrap;
   font-size: 0.9rem;
   margin-top: 10px;
-  color: var(--off-white);
+  color: var(--text-secondary);
 }
 
 .situation strong {
-  color: var(--white);
+  color: var(--text);
 }
 
 /* Play-by-play */
@@ -200,7 +213,7 @@ body {
 
 .play {
   padding: 10px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--border);
   display: flex;
   gap: 10px;
   align-items: flex-start;
@@ -223,10 +236,11 @@ body {
 
 .play-desc {
   font-size: 0.92rem;
+  color: var(--text);
 }
 
 .play.big {
-  background: rgba(167, 25, 48, 0.15);
+  background: #FFF5F6;
   margin: 0 -8px;
   padding: 10px 8px;
   border-radius: 8px;
@@ -239,16 +253,16 @@ body {
 }
 
 .play.td .play-desc {
-  color: var(--red-bright);
-  font-weight: 600;
+  color: var(--success);
+  font-weight: 700;
 }
 
 .drive-header {
-  background: rgba(255,255,255,0.04);
+  background: #EEF2F5;
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.8rem;
-  color: var(--muted);
+  color: var(--text-secondary);
   margin: 12px 0 6px;
 }
 
@@ -258,12 +272,12 @@ body {
   align-items: center;
   gap: 12px;
   padding: 12px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
 
 .game-row:active {
-  background: rgba(255,255,255,0.04);
+  background: #F0F3F6;
 }
 
 .game-date {
@@ -276,7 +290,7 @@ body {
 .game-date .day {
   display: block;
   font-weight: 700;
-  color: var(--white);
+  color: var(--text);
   font-size: 0.95rem;
 }
 
@@ -287,6 +301,7 @@ body {
 .game-opp {
   font-weight: 600;
   font-size: 0.98rem;
+  color: var(--text);
 }
 
 .game-meta {
@@ -303,11 +318,11 @@ body {
 }
 
 .game-result.w { color: var(--success); }
-.game-result.l { color: var(--red-bright); }
+.game-result.l { color: var(--danger); }
 .game-result.t { color: var(--warning); }
 
 .next-badge {
-  background: var(--red);
+  background: var(--navy);
   color: white;
   font-size: 0.65rem;
   padding: 2px 6px;
@@ -326,16 +341,17 @@ body {
 
 .cd-block {
   text-align: center;
-  background: var(--navy);
+  background: #EEF2F5;
   border-radius: 10px;
   padding: 10px 12px;
   min-width: 58px;
+  border: 1px solid var(--border);
 }
 
 .cd-num {
   font-size: 1.5rem;
   font-weight: 800;
-  color: var(--red-bright);
+  color: var(--navy);
 }
 
 .cd-label {
@@ -347,7 +363,7 @@ body {
 /* Training Camp */
 .camp-note {
   padding: 10px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .camp-note:last-child {
@@ -356,13 +372,14 @@ body {
 
 .camp-date {
   font-size: 0.75rem;
-  color: var(--red-bright);
-  font-weight: 600;
+  color: var(--navy);
+  font-weight: 700;
   margin-bottom: 4px;
 }
 
 .camp-text {
   font-size: 0.92rem;
+  color: var(--text);
 }
 
 .standout {
@@ -378,16 +395,17 @@ body {
 }
 
 .stat-item {
-  background: var(--navy);
+  background: #EEF2F5;
   border-radius: 10px;
   padding: 12px;
   text-align: center;
+  border: 1px solid var(--border);
 }
 
 .stat-value {
   font-size: 1.4rem;
   font-weight: 800;
-  color: var(--red-bright);
+  color: var(--navy);
 }
 
 .stat-label {
@@ -400,10 +418,10 @@ body {
 .notes-area {
   width: 100%;
   min-height: 140px;
-  background: var(--navy);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: var(--white);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  color: var(--white);
+  color: var(--text);
   padding: 12px;
   font-size: 0.95rem;
   resize: vertical;
@@ -411,7 +429,7 @@ body {
 }
 
 .notes-area:focus {
-  outline: 2px solid var(--red);
+  outline: 2px solid var(--navy);
   border-color: transparent;
 }
 
@@ -420,7 +438,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: var(--red);
+  background: var(--navy);
   color: white;
   border: none;
   border-radius: 10px;
@@ -438,24 +456,24 @@ body {
 .btn.secondary {
   background: transparent;
   border: 1px solid var(--muted);
-  color: var(--muted);
+  color: var(--text-secondary);
 }
 
 /* News */
 .news-item {
   padding: 12px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .news-item a {
-  color: var(--white);
+  color: var(--navy);
   text-decoration: none;
   font-weight: 600;
   font-size: 0.95rem;
 }
 
 .news-item a:hover {
-  color: var(--red-bright);
+  color: var(--red);
 }
 
 .news-meta {
@@ -464,7 +482,7 @@ body {
   margin-top: 4px;
 }
 
-/* Bottom nav */
+/* Bottom nav — light */
 .bottom-nav {
   position: fixed;
   bottom: 0;
@@ -472,10 +490,11 @@ body {
   right: 0;
   height: calc(var(--nav-h) + var(--safe-bottom));
   padding-bottom: var(--safe-bottom);
-  background: var(--navy);
-  border-top: 1px solid rgba(255,255,255,0.08);
+  background: var(--white);
+  border-top: 1px solid var(--border);
   display: flex;
   z-index: 100;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
 }
 
 .nav-btn {
@@ -494,7 +513,8 @@ body {
 }
 
 .nav-btn.active {
-  color: var(--red-bright);
+  color: var(--navy);
+  font-weight: 600;
 }
 
 .nav-btn svg {
@@ -529,16 +549,16 @@ body {
   width: 4px;
 }
 .pbp-list::-webkit-scrollbar-thumb {
-  background: var(--red);
+  background: var(--navy);
   border-radius: 4px;
 }
 
-/* ========== PASSWORD LOCK SCREEN (v2) ========== */
+/* ========== PASSWORD LOCK SCREEN ========== */
 .lock-screen {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: var(--navy-deep);
+  background: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -552,12 +572,12 @@ body {
 .lock-card {
   width: 100%;
   max-width: 320px;
-  background: var(--card);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--white);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 32px 24px;
   text-align: center;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
 }
 
 .lock-logo {
@@ -569,14 +589,16 @@ body {
   place-items: center;
   font-weight: 800;
   font-size: 28px;
+  color: var(--white);
   margin: 0 auto 16px;
-  box-shadow: 0 0 0 3px var(--white);
+  box-shadow: 0 0 0 3px var(--navy);
 }
 
 .lock-title {
   font-size: 1.4rem;
   font-weight: 700;
   margin-bottom: 4px;
+  color: var(--text);
 }
 
 .lock-title span {
@@ -591,10 +613,10 @@ body {
 
 .lock-input {
   width: 100%;
-  background: var(--navy);
-  border: 1px solid rgba(255,255,255,0.15);
+  background: var(--white);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  color: var(--white);
+  color: var(--text);
   padding: 14px 16px;
   font-size: 1rem;
   margin-bottom: 14px;
@@ -603,7 +625,7 @@ body {
 }
 
 .lock-input:focus {
-  outline: 2px solid var(--red);
+  outline: 2px solid var(--navy);
   border-color: transparent;
 }
 
@@ -612,12 +634,14 @@ body {
   margin-top: 0;
   padding: 14px;
   font-size: 1rem;
+  background: var(--navy);
 }
 
 .lock-error {
-  color: #ff6b6b;
+  color: var(--danger);
   font-size: 0.85rem;
   margin-top: 12px;
+  font-weight: 600;
 }
 
 .lock-hint {
