@@ -33,7 +33,9 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v14.8 · Roster</div>
+      <div id="statusPill" class="status-pill">v15.1 · About</div>
+
+
 
     </header>
 
@@ -53,10 +55,22 @@
           <div class="card-title">Offensive tendency (HOU ball)</div>
           <div id="tendencyContent"></div>
         </div>
+        <div class="card" id="nextPlayCard">
+          <div class="card-title-row">
+            <div class="card-title" style="margin-bottom:0">Next Play Lean</div>
+            <span class="mode-pill" id="nextPlayPhasePill">Reg/Post only</span>
+          </div>
+          <p class="small" style="margin:4px 0 8px">Situation-based lean for you &amp; your son to argue over. Preseason excluded from accuracy tracking.</p>
+          <div id="nextPlayContent">
+            <div class="empty">Available when HOU has the ball in a live or demo situation.</div>
+          </div>
+          <div id="nextPlayAccuracy" class="small mt-8" style="display:none"></div>
+        </div>
         <div class="card" id="winProbCard">
           <div class="card-title">Win probability (simplified)</div>
           <div id="winProbContent"></div>
         </div>
+
         <div class="card" id="efficiencyCard">
           <div class="card-title">This game efficiency</div>
           <div id="efficiencyContent"></div>
@@ -200,6 +214,49 @@
           <p class="small mt-8">Saved to this device only. Never uploaded.</p>
         </div>
       </section>
+
+      <!-- 8. ABOUT -->
+      <section id="sec-about" class="section">
+        <div class="card">
+          <div class="card-title">About Texans HQ</div>
+          <div class="about-body">
+            <p><strong>What this is</strong><br>
+            A personal Houston Texans app built for a father and son to follow the team together. It is not an official NFL or Texans product.</p>
+
+            <p><strong>What it gives you</strong></p>
+            <ul class="about-list">
+              <li><strong>Game Center</strong> — scoreboard, situation, tendencies, injuries, opponent notes, and the Next Play Lean.</li>
+              <li><strong>Next Play Lean</strong> — a situation-based guess (run vs pass and more detail) so you can argue about what Houston should call. It uses 2025 Texans tendencies plus down, distance, field position, score, and clock.</li>
+              <li><strong>Play-by-Play</strong> — drive and play list (demo now; real feed later).</li>
+              <li><strong>Schedule</strong> — full 2026 preseason, regular season, and later postseason.</li>
+              <li><strong>Roster</strong> — searchable by name, number, or position with short notes.</li>
+              <li><strong>Stats, Camp, News, Videos</strong> — team snapshot, training-camp updates, headlines, and ranked video picks.</li>
+              <li><strong>Notes</strong> — private notes that stay only on this device.</li>
+            </ul>
+
+            <p><strong>Next Play Lean — important rules</strong></p>
+            <ul class="about-list">
+              <li>It is a <em>lean</em>, not a guarantee. Use it for discussion, not as fact.</li>
+              <li>Accuracy is tracked automatically when the next play is known.</li>
+              <li><strong>Preseason never counts</strong> toward the accuracy numbers or any learning.</li>
+              <li>Only regular-season and postseason results are kept for analysis.</li>
+            </ul>
+
+            <p><strong>Current limitations</strong></p>
+            <ul class="about-list">
+              <li>Right now the “live” game is a built-in demo. Real live play-by-play for actual 2026 games is not connected yet.</li>
+              <li>Roster and depth notes are based on public training-camp information and will change after cuts.</li>
+              <li>News and videos depend on public feeds and may be delayed or incomplete when offline.</li>
+              <li>Win probability and some stats are simplified for quick reading, not full models.</li>
+            </ul>
+
+            <p><strong>Privacy</strong><br>
+            Password-protected. Notes and accuracy logs stay on this device only. Nothing is uploaded to a server.</p>
+
+            <p class="small" style="margin-top:12px">Built for personal use. Version shown in the header. Enjoy the arguments.</p>
+          </div>
+        </div>
+      </section>
     </main>
 
     <!-- Bottom Navigation -->
@@ -240,6 +297,10 @@
 <button class="nav-btn" data-sec="notes" aria-label="Notes">
         <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
         Notes
+      </button>
+      <button class="nav-btn" data-sec="about" aria-label="About">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        About
       </button>
     </nav>
   </div>

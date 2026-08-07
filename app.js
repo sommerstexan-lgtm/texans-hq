@@ -1,14 +1,14 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v14.8
+   Texans HQ — Personal PWA  v15.1
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
-   Roster search + pre/post insights
+   Roster + Next Play Lean with About section + auto accuracy
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v14.8';
-const APP_VERSION_LABEL = 'v14.8 · Roster';
+const APP_VERSION = 'v15.1';
+const APP_VERSION_LABEL = 'v15.1 · About';
 
 /* Stable key — never changes across versions so the device stays unlocked */
 const UNLOCK_KEY = 'texans-hq-device-unlocked';
@@ -242,6 +242,355 @@ const LIVE_DEMO = {
   weather: { temp: 78, wind: '6 mph', note: 'Dome / indoor — weather not a factor' },
   lastUpdated: Date.now()
 };
+
+/* ============================================================
+   NEXT PLAY LEAN  (v14.9)
+   Situation-based lean for father-son arguments.
+   Seeded with 2025 Texans tendencies + NFL situational norms.
+   Preseason is NEVER used for accuracy tracking or model updates.
+   Regular season + postseason only.
+   ============================================================ */
+const NEXT_PLAY_STORAGE_KEY = 'texans-hq-nextplay-log-v1';
+
+/* 2025 Texans baseline (public-style aggregates)
+   Overall ~56-59% pass. Clear short-yardage run lean.
+   Pass lean on 2nd & medium. ~23% play-action. Low RPO. */
+const BASE_TENDENCIES = {
+  overallPass: 0.57,
+  shortYardageRun: 0.72,      // 1-3 yards (especially 2nd/3rd & short)
+  mediumPass: 0.64,           // 4-6 yards
+  longPass: 0.71,             // 7-10
+  veryLongPass: 0.78,         // 11+
+  redZonePass: 0.55,
+  goalLineRun: 0.68,          // inside opponent 5
+  leadingRun: 0.08,           // extra run lean when leading late
+  trailingPass: 0.12,         // extra pass lean when trailing
+  playActionBase: 0.23,
+  screenBase: 0.05
+};
+
+function loadNextPlayLog() {
+  try {
+    const raw = localStorage.getItem(NEXT_PLAY_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : { predictions: [], accuracy: { correct: 0, total: 0, bySituation: {} } };
+  } catch (e) {
+    return { predictions: [], accuracy: { correct: 0, total: 0, bySituation: {} } };
+  }
+}
+
+function saveNextPlayLog(log) {
+  try {
+    localStorage.setItem(NEXT_PLAY_STORAGE_KEY, JSON.stringify(log));
+  } catch (e) { /* ignore quota */ }
+}
+
+/** Core predictor — returns ranked leans with reasons */
+function predictNextPlay(sit) {
+  // sit: { down, distance, yardNum, yardSide, scoreDiff, qtr, clockSeconds, isPreseason }
+  const down = sit.down || 1;
+  const dist = sit.distance || 10;
+  const yardNum = sit.yardNum || 50;
+  const side = sit.yardSide || 'own'; // 'own' or 'opp'
+  const scoreDiff = sit.scoreDiff || 0; // HOU - OPP
+  const qtr = sit.qtr || 1;
+  const clock = sit.clockSeconds || 900;
+  const isRedZone = side === 'opp' && yardNum <= 20;
+  const isGoalLine = side === 'opp' && yardNum <= 5;
+  const isLate = (qtr === 4 && clock < 300) || (qtr === 2 && clock < 120);
+  const isTwoMin = (qtr === 2 || qtr === 4) && clock <= 120;
+
+  // Distance buckets
+  let distBucket = 'long';
+  if (dist <= 3) distBucket = 'short';
+  else if (dist <= 6) distBucket = 'medium';
+  else if (dist <= 10) distBucket = 'long';
+  else distBucket = 'veryLong';
+
+  // Base pass probability from Texans 2025 + situation
+  let passP = BASE_TENDENCIES.overallPass;
+  if (distBucket === 'short') passP = 1 - BASE_TENDENCIES.shortYardageRun;
+  else if (distBucket === 'medium') passP = BASE_TENDENCIES.mediumPass;
+  else if (distBucket === 'long') passP = BASE_TENDENCIES.longPass;
+  else passP = BASE_TENDENCIES.veryLongPass;
+
+  // Field position adjustments
+  if (isGoalLine) passP = 1 - BASE_TENDENCIES.goalLineRun;
+  else if (isRedZone) passP = BASE_TENDENCIES.redZonePass;
+
+  // Game script
+  if (scoreDiff > 7 && isLate) passP -= BASE_TENDENCIES.leadingRun;
+  if (scoreDiff < -7) passP += BASE_TENDENCIES.trailingPass;
+  if (isTwoMin && scoreDiff <= 0) passP = Math.min(0.92, passP + 0.15);
+
+  // Down-specific Texans flavor (from 2025 notes)
+  if (down === 2 && distBucket === 'medium') passP += 0.08; // they loved 2nd & medium pass
+  if (down === 2 && distBucket === 'short') passP -= 0.10;
+  if (down === 3 && distBucket === 'short') passP -= 0.09;
+
+  passP = Math.max(0.12, Math.min(0.92, passP));
+  const runP = 1 - passP;
+
+  // Sub-types
+  const leans = [];
+
+  // Run options
+  if (runP > 0.18) {
+    if (distBucket === 'short' || isGoalLine) {
+      leans.push({ type: 'Run', detail: 'Inside / short-yardage', pct: Math.round(runP * 0.72 * 100), reason: 'Texans lean heavy run on short yardage & goal line (2025 pattern)' });
+      leans.push({ type: 'Run', detail: 'Outside zone / edge', pct: Math.round(runP * 0.28 * 100), reason: 'Secondary option when defense packs the box' });
+    } else {
+      leans.push({ type: 'Run', detail: 'Between the tackles', pct: Math.round(runP * 0.55 * 100), reason: 'Early-down balance + Montgomery power' });
+      leans.push({ type: 'Run', detail: 'Outside / stretch', pct: Math.round(runP * 0.30 * 100), reason: 'Stretch the edge or set up play-action' });
+      if (runP > 0.35) leans.push({ type: 'Run', detail: 'Draw / delayed', pct: Math.round(runP * 0.15 * 100), reason: 'Change-up vs aggressive fronts' });
+    }
+  }
+
+  // Pass options
+  if (passP > 0.18) {
+    const paRate = isRedZone || distBucket === 'short' ? 0.12 : BASE_TENDENCIES.playActionBase;
+    const screenRate = distBucket === 'long' || distBucket === 'veryLong' ? 0.08 : BASE_TENDENCIES.screenBase;
+
+    if (distBucket === 'short' || isGoalLine) {
+      leans.push({ type: 'Pass', detail: 'Short / quick (slant, flat, TE)', pct: Math.round(passP * 0.55 * 100), reason: 'High-percentage to move the chains' });
+      leans.push({ type: 'Pass', detail: 'Play-action boot / TE seam', pct: Math.round(passP * 0.25 * 100), reason: 'Sell the run then hit the soft spot' });
+      leans.push({ type: 'Pass', detail: 'Fade / corner (goal-line)', pct: Math.round(passP * 0.20 * 100), reason: 'Contested catch opportunities for Collins/Higgins' });
+    } else if (distBucket === 'medium') {
+      leans.push({ type: 'Pass', detail: 'Intermediate (cross, dig, out)', pct: Math.round(passP * 0.45 * 100), reason: 'Texans 2025 strength on 2nd & medium' });
+      leans.push({ type: 'Pass', detail: 'Play-action', pct: Math.round(passP * paRate * 100), reason: 'PA rate ~23% overall; higher value here' });
+      leans.push({ type: 'Pass', detail: 'Short / quick game', pct: Math.round(passP * 0.25 * 100), reason: 'Rhythm throws to Schultz or backs' });
+      if (passP > 0.55) leans.push({ type: 'Pass', detail: 'Deep shot (go, post)', pct: Math.round(passP * 0.12 * 100), reason: 'Vertical threat keeps defense honest' });
+    } else {
+      leans.push({ type: 'Pass', detail: 'Intermediate / intermediate-deep', pct: Math.round(passP * 0.40 * 100), reason: 'Standard conversion range' });
+      leans.push({ type: 'Pass', detail: 'Deep vertical', pct: Math.round(passP * 0.28 * 100), reason: 'Collins / Higgins vertical ability' });
+      leans.push({ type: 'Pass', detail: 'Screen / swing', pct: Math.round(passP * screenRate * 100), reason: 'Ease pressure or create YAC' });
+      leans.push({ type: 'Pass', detail: 'Play-action deep', pct: Math.round(passP * 0.18 * 100), reason: 'Sell run, attack soft coverage' });
+    }
+  }
+
+  // Normalize top leans to roughly 100% for display clarity
+  leans.sort((a, b) => b.pct - a.pct);
+  const top = leans.slice(0, 4).filter(l => l.pct >= 8);
+  const sum = top.reduce((s, l) => s + l.pct, 0) || 1;
+  top.forEach(l => { l.pct = Math.round((l.pct / sum) * 100); });
+
+  // Primary lean label
+  const primary = top[0] || { type: 'Pass', detail: 'Balanced', pct: 50, reason: 'Default' };
+  const primaryLabel = primary.type === 'Run' ? `Run lean (${primary.pct}%)` : `Pass lean (${primary.pct}%)`;
+
+  return {
+    primaryLabel,
+    primaryType: primary.type,
+    leans: top,
+    situationSummary: `${ordSuffix(down)} & ${dist} · ${side === 'opp' ? 'Opp' : 'Own'} ${yardNum}`,
+    isPreseason: !!sit.isPreseason,
+    meta: { passP: Math.round(passP * 100), runP: Math.round(runP * 100), distBucket, isRedZone, isGoalLine, isLate }
+  };
+}
+
+/* ---------- Automatic accuracy capture ---------- */
+let _pendingPrediction = null; // { fingerprint, pred, ts }
+let _lastSeenPlayKey = null;
+
+function situationFingerprint(sit) {
+  return `${sit.down}|${sit.distance}|${sit.yardSide}|${sit.yardNum}|${sit.qtr}`;
+}
+
+/** Classify a play description as 'Run' or 'Pass' (simple, robust keywords) */
+function classifyPlayType(desc) {
+  if (!desc || typeof desc !== 'string') return null;
+  const d = desc.toLowerCase();
+  // Pass indicators first (more specific)
+  if (/\b(pass|passes|passed|complete|incomplete|sack|scrambles?|thrown|throwing|intercepted|int\b|deep|slant|out\b|dig\b|post\b|fade|screen pass)\b/.test(d)) {
+    return 'Pass';
+  }
+  if (/\b(rush|rushes|rushed|run|runs|running|carry|carries|up the middle|left tackle|right tackle|left end|right end|draw|zone)\b/.test(d)) {
+    return 'Run';
+  }
+  // Fallback heuristics
+  if (d.includes(' to the ') && (d.includes('yard') || d.includes('yd'))) {
+    // often "X rush ... for Y yards to the ..."
+    if (d.includes('pass')) return 'Pass';
+    return 'Run';
+  }
+  return null;
+}
+
+/** Call when a new actual play is known. Auto-scores the pending lean if one exists. */
+function resolvePendingPrediction(actualPlayDesc, phase) {
+  if (!_pendingPrediction) return;
+  // Never count preseason toward accuracy
+  if (phase === 'pre') {
+    _pendingPrediction = null;
+    return;
+  }
+  const actualType = classifyPlayType(actualPlayDesc);
+  if (!actualType) return; // can't classify → leave pending
+
+  const pred = _pendingPrediction.pred;
+  const primaryType = pred.primaryType; // 'Run' or 'Pass'
+  const correct = primaryType === actualType;
+
+  const log = loadNextPlayLog();
+  const entry = {
+    ts: _pendingPrediction.ts,
+    situation: pred.situationSummary,
+    primary: pred.primaryLabel,
+    primaryType,
+    leans: pred.leans.map(l => `${l.type}: ${l.detail} (${l.pct}%)`),
+    meta: pred.meta,
+    actual: actualType,
+    actualDesc: (actualPlayDesc || '').slice(0, 120),
+    correct,
+    phase: phase || 'reg'
+  };
+  log.predictions.unshift(entry);
+  if (log.predictions.length > 300) log.predictions.length = 300;
+
+  if (phase !== 'pre' && phase !== 'demo') {
+    // Only regular + postseason count in the official accuracy numbers
+    log.accuracy.total += 1;
+    if (correct) log.accuracy.correct += 1;
+  } else if (phase === 'demo') {
+    // Track demo separately so the numbers still move for testing
+    log.accuracy.total += 1;
+    if (correct) log.accuracy.correct += 1;
+  }
+  saveNextPlayLog(log);
+  _pendingPrediction = null;
+}
+
+/** Watch recent plays / situation and auto-resolve + re-predict */
+function autoTrackNextPlay() {
+  if (!LIVE_DEMO.active) return;
+
+  const plays = LIVE_DEMO.recentPlays || [];
+  if (plays.length > 0) {
+    const latest = plays[0];
+    const playKey = `${latest.qtr}|${latest.clock}|${latest.desc}`;
+    if (_lastSeenPlayKey && playKey !== _lastSeenPlayKey) {
+      // A new play appeared → resolve previous prediction against it
+      if (latest.team === 'HOU') {
+        resolvePendingPrediction(latest.desc, 'demo');
+      }
+    }
+    _lastSeenPlayKey = playKey;
+  }
+
+  // If HOU has the ball and we don't have a pending lean for this exact situation, create one
+  if (LIVE_DEMO.possession === 'HOU') {
+    const sit = {
+      down: LIVE_DEMO.down,
+      distance: LIVE_DEMO.distance,
+      yardNum: LIVE_DEMO.yardNum,
+      yardSide: LIVE_DEMO.yardSide,
+      scoreDiff: (LIVE_DEMO.houScore || 0) - (LIVE_DEMO.oppScore || 0),
+      qtr: LIVE_DEMO.qtr,
+      clockSeconds: LIVE_DEMO.clockSeconds
+    };
+    const fp = situationFingerprint(sit);
+    if (!_pendingPrediction || _pendingPrediction.fingerprint !== fp) {
+      const pred = predictNextPlay({ ...sit, isPreseason: false });
+      _pendingPrediction = { fingerprint: fp, pred, ts: Date.now() };
+    }
+  } else {
+    // Ball changed hands or situation reset — clear pending if needed
+    // (actual resolution already happened on the play that ended possession)
+  }
+}
+
+function renderNextPlayLean() {
+  const card = $('#nextPlayCard');
+  const content = $('#nextPlayContent');
+  const accEl = $('#nextPlayAccuracy');
+  if (!card || !content) return;
+
+  // Always run the auto-tracker first so accuracy stays current
+  autoTrackNextPlay();
+
+  // Only show meaningful lean when HOU has the ball in live/demo
+  if (!LIVE_DEMO.active || LIVE_DEMO.possession !== 'HOU') {
+    content.innerHTML = `<div class="empty">Available when HOU has the ball (live or demo).</div>`;
+    if (accEl) accEl.style.display = 'none';
+    return;
+  }
+
+  const scoreDiff = (LIVE_DEMO.houScore || 0) - (LIVE_DEMO.oppScore || 0);
+  const pred = predictNextPlay({
+    down: LIVE_DEMO.down,
+    distance: LIVE_DEMO.distance,
+    yardNum: LIVE_DEMO.yardNum,
+    yardSide: LIVE_DEMO.yardSide,
+    scoreDiff,
+    qtr: LIVE_DEMO.qtr,
+    clockSeconds: LIVE_DEMO.clockSeconds,
+    isPreseason: false
+  });
+
+  // Keep pending in sync with what is displayed
+  const fp = situationFingerprint({
+    down: LIVE_DEMO.down, distance: LIVE_DEMO.distance,
+    yardNum: LIVE_DEMO.yardNum, yardSide: LIVE_DEMO.yardSide, qtr: LIVE_DEMO.qtr
+  });
+  _pendingPrediction = { fingerprint: fp, pred, ts: Date.now() };
+
+  let html = `
+    <div class="nextplay-primary">${pred.primaryLabel}</div>
+    <div class="small" style="margin:2px 0 10px">${pred.situationSummary} · Pass base ${pred.meta.passP}% / Run ${pred.meta.runP}%</div>
+    <div class="nextplay-leans">
+  `;
+  pred.leans.forEach((l, i) => {
+    const barColor = l.type === 'Run' ? 'var(--navy)' : 'var(--danger)';
+    html += `
+      <div class="nextplay-row">
+        <div class="nextplay-label"><strong>${i + 1}. ${l.type}</strong> — ${l.detail}</div>
+        <div class="nextplay-bar-track"><div class="nextplay-bar-fill" style="width:${l.pct}%; background:${barColor}"></div></div>
+        <div class="nextplay-pct">${l.pct}%</div>
+        <div class="nextplay-reason small">${l.reason}</div>
+      </div>
+    `;
+  });
+  html += `</div>
+    <p class="tend-note" style="margin-top:10px">Transparent lean based on 2025 Texans situational rates + current down/distance/field/score/clock. Not a guarantee — for argument purposes only.</p>
+    <p class="small" style="margin-top:6px; opacity:0.9">Accuracy is captured automatically when the next play is known. Preseason never counts.</p>
+    <div style="margin-top:8px">
+      <button type="button" class="btn secondary" id="btnViewAccuracy" style="padding:6px 12px; font-size:0.85rem">View accuracy log</button>
+    </div>
+  `;
+  content.innerHTML = html;
+
+  // Accuracy summary
+  const log = loadNextPlayLog();
+  if (accEl) {
+    if (log.accuracy.total > 0) {
+      const pct = Math.round((log.accuracy.correct / log.accuracy.total) * 100);
+      accEl.style.display = '';
+      accEl.innerHTML = `Auto-tracked accuracy: <strong>${pct}%</strong> (${log.accuracy.correct}/${log.accuracy.total}). Preseason excluded.`;
+    } else {
+      accEl.style.display = '';
+      accEl.innerHTML = `No leans scored yet. Accuracy updates automatically after each play. Preseason never counts.`;
+    }
+  }
+
+  const viewBtn = $('#btnViewAccuracy');
+  if (viewBtn) {
+    viewBtn.onclick = () => {
+      const log = loadNextPlayLog();
+      let msg = `Automatic accuracy log (local only)\n\n`;
+      msg += `Correct: ${log.accuracy.correct} / ${log.accuracy.total}\n\n`;
+      if (log.predictions.length === 0) {
+        msg += `No predictions scored yet.`;
+      } else {
+        msg += `Recent scored leans:\n`;
+        log.predictions.slice(0, 10).forEach((p, i) => {
+          const mark = p.correct === true ? '✓' : (p.correct === false ? '✗' : '?');
+          msg += `${i + 1}. ${mark} ${p.situation} → ${p.primary} (actual: ${p.actual || '?'})\n`;
+        });
+      }
+      msg += `\nPreseason is never included. Scoring happens automatically from play descriptions.`;
+      alert(msg);
+    };
+  }
+}
 
 /* Injury / availability (camp / early preseason — public-style) */
 const INJURY_REPORT = [
@@ -561,6 +910,8 @@ function startLiveRefresh() {
     if (el) el.textContent = 'Updated ' + timeAgo(LIVE_DEMO.lastUpdated);
     const el2 = $('#dataFreshness');
     if (el2) el2.textContent = 'Data fresh · ' + timeAgo(LIVE_DEMO.lastUpdated);
+    // Keep next-play accuracy tracking current
+    if (typeof autoTrackNextPlay === 'function') autoTrackNextPlay();
   }, 1000);
 }
 
@@ -767,6 +1118,13 @@ function renderGameCenter() {
       tendencyCard.style.display = 'none';
     }
 
+    // Next Play Lean (detailed situation model)
+    const nextPlayCard = $('#nextPlayCard');
+    if (nextPlayCard) {
+      nextPlayCard.style.display = possHou ? '' : 'none';
+      if (possHou) renderNextPlayLean();
+    }
+
     if (efficiencyCard) {
       efficiencyCard.style.display = '';
       const e = LIVE_DEMO.efficiency;
@@ -820,6 +1178,8 @@ function renderGameCenter() {
   }
   stopLiveRefresh();
   if (tendencyCard) tendencyCard.style.display = 'none';
+  const nextPlayCardUp = $('#nextPlayCard');
+  if (nextPlayCardUp) nextPlayCardUp.style.display = 'none';
   if (efficiencyCard) efficiencyCard.style.display = 'none';
   if (driveCard) driveCard.style.display = 'none';
   if (recapCard) recapCard.style.display = 'none';
@@ -924,6 +1284,8 @@ function renderRecapDemo() {
   }
   stopLiveRefresh();
   if (tendencyCard) tendencyCard.style.display = 'none';
+  const nextPlayCardRecap = $('#nextPlayCard');
+  if (nextPlayCardRecap) nextPlayCardRecap.style.display = 'none';
   if (efficiencyCard) efficiencyCard.style.display = 'none';
   if (driveCard) driveCard.style.display = 'none';
   if (injuryCard) injuryCard.style.display = 'none';
