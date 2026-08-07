@@ -1268,3 +1268,36 @@ a.video-item:active {
 a.video-item {
   align-items: flex-start;
 }
+
+/* ===== v14.8 Roster ===== */
+.roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.roster-card .player-detail-body {
+  text-align: left;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.roster-pos-btn.active {
+  background: var(--navy) !important;
+  color: #fff !important;
+  border-color: var(--navy) !important;
+}
+/* 9 tabs — slightly tighter */
+.bottom-nav {
+  gap: 0;
+}
+.nav-btn {
+  font-size: 0.55rem;
+  padding: 6px 2px 4px;
+}
+.nav-btn svg {
+  width: 18px;
+  height: 18px;
+}
+

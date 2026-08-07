@@ -1,13 +1,15 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v14.7
+   Texans HQ — Personal PWA  v14.8
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
+   Roster search + pre/post insights
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v14.7';
-const APP_VERSION_LABEL = 'v14.7 · Green nav';
+const APP_VERSION = 'v14.8';
+const APP_VERSION_LABEL = 'v14.8 · Roster';
+
 /* Stable key — never changes across versions so the device stays unlocked */
 const UNLOCK_KEY = 'texans-hq-device-unlocked';
 /* Old keys from previous versions (for one-time migration) */
@@ -165,24 +167,28 @@ const TEAM_STATS_2025 = [
 ];
 
 const KEY_PLAYERS = [
-  { name: 'C.J. Stroud', pos: 'QB', num: '7', note: 'Franchise QB, Year 4', stats: '2025: 3,700+ pass yds · 20+ TD',
-    detail: 'Year-4 starter. Camp notes stress timing with Higgins/Schultz and protecting the football. Preseason will show the real early-down mix.' },
-  { name: 'Nico Collins', pos: 'WR', num: '12', note: 'Pro Bowl target', stats: 'Big-play X receiver',
-    detail: 'Primary vertical and contested-catch threat. Occasional camp rest days are normal workload management unless the team says otherwise.' },
-  { name: 'Jayden Higgins', pos: 'WR', num: '—', note: 'Year-2 breakout candidate', stats: 'Camp standout vs Stingley',
-    detail: 'Year-2 WR with strong camp buzz, including reported wins vs top corners. Watch preseason targets and third-down usage.' },
-  { name: 'Joe Mixon', pos: 'RB', num: '28', note: 'Lead back', stats: 'Between-the-tackles + pass game',
-    detail: 'Early-down and short-yardage lead back. Pass protection and checkdowns matter as much as raw rush yards.' },
-  { name: 'Dalton Schultz', pos: 'TE', num: '86', note: 'Safety valve / red zone', stats: 'Reliable 3rd-down target',
-    detail: 'Trusted intermediate option for Stroud. Red-zone and third-down snaps are the live-game value markers.' },
-  { name: 'Will Anderson Jr.', pos: 'DE', num: '51', note: 'Edge force', stats: 'Primary pass-rush threat',
-    detail: 'Lead edge rusher. How often he aligns with Clowney on obvious passing downs is a weekly watch item.' },
-  { name: 'Derek Stingley Jr.', pos: 'CB', num: '24', note: 'All-Pro shutdown corner', stats: 'Shadows top WR',
-    detail: 'Often travels with the opponent’s top receiver. Camp one-on-ones are useful signal — not final grades.' },
+  { name: 'C.J. Stroud', pos: 'QB', num: '7', note: 'Franchise QB · Year 4', stats: '2025: 3,700+ pass yds · 20+ TD',
+    detail: 'Year-4 starter. Camp focus: timing with Higgins/Schultz, ball security, and early-down mix. Preseason snaps will show the real plan.' },
+  { name: 'Nico Collins', pos: 'WR', num: '12', note: 'Pro Bowl X receiver', stats: 'Big-play + contested catches',
+    detail: 'Primary vertical threat. Occasional rest days in camp are normal. Watch how defenses scheme him Week 1 vs BUF.' },
+  { name: 'Jayden Higgins', pos: 'WR', num: '81', note: 'Year-2 breakout candidate', stats: 'Camp standout vs top CBs',
+    detail: 'Strong camp buzz with wins vs Stingley/Lassiter. Preseason targets + third-down usage will tell the story.' },
+  { name: 'David Montgomery', pos: 'RB', num: '32', note: 'New lead back', stats: 'Power + between-tackles',
+    detail: 'Signed to be the early-down and short-yardage lead. Pass protection and check-downs matter as much as rush yards.' },
+  { name: 'Dalton Schultz', pos: 'TE', num: '86', note: 'Safety valve / red zone', stats: 'Reliable intermediate + RZ',
+    detail: 'Trusted option for Stroud. Red-zone and 3rd-down snaps are the live-game value markers. Watch workload after prior injury history.' },
+  { name: 'Will Anderson Jr.', pos: 'DE', num: '51', note: 'All-Pro edge force', stats: 'Primary pass-rush threat',
+    detail: 'Lead edge. How often he pairs with Clowney/Hunter on obvious passing downs is a weekly watch item.' },
+  { name: 'Derek Stingley Jr.', pos: 'CB', num: '24', note: 'Shutdown corner', stats: 'Often shadows #1 WR',
+    detail: 'Travels with the opponent’s top receiver. Camp 1-on-1s are useful signals, not final grades.' },
   { name: 'Azeez Al-Shaair', pos: 'LB', num: '0', note: 'Defensive leader', stats: 'Run fit + communication',
-    detail: 'Defensive communicator and run-fit LB. Availability can change quickly if camp bumps show up on the report.' },
-  { name: 'Jadeveon Clowney', pos: 'DE', num: '—', note: 'Hometown reunion 2026', stats: 'Veteran edge rotation',
-    detail: 'Re-signed hometown edge. Expect rotational and situational pass-rush snaps alongside Anderson.' }
+    detail: 'Communicator and run-fit LB. Extension locked him in. Availability can change fast with camp bumps.' },
+  { name: 'Jadeveon Clowney', pos: 'DE', num: '90', note: 'Hometown reunion 2026', stats: 'Veteran edge rotation',
+    detail: 'Back on a 1-year deal, #90 reclaimed. Rotational + situational pass-rush alongside Anderson & Hunter. Nostalgia + real edge depth.' },
+  { name: 'Danielle Hunter', pos: 'DE', num: '55', note: 'Pro Bowl edge', stats: 'Veteran production',
+    detail: 'Key piece of the returning top defense. Pairs with Anderson for one of the strongest edge groups in the AFC.' },
+  { name: 'Tank Dell', pos: 'WR', num: '1', note: 'Returning from knee', stats: 'Slot / big-play threat',
+    detail: 'Working back from 2024 knee injury that cost him all of 2025. Camp participation and preseason snaps are the real timeline markers.' }
 ];
 
 const TEAM_STAT_DETAILS = {
@@ -237,11 +243,12 @@ const LIVE_DEMO = {
   lastUpdated: Date.now()
 };
 
-/* Injury / availability (demo — public-style report for testing) */
+/* Injury / availability (camp / early preseason — public-style) */
 const INJURY_REPORT = [
-  { name: 'Tank Dell', pos: 'WR', status: 'Out', note: 'Season-ending injury recovery path (monitor reports)' },
-  { name: 'Azeez Al-Shaair', pos: 'LB', status: 'Questionable', note: 'Bumped in camp; practiced in limited capacity' },
-  { name: 'Nico Collins', pos: 'WR', status: 'Probable', note: 'Rest day earlier in camp; expected available' }
+  { name: 'British Brooks', pos: 'RB', status: 'Out (hand)', note: 'Broke hand in camp, surgery; ~3-week outlook. May miss all preseason.' },
+  { name: 'Tank Dell', pos: 'WR', status: 'Returning', note: 'Working back from 2024 knee. Monitor live snaps in preseason.' },
+  { name: 'D.J. Turner', pos: 'WR', status: 'IR', note: 'On injured reserve.' },
+  { name: 'Azeez Al-Shaair', pos: 'LB', status: 'Monitor', note: 'Any camp bumps are watched closely given his leadership role.' }
 ];
 
 /* Opponent one-pager (low-bias, public facts style) keyed by abbr */
@@ -260,20 +267,23 @@ const OPPONENT_PREVIEWS = {
   },
   LAC: {
     title: 'Los Angeles Chargers',
-    record: 'Preseason opponent',
+    record: 'Preseason Week 1 · Aug 13 (home)',
     bullets: [
-      'Preseason focus: evaluate depth and starter snaps carefully.',
-      'Watch young receivers and secondary depth under live speed.',
-      'Special teams and tackle consistency often tell the real story early.'
+      'Preseason Week 1 is evaluation more than final score — starters often play limited series.',
+      'Watch: Stroud/Mills snap counts, early chemistry with Higgins & the new OL mix (Teller/Rutledge).',
+      'Edge rotation: Anderson + Clowney vs Chargers OT depth is useful live data.',
+      'Special teams and tackle consistency usually tell the real story in the first preseason game.',
+      'Practical tip: local TV (KTRK). Set a reminder; preseason windows can shift slightly.'
     ],
-    sources: 'Preseason context · public roster notes'
+    sources: 'Preseason evaluation priorities · public roster notes'
   },
   DEFAULT: {
     title: 'Opponent',
     record: 'Preview available closer to kickoff',
     bullets: [
-      'Record, main weapons, and schematic notes will appear here.',
-      'Injury line and TV channel stay on the schedule card.'
+      'Record, main weapons, schematic notes, and keys to the game will appear here.',
+      'Injury line, TV channel, and history stay on the other cards.',
+      'Preseason focus: depth evaluation and starter rest plans. Regular/post: matchup specifics.'
     ],
     sources: 'Updated from public sources before game week'
   }
@@ -286,30 +296,94 @@ const WP_SERIES_DEMO = [
   { t: 4, hou: 58 }, { t: 5, hou: 64 }, { t: 6, hou: 62 }, { t: 7, hou: 67 }
 ];
 
-/* Depth chart simplified */
+/* Depth chart simplified — camp / early preseason view */
 const DEPTH_CHART = {
   offense: [
-    { unit: 'QB', players: ['C.J. Stroud', 'Backup QB'] },
-    { unit: 'RB', players: ['Joe Mixon', 'Dameon Pierce', 'Dare Ogunbowale'] },
-    { unit: 'WR', players: ['Nico Collins', 'Jayden Higgins', 'Xavier Hutchinson'] },
-    { unit: 'TE', players: ['Dalton Schultz', 'Brevin Jordan'] },
-    { unit: 'OL (core)', players: ['LT', 'LG', 'C', 'RG', 'RT'] }
+    { unit: 'QB', players: ['C.J. Stroud', 'Davis Mills', 'Graham Mertz'] },
+    { unit: 'RB', players: ['David Montgomery', 'Woody Marks', 'Jawhar Jordan', 'British Brooks'] },
+    { unit: 'WR', players: ['Nico Collins', 'Jayden Higgins', 'Tank Dell', 'Xavier Hutchinson', 'Jaylin Noel'] },
+    { unit: 'TE', players: ['Dalton Schultz', 'Foster Moreau', 'Brevin Jordan', 'Cade Stover', 'Marlin Klein'] },
+    { unit: 'OL (core)', players: ['Aireontae Ersery', 'Wyatt Teller', 'Keylan Rutledge / Jake Andrews', 'Ed Ingram', 'Braden Smith'] }
   ],
   defense: [
-    { unit: 'EDGE', players: ['Will Anderson Jr.', 'Jadeveon Clowney'] },
-    { unit: 'DL', players: ['Interior rotation'] },
-    { unit: 'LB', players: ['Azeez Al-Shaair', 'Linebacker group'] },
-    { unit: 'CB', players: ['Derek Stingley Jr.', 'Kamari Lassiter'] },
-    { unit: 'S', players: ['Safety duo'] }
+    { unit: 'EDGE', players: ['Will Anderson Jr.', 'Danielle Hunter', 'Jadeveon Clowney'] },
+    { unit: 'DL', players: ['Sheldon Rankins', 'Tommy Togiai', 'Logan Hall', 'Kayden McDonald'] },
+    { unit: 'LB', players: ['Azeez Al-Shaair', 'Henry To\'oTo\'o', 'Marte Mapu', 'E.J. Speed'] },
+    { unit: 'CB', players: ['Derek Stingley Jr.', 'Kamari Lassiter', 'Jaylin Smith', 'Tremon Smith'] },
+    { unit: 'S', players: ['Calen Bullock', 'Jalen Pitre', 'Reed Blankenship'] }
   ]
 };
+
+/* ---------- Full searchable roster (training camp / preseason 2026) ----------
+   Phase notes: Camp roster is larger (~90). Regular season cuts to 53 + practice squad.
+   Postseason uses the active 53. Numbers & roles can shift after cuts.
+   Insights focus on things typical apps skip: camp status, role clarity, father-son watch points, practical viewing notes.
+*/
+const FULL_ROSTER = [
+  // QB
+  { name: 'C.J. Stroud', num: '7', pos: 'QB', ht: '6-3', wt: '218', exp: 4, college: 'Ohio State', status: 'Starter', note: 'Franchise QB Year 4. Camp focus = timing + ball security. Preseason early-down mix is the real signal.' },
+  { name: 'Davis Mills', num: '10', pos: 'QB', ht: '6-4', wt: '225', exp: 6, college: 'Stanford', status: 'Backup', note: 'Reliable #2. Preseason will get significant snaps while starters rest.' },
+  { name: 'Graham Mertz', num: '18', pos: 'QB', ht: '6-2', wt: '216', exp: 2, college: 'Florida', status: 'Camp battle', note: 'Fighting for the #3 / practice-squad path. Preseason tape decides.' },
+  // RB
+  { name: 'David Montgomery', num: '32', pos: 'RB', ht: '5-11', wt: '230', exp: 8, college: 'Iowa State', status: 'Starter', note: 'New lead back. Power, short-yardage, early downs. Pass-pro still key.' },
+  { name: 'Woody Marks', num: '4', pos: 'RB', ht: '5-10', wt: '208', exp: 2, college: 'USC', status: 'Change of pace', note: 'Year-2 all-around back. Expect complementary role + special teams value.' },
+  { name: 'Jawhar Jordan', num: '25', pos: 'RB', ht: '5-10', wt: '185', exp: 1, college: 'Louisville', status: 'Speed / depth', note: 'Juice and vision. Camp riser candidate for the 53 or PS.' },
+  { name: 'British Brooks', num: '44', pos: 'RB', ht: '5-11', wt: '225', exp: 3, college: 'North Carolina', status: 'ST / depth · Injured', note: 'Broke hand in camp (surgery, ~3-week outlook). Special-teams ace; timeline may affect final cuts.' },
+  { name: 'Noah Whittington', num: '26', pos: 'RB', ht: '—', wt: '—', exp: 'R', college: 'Oregon', status: 'Rookie depth', note: 'UDFA. Preseason opportunity if Brooks misses time.' },
+  // WR
+  { name: 'Nico Collins', num: '12', pos: 'WR', ht: '6-4', wt: '222', exp: 6, college: 'Michigan', status: 'WR1', note: 'Pro Bowl vertical + contested. Rest days normal. Defenses will scheme him heavily vs BUF.' },
+  { name: 'Jayden Higgins', num: '81', pos: 'WR', ht: '6-4', wt: '215', exp: 2, college: 'Iowa State', status: 'WR2 / rising', note: 'Camp standout vs top corners. Year-2 leap candidate — watch preseason targets.' },
+  { name: 'Tank Dell', num: '1', pos: 'WR', ht: '5-10', wt: '165', exp: 4, college: 'Houston', status: 'Returning', note: 'Back from 2024 knee (missed 2025). Camp participation + preseason snaps = real timeline.' },
+  { name: 'Xavier Hutchinson', num: '19', pos: 'WR', ht: '6-3', wt: '210', exp: 4, college: 'Iowa State', status: 'Depth / ST', note: 'Reliable depth and special teams. Solid camp contributor.' },
+  { name: 'Jaylin Noel', num: '13', pos: 'WR', ht: '—', wt: '—', exp: 1, college: '—', status: 'Young depth', note: 'Watch preseason for separation and return ability.' },
+  { name: 'Justin Watson', num: '84', pos: 'WR', ht: '—', wt: '—', exp: 'Vet', college: '—', status: 'Veteran depth', note: 'Known for special teams and reliable hands.' },
+  // TE
+  { name: 'Dalton Schultz', num: '86', pos: 'TE', ht: '6-5', wt: '242', exp: 8, college: 'Stanford', status: 'Starter', note: 'Safety valve + red-zone. Intermediate reliability for Stroud remains high value.' },
+  { name: 'Foster Moreau', num: '87', pos: 'TE', ht: '6-4', wt: '250', exp: 8, college: 'LSU', status: 'Blocking / depth', note: 'Veteran blocker and red-zone presence. Strong addition to TE room.' },
+  { name: 'Brevin Jordan', num: '9', pos: 'TE', ht: '6-3', wt: '245', exp: 6, college: 'Miami', status: 'Receiving TE', note: 'Athletic option. Returning from prior injury — monitor snaps.' },
+  { name: 'Cade Stover', num: '8', pos: 'TE', ht: '—', wt: '—', exp: 2, college: 'Ohio State', status: 'Depth / blocker', note: 'Y-TE / inline. Camp competition for the 3rd/4th TE spots.' },
+  { name: 'Marlin Klein', num: '83', pos: 'TE', ht: '6-6', wt: '250', exp: 'R', college: 'Michigan', status: 'Rookie', note: '3rd-round pick. Blocking + size. Early camp notes on physicality.' },
+  // OL
+  { name: 'Aireontae Ersery', num: '79', pos: 'T', ht: '6-6', wt: '330', exp: 2, college: 'Minnesota', status: 'LT starter', note: 'Year-2 LT. Camp focus on consistency and pass-pro sets.' },
+  { name: 'Wyatt Teller', num: '75', pos: 'G', ht: '6-3', wt: '323', exp: 8, college: 'Virginia Tech', status: 'LG starter', note: 'Veteran free-agent addition. Anchors the left side with power.' },
+  { name: 'Keylan Rutledge', num: '66', pos: 'G/C', ht: '—', wt: '—', exp: 'R', college: 'Georgia Tech', status: '1st-round pick', note: 'High-upside interior. Camp battles at C/G. Pancake highlights already noted.' },
+  { name: 'Ed Ingram', num: '69', pos: 'G', ht: '6-3', wt: '307', exp: 5, college: 'LSU', status: 'RG', note: 'Steady interior. Pairing with Teller improves the middle.' },
+  { name: 'Braden Smith', num: '71', pos: 'T', ht: '6-5', wt: '322', exp: 8, college: 'Auburn', status: 'RT starter', note: 'Veteran RT addition. Experience and length for the right side.' },
+  { name: 'Jake Andrews', num: '60', pos: 'C', ht: '6-3', wt: '308', exp: 4, college: 'Troy', status: 'Center battle', note: 'Competing with Rutledge / others for the starting C role.' },
+  { name: 'Trent Brown', num: '77', pos: 'T', ht: '6-8', wt: '380', exp: 12, college: 'Florida', status: 'Swing tackle', note: 'Massive veteran depth. Valuable insurance at either tackle.' },
+  // EDGE / DL
+  { name: 'Will Anderson Jr.', num: '51', pos: 'DE', ht: '6-4', wt: '243', exp: 4, college: 'Alabama', status: 'All-Pro edge', note: 'Primary pass-rush force. Alignment with Clowney/Hunter is a weekly storyline.' },
+  { name: 'Danielle Hunter', num: '55', pos: 'DE', ht: '6-5', wt: '263', exp: 12, college: 'LSU', status: 'Pro Bowl edge', note: 'Veteran production. Core of the returning #1 defense.' },
+  { name: 'Jadeveon Clowney', num: '90', pos: 'DE', ht: '6-5', wt: '266', exp: 13, college: 'South Carolina', status: 'Hometown return', note: '1-year deal, #90 back. Rotational early-down + situational rush. Nostalgia that still produces.' },
+  { name: 'Logan Hall', num: '96', pos: 'DE', ht: '6-6', wt: '283', exp: 5, college: 'Houston', status: 'Interior / edge flex', note: 'Voluntarily switched from 90 for Clowney. Solid rotation piece.' },
+  { name: 'Sheldon Rankins', num: '98', pos: 'DT', ht: '6-2', wt: '305', exp: 11, college: 'Louisville', status: 'DT starter', note: 'Veteran interior presence. Run defense + push.' },
+  { name: 'Tommy Togiai', num: '72', pos: 'DT', ht: '6-2', wt: '296', exp: 4, college: 'Ohio State', status: 'DT rotation', note: 'Strong camp notes on interior disruption.' },
+  { name: 'Kayden McDonald', num: '93', pos: 'DT', ht: '6-3', wt: '326', exp: 'R', college: 'Ohio State', status: 'Rookie DT', note: 'Draft pick. Size and power for the rotation.' },
+  // LB
+  { name: 'Azeez Al-Shaair', num: '0', pos: 'LB', ht: '6-2', wt: '228', exp: 8, college: 'Florida Atlantic', status: 'MLB / leader', note: 'Communicator + run-fit. Extension locked him in. Watch availability if any camp bumps.' },
+  { name: 'Henry To\'oTo\'o', num: '39', pos: 'LB', ht: '6-2', wt: '228', exp: 3, college: 'Alabama', status: 'Starter', note: 'Physical LB. Key to the front-seven continuity.' },
+  { name: 'Marte Mapu', num: '14', pos: 'LB', ht: '6-3', wt: '230', exp: 4, college: 'Sacramento State', status: 'Depth / hybrid', note: 'Versatile. Can play multiple LB spots and contribute in sub packages.' },
+  { name: 'E.J. Speed', num: '45', pos: 'LB', ht: '6-4', wt: '227', exp: 7, college: 'Tarleton State', status: 'Veteran depth', note: 'Experience and special teams. Depth chart competition remains open.' },
+  // DB
+  { name: 'Derek Stingley Jr.', num: '24', pos: 'CB', ht: '6-1', wt: '195', exp: 4, college: 'LSU', status: 'CB1', note: 'Shutdown corner. Often shadows the #1 WR. Camp 1-on-1s are data, not final grades.' },
+  { name: 'Kamari Lassiter', num: '3', pos: 'CB', ht: '6-0', wt: '180', exp: 3, college: 'Georgia', status: 'CB2', note: 'Rising starter. Physical and competitive. Pair with Stingley is elite.' },
+  { name: 'Jalen Pitre', num: '5', pos: 'S', ht: '6-0', wt: '200', exp: 5, college: 'Baylor', status: 'SS / nickel', note: 'Versatile safety who can play the slot. Key to the secondary flexibility.' },
+  { name: 'Calen Bullock', num: '2', pos: 'S', ht: '6-3', wt: '190', exp: 3, college: 'USC', status: 'FS', note: 'Range and ball skills. Starting free safety.' },
+  { name: 'Reed Blankenship', num: '6', pos: 'S', ht: '6-1', wt: '203', exp: 5, college: 'Middle Tennessee', status: 'Depth / starter candidate', note: 'Veteran safety depth with starting experience.' },
+  { name: 'Tremon Smith', num: '11', pos: 'CB', ht: '5-11', wt: '190', exp: 8, college: 'Central Arkansas', status: 'ST / depth', note: 'Special teams ace and CB depth.' },
+  // ST
+  { name: 'Ka\'imi Fairbairn', num: '15', pos: 'K', ht: '6-0', wt: '183', exp: 11, college: 'UCLA', status: 'Kicker', note: 'Reliable veteran. Leg strength and accuracy remain high.' },
+  { name: 'Kai Kroeger', num: '38', pos: 'P', ht: '6-3', wt: '213', exp: 2, college: 'South Carolina', status: 'Punter', note: 'Primary punter. Hang time and directional control.' },
+  { name: 'Austin Brinkman', num: '40', pos: 'LS', ht: '6-4', wt: '241', exp: 2, college: 'West Virginia', status: 'Long snapper', note: 'Steady long snapper.' }
+];
 
 /* What to watch this week */
 const WATCH_THIS_WEEK = [
   { title: 'Stroud → Higgins chemistry', detail: 'Year-2 WR continuing camp momentum into live reps.' },
-  { title: 'Edge pressure package', detail: 'Anderson + Clowney rotation and how often they align together.' },
-  { title: 'Run-game efficiency', detail: 'Early-down success rate sets up play-action later.' },
-  { title: 'TV / availability', detail: 'Check schedule card for network — Prime games need your existing subscription.' }
+  { title: 'Edge pressure package', detail: 'Anderson + Clowney + Hunter rotation and how often they align together.' },
+  { title: 'Run-game efficiency', detail: 'Montgomery early-down success sets up play-action later.' },
+  { title: 'TV / availability', detail: 'Check schedule card for network — Prime games need your existing subscription.' },
+  { title: 'Dell timeline', detail: 'Any live preseason snaps from Tank Dell are a major positive signal.' }
 ];
 
 /* Recent history vs opponents (public-style sample) */
@@ -374,8 +448,10 @@ function showSection(id) {
   if (id === 'news') loadNews(false);
   if (id === 'camp') loadCamp(false);
   if (id === 'stats') renderStats();
+  if (id === 'roster') renderRoster();
   if (id === 'videos') loadVideos(false);
 }
+
 
 $$('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', () => showSection(btn.dataset.sec));
@@ -1570,6 +1646,102 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => setVersionPill(APP_VERSION + ' · no SW'));
 }
 
+
+/* ---------- Roster search (v14.8) ---------- */
+let rosterFilterPos = 'ALL';
+function renderRoster() {
+  const list = $('#rosterList');
+  const countEl = $('#rosterCount');
+  const searchEl = $('#rosterSearch');
+  const filtersEl = $('#rosterFilters');
+  if (!list) return;
+
+  // Position filter chips
+  if (filtersEl && !filtersEl.dataset.ready) {
+    const positions = ['ALL', 'QB', 'RB', 'WR', 'TE', 'OL', 'DE', 'DT', 'LB', 'CB', 'S', 'ST'];
+    filtersEl.innerHTML = positions.map(p =>
+      `<button type="button" class="btn secondary roster-pos-btn${p === 'ALL' ? ' active' : ''}" data-pos="${p}" style="padding:4px 10px; font-size:0.85rem;">${p}</button>`
+    ).join('');
+    filtersEl.dataset.ready = '1';
+    filtersEl.querySelectorAll('.roster-pos-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        rosterFilterPos = btn.dataset.pos;
+        filtersEl.querySelectorAll('.roster-pos-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applyRosterFilter();
+      });
+    });
+  }
+
+  if (searchEl && !searchEl.dataset.bound) {
+    searchEl.dataset.bound = '1';
+    searchEl.addEventListener('input', applyRosterFilter);
+  }
+
+  applyRosterFilter();
+
+  function applyRosterFilter() {
+    const q = (searchEl ? searchEl.value : '').trim().toLowerCase();
+    const filtered = FULL_ROSTER.filter(p => {
+      const posOk = rosterFilterPos === 'ALL' ||
+        p.pos === rosterFilterPos ||
+        (rosterFilterPos === 'OL' && ['T', 'G', 'C', 'OL'].includes(p.pos)) ||
+        (rosterFilterPos === 'DE' && p.pos === 'DE') ||
+        (rosterFilterPos === 'DT' && p.pos === 'DT') ||
+        (rosterFilterPos === 'ST' && ['K', 'P', 'LS'].includes(p.pos));
+      if (!posOk) return false;
+      if (!q) return true;
+      return (
+        p.name.toLowerCase().includes(q) ||
+        (p.num && p.num.toString().includes(q)) ||
+        p.pos.toLowerCase().includes(q) ||
+        (p.status && p.status.toLowerCase().includes(q)) ||
+        (p.college && p.college.toLowerCase().includes(q))
+      );
+    });
+
+    list.innerHTML = filtered.map((p, idx) => `
+      <button type="button" class="player-card player-card-btn roster-card" data-roster-idx="${FULL_ROSTER.indexOf(p)}" aria-expanded="false">
+        <div class="player-card-top">
+          <span class="player-name">${p.num ? '#' + p.num + ' ' : ''}${p.name}</span>
+          <span class="player-pos">${p.pos}</span>
+        </div>
+        <div class="player-note">${p.status || ''} ${p.ht && p.wt ? '· ' + p.ht + ' / ' + p.wt : ''} ${p.exp ? '· Exp ' + p.exp : ''}</div>
+        <div class="player-expand-hint">Tap for insights ▾</div>
+        <div class="player-detail-body hidden"></div>
+      </button>
+    `).join('') || '<div class="empty">No players match. Try a different name, number, or position.</div>';
+
+    if (countEl) countEl.textContent = `${filtered.length} player${filtered.length !== 1 ? 's' : ''} shown · Camp / preseason roster (cuts to 53 for regular + postseason)`;
+
+    list.querySelectorAll('[data-roster-idx]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-roster-idx'), 10);
+        const p = FULL_ROSTER[idx];
+        if (!p) return;
+        const body = btn.querySelector('.player-detail-body');
+        const hint = btn.querySelector('.player-expand-hint');
+        const wasOpen = body && !body.classList.contains('hidden');
+        list.querySelectorAll('.player-detail-body').forEach(el => el.classList.add('hidden'));
+        list.querySelectorAll('.roster-card').forEach(b => {
+          b.setAttribute('aria-expanded', 'false');
+          const h = b.querySelector('.player-expand-hint');
+          if (h) h.textContent = 'Tap for insights ▾';
+        });
+        if (wasOpen || !body) return;
+        body.classList.remove('hidden');
+        body.innerHTML = `
+          <strong>${p.name}</strong> · #${p.num || '—'} · ${p.pos}<br>
+          ${p.ht || ''} ${p.wt || ''} · Exp: ${p.exp || '—'} · ${p.college || ''}<br>
+          <span class="small" style="display:block;margin-top:6px">${p.note || 'No extended note yet.'}</span>
+          <span class="small" style="display:block;margin-top:4px;opacity:0.85">Phase note: Preseason roster is larger. Regular-season and postseason use the final 53-man + practice squad.</span>
+        `;
+        btn.setAttribute('aria-expanded', 'true');
+        if (hint) hint.textContent = 'Tap to close ▴';
+      });
+    });
+  }
+}
 
 /* ---------- Stats (restored in v14.7 — was dropped in v14.7 feed rewrite) ---------- */
 function renderStats() {
