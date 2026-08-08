@@ -1,17 +1,17 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.8
+   Texans HQ — Personal PWA  v15.9
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
    Roster + Next Play Lean + Dominos to Win (causal path model)
    Active nav: black box + white icon/label
    Demo removed · Game Center truthful
-   Polish: Schedule insights, Plays back, Roster Keylan + trusted links, About tabs
+   Dual-path: possession mirror, opp tendency/lean, scheme similarity
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.8';
-const APP_VERSION_LABEL = 'v15.8 · Polish';
+const APP_VERSION = 'v15.9';
+const APP_VERSION_LABEL = 'v15.9 · Dual path';
 
 /* Stable key — never changes across versions so the device stays unlocked */
 const UNLOCK_KEY = 'texans-hq-device-unlocked';
@@ -879,29 +879,31 @@ function renderNextPlayLean() {
   // Always run the auto-tracker first so accuracy stays current
   autoTrackNextPlay();
 
-  // Only show meaningful lean when HOU has the ball in live/demo
-  if (!LIVE_DEMO.active || LIVE_DEMO.possession !== 'HOU') {
-    content.innerHTML = `<div class="empty">Available when HOU has the ball (live or demo).</div>`;
+  // Prefer real LIVE_GAME, fall back to LIVE_DEMO
+  const src = (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.active) ? LIVE_GAME
+    : (LIVE_DEMO.active ? LIVE_DEMO : null);
+  if (!src || src.possession !== 'HOU') {
+    content.innerHTML = `<div class="empty">Available when HOU has the ball in a live game.</div>`;
     if (accEl) accEl.style.display = 'none';
     return;
   }
 
-  const scoreDiff = (LIVE_DEMO.houScore || 0) - (LIVE_DEMO.oppScore || 0);
+  const scoreDiff = (src.houScore || 0) - (src.oppScore || 0);
   const pred = predictNextPlay({
-    down: LIVE_DEMO.down,
-    distance: LIVE_DEMO.distance,
-    yardNum: LIVE_DEMO.yardNum,
-    yardSide: LIVE_DEMO.yardSide,
+    down: src.down,
+    distance: src.distance,
+    yardNum: src.yardNum,
+    yardSide: src.yardSide,
     scoreDiff,
-    qtr: LIVE_DEMO.qtr,
-    clockSeconds: LIVE_DEMO.clockSeconds,
+    qtr: src.qtr,
+    clockSeconds: src.clockSeconds,
     isPreseason: false
   });
 
   // Keep pending in sync with what is displayed
   const fp = situationFingerprint({
-    down: LIVE_DEMO.down, distance: LIVE_DEMO.distance,
-    yardNum: LIVE_DEMO.yardNum, yardSide: LIVE_DEMO.yardSide, qtr: LIVE_DEMO.qtr
+    down: src.down, distance: src.distance,
+    yardNum: src.yardNum, yardSide: src.yardSide, qtr: src.qtr
   });
   _pendingPrediction = { fingerprint: fp, pred, ts: Date.now() };
 
@@ -1127,6 +1129,224 @@ function resolveDominoStatuses(dominos, signals, state) {
  * Core evaluator — pure function of current game state.
  * Returns { dominos, allDominos, keyInsight, statusSummary, phaseNote }
  */
+
+/* ============================================================
+   DUAL-PATH / POSSESSION MIRROR  (v15.9)
+   When HOU has the ball → Texans path + HOU lean
+   When OPP has the ball → same rigor for opponent tendency +
+   Houston defensive path + scheme-similarity priors
+   ============================================================ */
+
+/** Compact offense fingerprints (public-style season tendencies).
+ *  Values are illustrative anchors for similarity — live plays still win. */
+const SCHEME_FINGERPRINTS = {
+  HOU: { shotgun: 0.61, playAction: 0.15, motion: 0.54, underCenter: 0.35, multiTE: 0.28, tempo: 0.25, family: 'balanced-spread' },
+  LAC: { shotgun: 0.70, playAction: 0.16, motion: 0.49, underCenter: 0.22, multiTE: 0.22, tempo: 0.20, family: 'spread-shotgun' },
+  BUF: { shotgun: 0.50, playAction: 0.16, motion: 0.56, underCenter: 0.40, multiTE: 0.30, tempo: 0.30, family: 'balanced-explosive' },
+  KC:  { shotgun: 0.80, playAction: 0.16, motion: 0.50, underCenter: 0.18, multiTE: 0.25, tempo: 0.22, family: 'spread-shotgun' },
+  SF:  { shotgun: 0.53, playAction: 0.14, motion: 0.66, underCenter: 0.45, multiTE: 0.35, tempo: 0.18, family: 'shanahan-zone' },
+  LAR: { shotgun: 0.40, playAction: 0.21, motion: 0.63, underCenter: 0.50, multiTE: 0.32, tempo: 0.20, family: 'shanahan-zone' },
+  BAL: { shotgun: 0.64, playAction: 0.14, motion: 0.53, underCenter: 0.30, multiTE: 0.40, tempo: 0.22, family: 'multi-te' },
+  PHI: { shotgun: 0.78, playAction: 0.12, motion: 0.43, underCenter: 0.20, multiTE: 0.28, tempo: 0.35, family: 'spread-shotgun' },
+  CIN: { shotgun: 0.82, playAction: 0.12, motion: 0.50, underCenter: 0.15, multiTE: 0.20, tempo: 0.18, family: 'spread-shotgun' },
+  DET: { shotgun: 0.50, playAction: 0.17, motion: 0.53, underCenter: 0.42, multiTE: 0.30, tempo: 0.28, family: 'balanced-aggressive' },
+  LV:  { shotgun: 0.66, playAction: 0.16, motion: 0.48, underCenter: 0.25, multiTE: 0.24, tempo: 0.22, family: 'spread-shotgun' },
+  CAR: { shotgun: 0.65, playAction: 0.14, motion: 0.50, underCenter: 0.28, multiTE: 0.26, tempo: 0.22, family: 'balanced-spread' },
+  DEFAULT: { shotgun: 0.60, playAction: 0.14, motion: 0.50, underCenter: 0.30, multiTE: 0.25, tempo: 0.22, family: 'balanced-spread' }
+};
+
+/** Opponent-on-offense path seeds (what Houston’s defense must achieve) */
+const OPP_ON_OFFENSE_DOMINOS = {
+  LAC: [
+    { id: 'opp-lac-exp', text: 'No Chargers explosive play this drive', category: 'defense', priority: 93, preGame: false, why: 'One shot flips preseason scripts' },
+    { id: 'opp-lac-edge', text: 'Edge sets the edge on early downs', category: 'defense', priority: 88, preGame: false, why: 'Anderson / Clowney live test' },
+    { id: 'opp-lac-3rd', text: 'Get off the field on 3rd down', category: 'defense', priority: 90, preGame: false, why: 'Force punt / field-goal range only' }
+  ],
+  BUF: [
+    { id: 'opp-buf-exp', text: 'Limit Bills chunk pass plays', category: 'defense', priority: 95, preGame: false, why: 'Buffalo wins with explosives' },
+    { id: 'opp-buf-edge', text: 'Contain designed QB runs / boots', category: 'defense', priority: 88, preGame: false, why: 'Script often includes movement' },
+    { id: 'opp-buf-3rd', text: 'Win 3rd-down defense', category: 'defense', priority: 92, preGame: false, why: 'Sustained drives kill the path' }
+  ],
+  DEFAULT: [
+    { id: 'opp-def-exp', text: 'Prevent an explosive (≥20 yd) this drive', category: 'defense', priority: 92, preGame: false, why: 'Path protection starts here' },
+    { id: 'opp-def-early', text: 'Win early downs — force 3rd-and-long', category: 'defense', priority: 88, preGame: false, why: 'Sets up the pass rush' },
+    { id: 'opp-def-3rd', text: 'Get a stop on 3rd down', category: 'defense', priority: 90, preGame: false, why: 'End the possession' },
+    { id: 'opp-def-rz', text: 'If red zone: hold to FG or less', category: 'defense', priority: 94, preGame: false, why: 'Points allowed shrink the path' }
+  ]
+};
+
+function schemeDistance(a, b) {
+  const keys = ['shotgun', 'playAction', 'motion', 'underCenter', 'multiTE', 'tempo'];
+  let s = 0;
+  keys.forEach((k) => { s += Math.abs((a[k] || 0) - (b[k] || 0)); });
+  return s;
+}
+
+/** Top scheme neighbors for an opponent (excludes HOU and self). */
+function similarSchemes(oppAbbr, limit) {
+  limit = limit || 2;
+  const base = SCHEME_FINGERPRINTS[oppAbbr] || SCHEME_FINGERPRINTS.DEFAULT;
+  const scored = Object.keys(SCHEME_FINGERPRINTS)
+    .filter((k) => k !== oppAbbr && k !== 'HOU' && k !== 'DEFAULT')
+    .map((k) => ({ abbr: k, family: SCHEME_FINGERPRINTS[k].family, d: schemeDistance(base, SCHEME_FINGERPRINTS[k]) }))
+    .sort((x, y) => x.d - y.d);
+  return scored.slice(0, limit);
+}
+
+/**
+ * Opponent tendency lean for current situation (mirror of HOU tendency).
+ * Uses scheme fingerprint as prior; situation adjusts pass/run split.
+ */
+function predictOppTendency(state) {
+  const abbr = state.oppAbbr || 'DEFAULT';
+  const fp = SCHEME_FINGERPRINTS[abbr] || SCHEME_FINGERPRINTS.DEFAULT;
+  const down = state.down || 1;
+  const dist = state.distance || 10;
+  const scoreDiff = (state.houScore || 0) - (state.oppScore || 0); // HOU perspective
+  // Base pass rate from fingerprint shotgun + play-action flavor
+  let passP = Math.round(40 + fp.shotgun * 25 + fp.playAction * 10);
+  if (down === 3 && dist >= 5) passP = Math.min(92, passP + 18);
+  if (down === 3 && dist <= 2) passP = Math.max(35, passP - 12);
+  if (down === 1 && dist === 10) passP = Math.round(passP * 0.92);
+  // Trailing teams pass more late
+  const qtr = state.qtr || 1;
+  if (scoreDiff > 7 && qtr >= 3) passP = Math.min(90, passP + 10); // HOU leading → opp trails → more pass
+  if (scoreDiff < -7 && qtr >= 3) passP = Math.max(30, passP - 8);
+  passP = Math.max(28, Math.min(92, passP));
+  const runP = 100 - passP;
+  const neighbors = similarSchemes(abbr, 2);
+  const simNote = neighbors.length
+    ? 'Scheme family ~ ' + fp.family + ' (near ' + neighbors.map((n) => n.abbr).join(', ') + ')'
+    : 'Scheme family ~ ' + fp.family;
+  return {
+    passP: passP,
+    runP: runP,
+    primary: passP >= runP ? 'Pass lean' : 'Run lean',
+    detail: passP >= runP
+      ? ('Expect pass concepts — shotgun/PA profile ' + Math.round(fp.shotgun * 100) + '% / ' + Math.round(fp.playAction * 100) + '% PA prior')
+      : ('Expect run or run-look — force early-down stops'),
+    simNote: simNote,
+    neighbors: neighbors,
+    family: fp.family
+  };
+}
+
+function renderOppTendencyCard(state) {
+  const card = $('#oppTendencyCard');
+  const content = $('#oppTendencyContent');
+  const title = $('#oppTendencyCardTitle');
+  if (!card || !content) return;
+  card.style.display = '';
+  const abbr = state.oppAbbr || 'OPP';
+  if (title) title.textContent = 'Opponent tendency (' + abbr + ' ball)';
+  const t = predictOppTendency(state);
+  content.innerHTML =
+    '<div class="tendency-bars">' +
+      '<div class="tend-row"><span class="tend-label">Pass</span><div class="tend-track"><div class="tend-fill pass" style="width:' + t.passP + '%"></div></div><span class="tend-pct">' + t.passP + '%</span></div>' +
+      '<div class="tend-row"><span class="tend-label">Run</span><div class="tend-track"><div class="tend-fill run" style="width:' + t.runP + '%"></div></div><span class="tend-pct">' + t.runP + '%</span></div>' +
+    '</div>' +
+    '<div class="tend-note" style="margin-top:8px"><strong>' + t.primary + '</strong> — ' + t.detail + '</div>' +
+    '<div class="small" style="margin-top:6px">' + t.simNote + '. Prior only — live plays rewrite Dominos.</div>';
+}
+
+function renderOppNextPlayLean(state) {
+  const card = $('#oppNextPlayCard');
+  const content = $('#oppNextPlayContent');
+  const title = $('#oppNextPlayCardTitle');
+  if (!card || !content) return;
+  card.style.display = '';
+  const abbr = state.oppAbbr || 'OPP';
+  if (title) title.textContent = abbr + ' Next Play Lean';
+  const t = predictOppTendency(state);
+  const down = state.down || 1;
+  const dist = state.distance || 10;
+  let leans = [];
+  if (t.passP >= t.runP) {
+    leans.push({ type: 'Pass', pct: t.passP, detail: down === 3 ? 'Convert 3rd-and-' + dist : 'Dropback / PA family', reason: t.family + ' prior + situation' });
+    leans.push({ type: 'Run', pct: t.runP, detail: 'Early-down or short-yardage look', reason: 'Balance / play-action setup' });
+  } else {
+    leans.push({ type: 'Run', pct: t.runP, detail: 'Zone or gap early down', reason: t.family + ' prior + situation' });
+    leans.push({ type: 'Pass', pct: t.passP, detail: 'Play-action or boot', reason: 'Keep defense honest' });
+  }
+  let html = '<div class="nextplay-primary">' + leans[0].type + ' lean for ' + abbr + '</div>';
+  html += '<div class="small" style="margin:2px 0 10px">' + ordSuffix(down) + ' & ' + dist + ' · ' + t.simNote + '</div>';
+  html += '<div class="nextplay-leans">';
+  leans.forEach(function (l, i) {
+    const barColor = l.type === 'Run' ? 'var(--navy)' : 'var(--danger)';
+    html += '<div class="nextplay-row"><div class="nextplay-label"><strong>' + (i + 1) + '. ' + l.type + '</strong> — ' + l.detail + '</div>';
+    html += '<div class="nextplay-bar-track"><div class="nextplay-bar-fill" style="width:' + l.pct + '%; background:' + barColor + '"></div></div>';
+    html += '<div class="nextplay-pct">' + l.pct + '%</div><div class="nextplay-reason small">' + l.reason + '</div></div>';
+  });
+  html += '</div>';
+  html += '<p class="tend-note" style="margin-top:10px">Opponent lean for argument — what Houston’s defense should be ready for. Not a guarantee.</p>';
+  content.innerHTML = html;
+}
+
+function hideOppCards() {
+  const a = $('#oppTendencyCard');
+  const b = $('#oppNextPlayCard');
+  if (a) a.style.display = 'none';
+  if (b) b.style.display = 'none';
+}
+
+/**
+ * Build dominos for the team currently on offense.
+ * side: 'hou' | 'opp'
+ */
+function evaluateDominosForSide(state, side) {
+  const base = evaluateDominos(state);
+  if (side !== 'opp') return base;
+
+  // Opponent has the ball — prioritize Houston defensive path
+  const abbr = state.oppAbbr || 'DEFAULT';
+  const oppSeeds = (OPP_ON_OFFENSE_DOMINOS[abbr] || OPP_ON_OFFENSE_DOMINOS.DEFAULT).map(function (d) {
+    return Object.assign({}, d, { status: 'live' });
+  });
+  const signals = extractPlaySignals(state.recentPlays || []);
+  let all = oppSeeds.concat((base.allDominos || []).filter(function (d) {
+    return d.category === 'defense' || d.category === 'momentum' || d.id === 'sit-def-stop';
+  }));
+  // Similarity insight as a soft context domino
+  const neighbors = similarSchemes(abbr, 1);
+  if (neighbors.length) {
+    all.push({
+      id: 'sch-sim',
+      text: 'Familiar family: looks like ' + neighbors[0].abbr + ' tendencies',
+      status: 'live',
+      priority: 70,
+      category: 'context',
+      preGame: false,
+      why: 'Scheme prior — not a copy of that team'
+    });
+  }
+  all = resolveDominoStatuses(all, signals, state);
+  all.sort(function (a, b) { return b.priority - a.priority; });
+  const liveOnes = all.filter(function (d) { return d.status === 'live'; });
+  const brokenOnes = all.filter(function (d) { return d.status === 'broken'; });
+  const fallenOnes = all.filter(function (d) { return d.status === 'fallen'; });
+  let visible = liveOnes.slice(0, 4);
+  if (visible.length < 4 && brokenOnes.length) {
+    visible = visible.concat(brokenOnes.slice(0, 4 - visible.length));
+  }
+  if (!visible.length) visible = all.slice(0, 4);
+
+  let keyInsight = 'Opponent ball — Houston’s path is defensive this series.';
+  if (state.down === 3) keyInsight = '3rd-and-' + (state.distance || '') + ' for ' + abbr + ' — highest leverage stop on the field.';
+  else if (brokenOnes.length) keyInsight = 'Path stress: a defensive domino broke — next snap matters more.';
+  else if (fallenOnes.length >= 2) keyInsight = 'Defense is holding — early-down wins are stacking.';
+  else if (visible[0] && visible[0].why) keyInsight = visible[0].why;
+
+  return {
+    dominos: visible,
+    allDominos: all,
+    keyInsight: keyInsight,
+    statusSummary: liveOnes.length + ' live · ' + fallenOnes.length + ' fallen · ' + brokenOnes.length + ' broken',
+    signals: signals,
+    side: 'opp'
+  };
+}
+
+
 function evaluateDominos(state) {
   const scoreDiff = (state.houScore || 0) - (state.oppScore || 0);
   const qtr = state.qtr || 1;
@@ -1347,12 +1567,19 @@ function renderDominosCard(mode, oppAbbr) {
     return null;
   }
 
-  // LIVE (real feed or legacy demo)
+  // LIVE (real feed or legacy demo) — dual path by possession
   if (mode === 'live' || activeState()) {
     const state = activeState() || LIVE_GAME;
     card.style.display = '';
-    const result = evaluateDominos(state);
-    if (pill) pill.textContent = result.statusSummary;
+    const possHou = state.possession === 'HOU';
+    const result = (typeof evaluateDominosForSide === 'function')
+      ? evaluateDominosForSide(state, possHou ? 'hou' : 'opp')
+      : evaluateDominos(state);
+    const dTitle = $('#dominosCardTitle');
+    if (dTitle) {
+      dTitle.textContent = possHou ? 'Dominos to Win' : 'Dominos — HOU defense';
+    }
+    if (pill) pill.textContent = result.statusSummary + (possHou ? '' : ' · opp ball');
     if (!result.dominos.length) {
       content.innerHTML = '<div class="empty">Path being evaluated…</div>';
       return;
@@ -2001,7 +2228,21 @@ function renderGameCenter() {
       </div>
       <div class="live-updated" id="dataFreshness">Live feed · ${timeAgo(LIVE_GAME.lastUpdated || Date.now())}</div>
     `;
+    // Possession mirror: HOU ball → Texans cards; Opp ball → opponent cards + defensive Dominos
     if (tendencyCard) tendencyCard.style.display = possHou ? '' : 'none';
+    if (possHou) {
+      hideOppCards();
+      // HOU tendency from live state if available
+      try {
+        const tc = $('#tendencyContent');
+        if (tc && LIVE_GAME.tendency) {
+          /* keep existing tendency path if wired */
+        }
+      } catch (e) {}
+    } else {
+      if (typeof renderOppTendencyCard === 'function') renderOppTendencyCard(LIVE_GAME);
+      if (typeof renderOppNextPlayLean === 'function') renderOppNextPlayLean(LIVE_GAME);
+    }
     renderDominosCard('live');
     const nextPlayCard = $('#nextPlayCard');
     if (nextPlayCard) {
@@ -2022,6 +2263,7 @@ function renderGameCenter() {
 
   // ---- FINAL / POST-GAME ----
   if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.final) {
+    if (typeof hideOppCards === 'function') hideOppCards();
     if (modePill) {
       modePill.textContent = 'Final';
       modePill.classList.remove('live');
@@ -2176,6 +2418,7 @@ function renderGameCenter() {
   }
   stopLiveRefresh();
   if (tendencyCard) tendencyCard.style.display = 'none';
+  if (typeof hideOppCards === 'function') hideOppCards();
   const nextPlayCardUp = $('#nextPlayCard');
   if (nextPlayCardUp) nextPlayCardUp.style.display = 'none';
   if (efficiencyCard) efficiencyCard.style.display = 'none';

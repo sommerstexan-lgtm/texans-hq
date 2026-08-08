@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v15.8 · Polish</div>
+      <div id="statusPill" class="status-pill">v15.9 · Dual path</div>
 
 
 
@@ -52,12 +52,16 @@
           </div>
         </div>
         <div class="card" id="tendencyCard" style="display:none">
-          <div class="card-title">Offensive tendency (HOU ball)</div>
+          <div class="card-title" id="tendencyCardTitle">Offensive tendency (HOU ball)</div>
           <div id="tendencyContent"></div>
+        </div>
+        <div class="card" id="oppTendencyCard" style="display:none">
+          <div class="card-title" id="oppTendencyCardTitle">Opponent tendency</div>
+          <div id="oppTendencyContent"></div>
         </div>
         <div class="card" id="dominosCard" style="display:none">
           <div class="card-title-row">
-            <div class="card-title" style="margin-bottom:0">Dominos to Win</div>
+            <div class="card-title" style="margin-bottom:0" id="dominosCardTitle">Dominos to Win</div>
             <span class="mode-pill" id="dominosStatusPill">—</span>
           </div>
           <div id="dominosContent">
@@ -66,14 +70,24 @@
         </div>
         <div class="card" id="nextPlayCard" style="display:none">
           <div class="card-title-row">
-            <div class="card-title" style="margin-bottom:0">Next Play Lean</div>
+            <div class="card-title" style="margin-bottom:0" id="nextPlayCardTitle">Next Play Lean</div>
             <span class="mode-pill" id="nextPlayPhasePill">Reg/Post only</span>
           </div>
-          <p class="small" style="margin:4px 0 8px">Situation-based lean for you &amp; your son to argue over. Preseason excluded from accuracy tracking.</p>
+          <p class="small" style="margin:4px 0 8px" id="nextPlayHelp">Situation-based lean for you &amp; your son to argue over. Preseason excluded from accuracy tracking.</p>
           <div id="nextPlayContent">
             <div class="empty">Available when HOU has the ball in a live game.</div>
           </div>
           <div id="nextPlayAccuracy" class="small mt-8" style="display:none"></div>
+        </div>
+        <div class="card" id="oppNextPlayCard" style="display:none">
+          <div class="card-title-row">
+            <div class="card-title" style="margin-bottom:0" id="oppNextPlayCardTitle">Opp Next Play Lean</div>
+            <span class="mode-pill" id="oppNextPlayPhasePill">Defense watch</span>
+          </div>
+          <p class="small" style="margin:4px 0 8px">What the opponent may call — so you can argue what Houston’s defense should expect.</p>
+          <div id="oppNextPlayContent">
+            <div class="empty">Available when the opponent has the ball.</div>
+          </div>
         </div>
         <div class="card" id="winProbCard" style="display:none">
           <div class="card-title">Win probability (simplified)</div>
@@ -234,7 +248,7 @@
 
             <p><strong>What it gives you (every tab)</strong></p>
             <ul class="about-list">
-              <li><strong>Game</strong> — scoreboard (upcoming / live / final), Dominos to Win, injuries, opponent preview, Next Play Lean when Houston has the ball.</li>
+              <li><strong>Game</strong> — scoreboard (upcoming / live / final), dual-path Dominos, HOU or opponent tendency &amp; next-play lean by possession, injuries, opponent preview.</li>
               <li><strong>Plays</strong> — live public play-by-play when a game is on; otherwise guidance to Schedule. Always includes a <em>Back</em> control to return to game insights or the full schedule.</li>
               <li><strong>Schedule</strong> — full 2026 slate. Tap any game for <em>favored team, line, total, matchup note, and keys to watch</em>, then jump to Plays or Game Center. Back returns to the list.</li>
               <li><strong>Camp</strong> — training-camp updates from public team / ESPN feeds with offline cache.</li>
@@ -248,7 +262,11 @@
             <p><strong>Dominos to Win — the idea</strong><br>
             Most apps show a score or a generic “keys to the game.” Dominos is different. It treats a win as a <em>path of conditions</em> that must hold for Houston — protection, early downs, edge pressure, explosives prevented, red-zone finish, special teams, named player hinges, and more. Before kickoff you see the matchup must-achieve set. During the game the list rewrites as plays happen: what still matters, what already fell Houston’s way, and what broke against them. After the whistle you get a full unit breakdown. Over the season the app remembers which conditions actually decided games and quietly improves priority the next time.</p>
 
-            <p><strong>Three modes (one card)</strong></p>
+            <p><strong>Possession mirror (both sides of the ball)</strong><br>
+When Houston has the ball, you get Texans tendency, Dominos to Win, and Next Play Lean.<br>
+When the <em>opponent</em> has the ball, the same rigor flips: opponent tendency, opponent next-play lean, and Dominos focused on <em>Houston’s defense</em> (no explosive, early downs, 3rd-down stops). Scheme-similarity priors (e.g. spread-shotgun vs zone families) bias the opponent lean using public-style fingerprints — live plays still rewrite the path. That is the complete-game analysis most fan apps never show.</p>
+
+<p><strong>Three modes (one card)</strong></p>
             <ul class="about-list">
               <li><strong>Before kickoff</strong> — pill reads <em>Before kickoff</em>. Matchup-specific path for the next opponent. Preseason paths are phase-aware: <em>starters</em> window first, then <em>depth</em> evaluation.</li>
               <li><strong>Live</strong> — when a Texans game is in progress and the network feed is available, the card shows the highest-leverage remaining dominos plus a one-line insight. Status colors update from real play text.</li>
