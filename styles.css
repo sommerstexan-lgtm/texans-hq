@@ -1407,3 +1407,96 @@ a.video-item {
 .bottom-nav .nav-btn.active svg {
   fill: #FFFFFF !important;
 }
+
+/* ===== Dominos v15.6 — category + phase meta ===== */
+.domino-body {
+  flex: 1;
+  min-width: 0;
+}
+.domino-meta {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 1px;
+  letter-spacing: 0.3px;
+}
+.domino-cat {
+  display: inline-block;
+  background: #EEF2F5;
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+.domino-fallen .domino-cat { background: #e6f4ea; color: #1a7a3a; }
+.domino-broken .domino-cat { background: #fde8eb; color: var(--danger); }
+
+/* Dominos post-game group titles */
+.dominos-group-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  margin: 10px 0 4px;
+  text-transform: uppercase;
+}
+.dominos-group-title:first-child { margin-top: 0; }
+
+/* Section back button (Plays, Schedule detail) */
+.section-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: #EEF2F5;
+  color: var(--navy);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.section-back:active { background: #dde3ea; }
+
+.game-detail-card { padding: 4px 0 8px; }
+.game-detail-title { font-size: 1.15rem; font-weight: 800; color: var(--navy); }
+.insight-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 8px 0;
+}
+.insight-chip {
+  background: #F4F6F8;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.insight-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.player-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.player-link {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--navy);
+  background: #EEF2F5;
+  padding: 5px 9px;
+  border-radius: 6px;
+  text-decoration: none;
+}
+.player-link:hover { background: #dde3ea; }

@@ -1,17 +1,17 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.4.1
+   Texans HQ — Personal PWA  v15.8
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
    Roster + Next Play Lean + Dominos to Win (causal path model)
    Active nav: black box + white icon/label
    Demo removed · Game Center truthful
-   Dominos: clear labels (Before kickoff / live updates)
+   Polish: Schedule insights, Plays back, Roster Keylan + trusted links, About tabs
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.4.1';
-const APP_VERSION_LABEL = 'v15.4.1 · Clear';
+const APP_VERSION = 'v15.8';
+const APP_VERSION_LABEL = 'v15.8 · Polish';
 
 /* Stable key — never changes across versions so the device stays unlocked */
 const UNLOCK_KEY = 'texans-hq-device-unlocked';
@@ -171,25 +171,50 @@ const TEAM_STATS_2025 = [
 
 const KEY_PLAYERS = [
   { name: 'C.J. Stroud', pos: 'QB', num: '7', note: 'Franchise QB · Year 4', stats: '2025: 3,700+ pass yds · 20+ TD',
-    detail: 'Year-4 starter. Camp focus: timing with Higgins/Schultz, ball security, and early-down mix. Preseason snaps will show the real plan.' },
+    detail: 'Year-4 starter. Camp focus: timing with Higgins/Schultz, ball security, and early-down mix. Preseason snaps will show the real plan.' , links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4432577/cj-stroud' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/S/StroCJ00.htm' },
+    { label: 'NFL.com', url: 'https://www.nfl.com/players/c-j-stroud/' }
+  ]},
   { name: 'Nico Collins', pos: 'WR', num: '12', note: 'Pro Bowl X receiver', stats: 'Big-play + contested catches',
-    detail: 'Primary vertical threat. Occasional rest days in camp are normal. Watch how defenses scheme him Week 1 vs BUF.' },
+    detail: 'Primary vertical threat. Occasional rest days in camp are normal. Watch how defenses scheme him Week 1 vs BUF.' , links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4258179/nico-collins' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/C/CollNi00.htm' }
+  ]},
   { name: 'Jayden Higgins', pos: 'WR', num: '81', note: 'Year-2 breakout candidate', stats: 'Camp standout vs top CBs',
-    detail: 'Strong camp buzz with wins vs Stingley/Lassiter. Preseason targets + third-down usage will tell the story.' },
+    detail: 'Strong camp buzz with wins vs Stingley/Lassiter. Preseason targets + third-down usage will tell the story.' , links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4689388/jayden-higgins' },
+    { label: 'NFL.com', url: 'https://www.nfl.com/players/jayden-higgins/' }
+  ]},
   { name: 'David Montgomery', pos: 'RB', num: '32', note: 'New lead back', stats: 'Power + between-tackles',
-    detail: 'Signed to be the early-down and short-yardage lead. Pass protection and check-downs matter as much as rush yards.' },
+    detail: 'Signed to be the early-down and short-yardage lead. Pass protection and check-downs matter as much as rush yards.' , links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4035538/david-montgomery' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/M/MontDa01.htm' }
+  ]},
   { name: 'Dalton Schultz', pos: 'TE', num: '86', note: 'Safety valve / red zone', stats: 'Reliable intermediate + RZ',
     detail: 'Trusted option for Stroud. Red-zone and 3rd-down snaps are the live-game value markers. Watch workload after prior injury history.' },
   { name: 'Will Anderson Jr.', pos: 'DE', num: '51', note: 'All-Pro edge force', stats: 'Primary pass-rush threat',
-    detail: 'Lead edge. How often he pairs with Clowney/Hunter on obvious passing downs is a weekly watch item.' },
+    detail: 'Lead edge. How often he pairs with Clowney/Hunter on obvious passing downs is a weekly watch item.' , links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4429013/will-anderson-jr' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/A/AndeWi01.htm' }
+  ]},
   { name: 'Derek Stingley Jr.', pos: 'CB', num: '24', note: 'Shutdown corner', stats: 'Often shadows #1 WR',
-    detail: 'Travels with the opponent’s top receiver. Camp 1-on-1s are useful signals, not final grades.' },
+    detail: 'Travels with the opponent’s top receiver. Camp 1-on-1s are useful signals, not final grades.' , links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4430001/derek-stingley-jr' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/S/StinDe00.htm' }
+  ]},
   { name: 'Azeez Al-Shaair', pos: 'LB', num: '0', note: 'Defensive leader', stats: 'Run fit + communication',
-    detail: 'Communicator and run-fit LB. Extension locked him in. Availability can change fast with camp bumps.' },
+    detail: 'Communicator and run-fit LB. Extension locked him in. Availability can change fast with camp bumps.' , links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/3915373/azeez-al-shaair' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/A/AlShAz00.htm' }
+  ]},
   { name: 'Jadeveon Clowney', pos: 'DE', num: '90', note: 'Hometown reunion 2026', stats: 'Veteran edge rotation',
     detail: 'Back on a 1-year deal, #90 reclaimed. Rotational + situational pass-rush alongside Anderson & Hunter. Nostalgia + real edge depth.' },
   { name: 'Danielle Hunter', pos: 'DE', num: '55', note: 'Pro Bowl edge', stats: 'Veteran production',
-    detail: 'Key piece of the returning top defense. Pairs with Anderson for one of the strongest edge groups in the AFC.' },
+    detail: 'Key piece of the returning top defense. Pairs with Anderson for one of the strongest edge groups in the AFC.' , links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/2969939/danielle-hunter' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/H/HuntDa01.htm' }
+  ]},
   { name: 'Tank Dell', pos: 'WR', num: '1', note: 'Returning from knee', stats: 'Slot / big-play threat',
     detail: 'Working back from 2024 knee injury that cost him all of 2025. Camp participation and preseason snaps are the real timeline markers.' }
 ];
@@ -219,7 +244,10 @@ const LIVE_DEMO = {
   down: 1,
   distance: 10,
   yardline: '—',
-  tendency: { pass: 0, run: 0, note: '' },
+  tendency: { pass: 0, run: 0, note: '' , links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4688819/tank-dell' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/D/DellTa00.htm' }
+  ]},
   efficiency: {
     thirdDown: '—',
     thirdPct: '—',
@@ -246,6 +274,346 @@ const LIVE_DEMO = {
   weather: { temp: 78, wind: '6 mph', note: 'Dome / indoor — weather not a factor' },
   lastUpdated: Date.now()
 };
+
+
+/* ============================================================
+   LIVE GAME FEED + DOMINOS MEMORY  (v15.7)
+   Real ESPN public endpoints (same pattern as News).
+   LIVE_GAME drives scoreboard, Dominos resolution, post-game path.
+   LIVE_DEMO stays false — never used as the truth path.
+   ============================================================ */
+
+const ESPN_TEAM_ID = '34'; // Houston Texans
+const DOMINOS_MEMORY_KEY = 'texans-hq-dominos-memory-v1';
+
+/** Authoritative live / final game state (replaces demo for real games) */
+const LIVE_GAME = {
+  active: false,
+  final: false,
+  eventId: null,
+  status: 'idle', // idle | pre | in | final
+  houScore: 0,
+  oppScore: 0,
+  oppAbbr: 'OPP',
+  oppName: '',
+  qtr: 1,
+  clockSeconds: 0,
+  clockDisplay: '',
+  possession: 'HOU',
+  down: 1,
+  distance: 10,
+  yardNum: 50,
+  yardSide: 'own',
+  yardline: '—',
+  recentPlays: [],
+  weather: null,
+  lastUpdated: 0,
+  detail: '',
+  home: true
+};
+
+let livePollTimer = null;
+const LIVE_POLL_MS = 25000;
+
+function loadDominosMemory() {
+  try {
+    const raw = localStorage.getItem(DOMINOS_MEMORY_KEY);
+    if (!raw) return { games: [], weights: {} };
+    const parsed = JSON.parse(raw);
+    return {
+      games: Array.isArray(parsed.games) ? parsed.games : [],
+      weights: parsed.weights && typeof parsed.weights === 'object' ? parsed.weights : {}
+    };
+  } catch (e) {
+    return { games: [], weights: {} };
+  }
+}
+
+function saveDominosMemory(mem) {
+  try {
+    localStorage.setItem(DOMINOS_MEMORY_KEY, JSON.stringify(mem));
+  } catch (e) { /* ignore quota */ }
+}
+
+/**
+ * After a final game, record which dominos fell/broke so future priority improves.
+ */
+function recordDominosSeasonResult(oppAbbr, allDominos) {
+  if (!allDominos || !allDominos.length) return;
+  const mem = loadDominosMemory();
+  const fallen = allDominos.filter((d) => d.status === 'fallen').map((d) => d.id);
+  const broken = allDominos.filter((d) => d.status === 'broken').map((d) => d.id);
+  const catFallen = {};
+  allDominos.forEach((d) => {
+    if (d.status === 'fallen') catFallen[d.category] = (catFallen[d.category] || 0) + 1;
+    if (d.status === 'broken') catFallen['broke_' + d.category] = (catFallen['broke_' + d.category] || 0) + 1;
+  });
+  const entry = {
+    date: new Date().toISOString().slice(0, 10),
+    opp: oppAbbr,
+    fallen: fallen,
+    broken: broken,
+    categories: catFallen
+  };
+  // avoid duplicate same-day same-opp
+  mem.games = (mem.games || []).filter((g) => !(g.date === entry.date && g.opp === entry.opp));
+  mem.games.push(entry);
+  if (mem.games.length > 40) mem.games = mem.games.slice(-40);
+
+  // Soft weight bumps: categories that fell often in wins get slight priority lift later
+  const w = mem.weights || {};
+  fallen.forEach((id) => { w[id] = Math.min(1.25, (w[id] || 1) + 0.03); });
+  broken.forEach((id) => { w[id] = Math.max(0.85, (w[id] || 1) - 0.02); });
+  mem.weights = w;
+  saveDominosMemory(mem);
+}
+
+function memoryWeightFor(id) {
+  const mem = loadDominosMemory();
+  return (mem.weights && mem.weights[id]) || 1;
+}
+
+function parseClockToSeconds(display) {
+  if (!display || typeof display !== 'string') return 0;
+  if (/half|end|final/i.test(display)) return 0;
+  const parts = display.trim().split(':');
+  if (parts.length === 2) {
+    const m = parseInt(parts[0], 10);
+    const s = parseInt(parts[1], 10);
+    if (!isNaN(m) && !isNaN(s)) return m * 60 + s;
+  }
+  return 0;
+}
+
+function mapEspnTeamAbbr(team) {
+  if (!team) return 'OPP';
+  return (team.team && (team.team.abbreviation || team.team.shortDisplayName)) || team.abbreviation || 'OPP';
+}
+
+/**
+ * Pull plays from ESPN summary drives into our recentPlays shape (newest first).
+ */
+function playsFromEspnSummary(summary) {
+  const plays = [];
+  const drives = (summary && summary.drives && summary.drives.previous) || [];
+  drives.forEach((drive) => {
+    const teamAbbr = (drive.team && drive.team.abbreviation) || '';
+    (drive.plays || []).forEach((p) => {
+      const text = p.text || p.description || '';
+      if (!text) return;
+      const period = (p.period && p.period.number) || p.period || '';
+      const clock = (p.clock && p.clock.displayValue) || '';
+      const big = /touchdown|intercept|fumble|sack|for (2[0-9]|[3-9][0-9]) yards/i.test(text);
+      plays.push({
+        qtr: period,
+        clock: clock,
+        team: teamAbbr === 'HOU' || teamAbbr === 'HOU' ? 'HOU' : teamAbbr,
+        desc: text,
+        big: big,
+        td: /touchdown/i.test(text)
+      });
+    });
+  });
+  // also check current drive
+  const cur = summary && summary.drives && summary.drives.current;
+  if (cur && cur.plays) {
+    const teamAbbr = (cur.team && cur.team.abbreviation) || '';
+    cur.plays.forEach((p) => {
+      const text = p.text || p.description || '';
+      if (!text) return;
+      const period = (p.period && p.period.number) || '';
+      const clock = (p.clock && p.clock.displayValue) || '';
+      const big = /touchdown|intercept|fumble|sack|for (2[0-9]|[3-9][0-9]) yards/i.test(text);
+      plays.push({
+        qtr: period,
+        clock: clock,
+        team: teamAbbr === 'HOU' ? 'HOU' : teamAbbr,
+        desc: text,
+        big: big,
+        td: /touchdown/i.test(text)
+      });
+    });
+  }
+  return plays.slice(-12).reverse();
+}
+
+function situationFromEspn(summary, competition) {
+  // Prefer competition.situation when present
+  const sit = (competition && competition.situation) || (summary && summary.situation) || null;
+  let down = 1, distance = 10, yardNum = 50, yardSide = 'own', yardline = '—', possession = 'HOU';
+  if (sit) {
+    if (sit.down) down = sit.down;
+    if (sit.distance) distance = sit.distance;
+    if (sit.possessionText) yardline = sit.possessionText;
+    if (sit.downDistanceText) {
+      // e.g. "1st & 10 at HOU 25"
+    }
+    const poss = sit.possession;
+    if (poss && poss === ESPN_TEAM_ID) possession = 'HOU';
+    else if (poss) possession = 'OPP';
+    // yardline number
+    const yl = sit.yardLine;
+    if (typeof yl === 'number') {
+      yardNum = yl > 50 ? 100 - yl : yl;
+      yardSide = yl > 50 ? 'opp' : 'own';
+    }
+  }
+  return { down, distance, yardNum, yardSide, yardline, possession };
+}
+
+/**
+ * Find today's (or in-progress) Texans event via ESPN team schedule + scoreboard.
+ */
+async function fetchTexansEvent() {
+  const year = new Date().getFullYear();
+  // Try preseason + regular season schedules
+  const urls = [
+    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${ESPN_TEAM_ID}/schedule?season=${year}&seasontype=1`,
+    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${ESPN_TEAM_ID}/schedule?season=${year}&seasontype=2`,
+    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=50`
+  ];
+  let events = [];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.events && data.events.length) {
+        events = events.concat(data.events);
+      }
+    } catch (e) { /* CORS or network — continue */ }
+  }
+  // Prefer in-progress HOU game, then final today, then next scheduled
+  const houEvents = events.filter((ev) => {
+    const comps = ev.competitions || [];
+    return comps.some((c) => (c.competitors || []).some((t) => {
+      const id = String((t.team && t.team.id) || t.id || '');
+      const abbr = (t.team && t.team.abbreviation) || t.abbreviation || '';
+      return id === ESPN_TEAM_ID || abbr === 'HOU';
+    }));
+  });
+  if (!houEvents.length) return null;
+
+  const ranked = houEvents.slice().sort((a, b) => {
+    const sa = (a.status && a.status.type && a.status.type.name) || '';
+    const sb = (b.status && b.status.type && b.status.type.name) || '';
+    const score = (s) => (s === 'STATUS_IN_PROGRESS' ? 0 : s === 'STATUS_HALFTIME' ? 1 : s === 'STATUS_FINAL' ? 2 : 3);
+    return score(sa) - score(sb);
+  });
+  return ranked[0];
+}
+
+async function fetchEventSummary(eventId) {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${eventId}`;
+  const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+  if (!res.ok) throw new Error('summary ' + res.status);
+  return res.json();
+}
+
+/**
+ * Refresh LIVE_GAME from network. Safe to call often; no-ops offline.
+ */
+async function refreshLiveGame() {
+  try {
+    const event = await fetchTexansEvent();
+    if (!event) {
+      LIVE_GAME.active = false;
+      LIVE_GAME.final = false;
+      LIVE_GAME.status = 'idle';
+      return false;
+    }
+    const competition = (event.competitions && event.competitions[0]) || {};
+    const statusName = (event.status && event.status.type && event.status.type.name) || '';
+    const statusState = (event.status && event.status.type && event.status.type.state) || '';
+    const isIn = statusName === 'STATUS_IN_PROGRESS' || statusName === 'STATUS_HALFTIME' || statusState === 'in';
+    const isFinal = statusName === 'STATUS_FINAL' || statusState === 'post';
+    const isPre = statusName === 'STATUS_SCHEDULED' || statusName === 'STATUS_PRE' || statusState === 'pre';
+
+    const competitors = competition.competitors || [];
+    let hou = null, opp = null;
+    competitors.forEach((c) => {
+      const abbr = (c.team && c.team.abbreviation) || '';
+      const id = String((c.team && c.team.id) || '');
+      if (abbr === 'HOU' || id === ESPN_TEAM_ID) hou = c;
+      else opp = c;
+    });
+    if (!hou) {
+      LIVE_GAME.active = false;
+      return false;
+    }
+
+    LIVE_GAME.eventId = event.id;
+    LIVE_GAME.houScore = parseInt(hou.score, 10) || 0;
+    LIVE_GAME.oppScore = opp ? (parseInt(opp.score, 10) || 0) : 0;
+    LIVE_GAME.oppAbbr = opp ? mapEspnTeamAbbr(opp) : 'OPP';
+    LIVE_GAME.oppName = opp && opp.team ? (opp.team.displayName || LIVE_GAME.oppAbbr) : '';
+    LIVE_GAME.home = hou.homeAway === 'home';
+    LIVE_GAME.qtr = (event.status && event.status.period) || 1;
+    LIVE_GAME.clockDisplay = (event.status && event.status.displayClock) || '';
+    LIVE_GAME.clockSeconds = parseClockToSeconds(LIVE_GAME.clockDisplay);
+    LIVE_GAME.detail = (event.status && event.status.type && event.status.type.detail) || '';
+    LIVE_GAME.lastUpdated = Date.now();
+
+    if (isIn) {
+      LIVE_GAME.active = true;
+      LIVE_GAME.final = false;
+      LIVE_GAME.status = 'in';
+      try {
+        const summary = await fetchEventSummary(event.id);
+        LIVE_GAME.recentPlays = playsFromEspnSummary(summary);
+        const sit = situationFromEspn(summary, competition);
+        LIVE_GAME.down = sit.down;
+        LIVE_GAME.distance = sit.distance;
+        LIVE_GAME.yardNum = sit.yardNum;
+        LIVE_GAME.yardSide = sit.yardSide;
+        LIVE_GAME.yardline = sit.yardline || LIVE_GAME.clockDisplay;
+        LIVE_GAME.possession = sit.possession;
+      } catch (e) {
+        // keep scores even if summary fails
+      }
+      return true;
+    }
+
+    if (isFinal) {
+      LIVE_GAME.active = false;
+      LIVE_GAME.final = true;
+      LIVE_GAME.status = 'final';
+      try {
+        const summary = await fetchEventSummary(event.id);
+        LIVE_GAME.recentPlays = playsFromEspnSummary(summary);
+        const result = evaluateDominos(Object.assign({}, LIVE_GAME, { possession: LIVE_GAME.possession }));
+        recordDominosSeasonResult(LIVE_GAME.oppAbbr, result.allDominos);
+      } catch (e) { /* ok */ }
+      return true;
+    }
+
+    // Scheduled / pre
+    LIVE_GAME.active = false;
+    LIVE_GAME.final = false;
+    LIVE_GAME.status = isPre ? 'pre' : 'idle';
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+function stopLiveGamePoll() {
+  if (livePollTimer) {
+    clearInterval(livePollTimer);
+    livePollTimer = null;
+  }
+}
+
+function startLiveGamePoll() {
+  stopLiveGamePoll();
+  livePollTimer = setInterval(async () => {
+    const changed = await refreshLiveGame();
+    if (typeof currentSection !== 'undefined' && currentSection === 'game') {
+      try { renderGameCenter(); } catch (e) { /* keep UI stable */ }
+    }
+  }, LIVE_POLL_MS);
+}
+
 
 /* ============================================================
    NEXT PLAY LEAN  (v14.9)
@@ -597,61 +965,65 @@ function renderNextPlayLean() {
 }
 
 /* ============================================================
-   DOMINOS TO WIN  (v15.2)
+   DOMINOS TO WIN  (v15.6)
    Causal path model — re-evaluated after every play.
-   Live glance (≤20s): 2–4 highest-priority remaining dominos + one Key Insight.
-   Post-game: full hierarchical Offense / Defense / ST → player → play-type.
-   Pre-game: matchup-seeded must-achieve set, then continuously rewritten.
-   Includes momentum, coaching adjustments, weather, referee tendencies when identifiable.
+   Live glance (≤20s): top remaining dominos + derived Key Insight.
+   Pre-game: matchup-seeded must-achieve set (phase-aware for preseason).
+   Resolution: play text marks fallen / broken when available.
    Historical calibration improves priority weighting.
    ============================================================ */
 
 /**
  * Domino shape:
  * {
- *   id: string,
- *   text: string,                 // ≤55 chars for live scan
- *   status: 'live' | 'fallen' | 'broken' | 'pending',
- *   priority: number,             // higher = surface first
- *   category: 'offense'|'defense'|'special'|'player'|'momentum'|'coaching'|'context',
- *   unit?: string,
- *   player?: string,
- *   playType?: string,
- *   preGame: boolean,
- *   note?: string                 // optional extra context (post-game only)
+ *   id, text, status: 'live'|'fallen'|'broken'|'pending',
+ *   priority, category, preGame,
+ *   phase?: 'starter'|'depth'|'full',  // preseason evaluation windows
+ *   why?: string,                      // short rationale for scan depth
+ *   unit?, player?, playType?, note?
  * }
  */
 
-/** Pre-game matchup seeds keyed by opponent abbr (extendable) */
+const CAT_LABEL = {
+  offense: 'OFF',
+  defense: 'DEF',
+  special: 'ST',
+  player: 'PLY',
+  momentum: 'MOM',
+  coaching: 'COA',
+  context: 'CTX'
+};
+
+/** Pre-game matchup seeds — LAC is first preseason priority */
 const PRE_GAME_DOMINOS = {
   BUF: [
-    { id: 'buf-protect', text: 'Keep Stroud clean vs Bills edge pressure', category: 'offense', priority: 92, preGame: true },
-    { id: 'buf-rz', text: 'Finish red-zone drives (Bills strength)', category: 'offense', priority: 88, preGame: true },
-    { id: 'buf-explosive-d', text: 'Limit Bills explosive pass plays', category: 'defense', priority: 90, preGame: true },
-    { id: 'buf-3rd', text: 'Win 3rd-down battle both ways', category: 'offense', priority: 85, preGame: true },
-    { id: 'buf-st', text: 'No special-teams points allowed', category: 'special', priority: 78, preGame: true }
+    { id: 'buf-protect', text: 'Keep Stroud clean vs Bills edge pressure', category: 'offense', priority: 92, preGame: true, phase: 'full', why: 'Buffalo wins with free runners' },
+    { id: 'buf-explosive-d', text: 'Limit Bills explosive pass plays', category: 'defense', priority: 90, preGame: true, phase: 'full', why: 'One shot can flip AFC scripts' },
+    { id: 'buf-rz', text: 'Finish red-zone drives (Bills strength)', category: 'offense', priority: 88, preGame: true, phase: 'full', why: 'Points at a premium vs this D' },
+    { id: 'buf-3rd', text: 'Win 3rd-down battle both ways', category: 'offense', priority: 85, preGame: true, phase: 'full', why: 'Sustains drives / forces punts' },
+    { id: 'buf-st', text: 'No special-teams points allowed', category: 'special', priority: 78, preGame: true, phase: 'full', why: 'Hidden points decide tight games' }
   ],
   LAC: [
-    { id: 'lac-protect', text: 'Keep Stroud clean in limited starter snaps', category: 'offense', priority: 90, preGame: true },
-    { id: 'lac-ol', text: 'OL communication vs Chargers front holds', category: 'offense', priority: 86, preGame: true },
-    { id: 'lac-edge', text: 'Anderson + Clowney generate early pressure', category: 'defense', priority: 84, preGame: true },
-    { id: 'lac-higgins', text: 'Higgins chemistry shows in live reps', category: 'player', priority: 80, preGame: true },
-    { id: 'lac-st', text: 'Special teams / tackle consistency clean', category: 'special', priority: 75, preGame: true },
-    { id: 'lac-depth', text: 'Depth players evaluated without major mistakes', category: 'offense', priority: 70, preGame: true }
+    { id: 'lac-protect', text: 'Stroud stays clean in the starter window', category: 'offense', priority: 94, preGame: true, phase: 'starter', why: 'First real live pressure of 2026' },
+    { id: 'lac-ol', text: 'OL calls and fits hold vs Chargers front', category: 'offense', priority: 91, preGame: true, phase: 'starter', why: 'Teller/Rutledge live communication test' },
+    { id: 'lac-edge', text: 'Anderson + Clowney win early downs', category: 'defense', priority: 88, preGame: true, phase: 'starter', why: 'Edge rotation is a camp focus' },
+    { id: 'lac-higgins', text: 'Higgins earns separation in live reps', category: 'player', priority: 86, preGame: true, phase: 'starter', why: 'Year-2 chemistry under real speed' },
+    { id: 'lac-ball', text: 'No turnovers in the starter window', category: 'offense', priority: 84, preGame: true, phase: 'starter', why: 'Evaluation over box score' },
+    { id: 'lac-st', text: 'ST coverage and tackle stay clean', category: 'special', priority: 82, preGame: true, phase: 'full', why: 'Preseason truth often lives here' },
+    { id: 'lac-depth', text: 'Depth units play assignment football', category: 'offense', priority: 78, preGame: true, phase: 'depth', why: 'After starters sit, this is the game' },
+    { id: 'lac-mills', text: 'Mills operates without major negatives', category: 'player', priority: 74, preGame: true, phase: 'depth', why: 'Backup evaluation window' }
   ],
   DEFAULT: [
-    { id: 'def-protect', text: 'Protect Stroud — limit free runners', category: 'offense', priority: 90, preGame: true },
-    { id: 'def-run', text: 'Establish early-down run efficiency', category: 'offense', priority: 82, preGame: true },
-    { id: 'def-3rd', text: 'Convert 3rd downs at or above season rate', category: 'offense', priority: 85, preGame: true },
-    { id: 'def-takeaways', text: 'Create at least one takeaway', category: 'defense', priority: 80, preGame: true },
-    { id: 'def-explosive', text: 'Prevent opponent explosive plays (≥20 yd)', category: 'defense', priority: 87, preGame: true },
-    { id: 'def-st', text: 'Win the hidden-yardage / ST battle', category: 'special', priority: 70, preGame: true }
+    { id: 'def-protect', text: 'Protect Stroud — limit free runners', category: 'offense', priority: 90, preGame: true, phase: 'full', why: 'Foundation of every win path' },
+    { id: 'def-explosive', text: 'Prevent opponent explosive plays (≥20 yd)', category: 'defense', priority: 87, preGame: true, phase: 'full', why: 'Explosives collapse paths fast' },
+    { id: 'def-3rd', text: 'Convert 3rd downs at or above season rate', category: 'offense', priority: 85, preGame: true, phase: 'full', why: 'Sustains scoring drives' },
+    { id: 'def-run', text: 'Establish early-down run efficiency', category: 'offense', priority: 82, preGame: true, phase: 'full', why: 'Sets up play-action later' },
+    { id: 'def-takeaways', text: 'Create at least one takeaway', category: 'defense', priority: 80, preGame: true, phase: 'full', why: 'Short fields change scripts' },
+    { id: 'def-st', text: 'Win the hidden-yardage / ST battle', category: 'special', priority: 70, preGame: true, phase: 'full', why: 'Field position compounds' }
   ]
 };
 
-/** Historical weighting notes (improves priority, not hard rules) */
 const HISTORICAL_WEIGHTS = {
-  // Patterns observed in recent Texans wins / close games
   protectQB: 1.15,
   thirdDown: 1.12,
   redZoneFinish: 1.18,
@@ -661,12 +1033,101 @@ const HISTORICAL_WEIGHTS = {
 };
 
 /**
+ * Parse recent play descriptions into path signals.
+ * Used to mark dominos fallen / broken when play text exists.
+ */
+function extractPlaySignals(plays) {
+  const signals = {
+    houSackAllowed: 0,
+    houTd: 0,
+    houTurnover: 0,
+    houFirstDown: 0,
+    houExplosive: 0,
+    oppExplosive: 0,
+    oppTd: 0,
+    oppTurnover: 0,
+    houPressure: 0,
+    bigHou: 0,
+    bigOpp: 0
+  };
+  (plays || []).forEach((p) => {
+    const d = (p.desc || '').toLowerCase();
+    const team = p.team || '';
+    const isHou = team === 'HOU';
+    if (p.big && isHou) signals.bigHou++;
+    if (p.big && !isHou) signals.bigOpp++;
+    if (isHou) {
+      if (/sack/.test(d)) signals.houSackAllowed++;
+      if (/touchdown|\. td\b/.test(d) || p.td) signals.houTd++;
+      if (/intercept|fumble|lost/.test(d)) signals.houTurnover++;
+      if (/first down/.test(d)) signals.houFirstDown++;
+      if (/for (2[0-9]|[3-9][0-9]) yards/.test(d)) signals.houExplosive++;
+    } else {
+      if (/touchdown|\. td\b/.test(d) || p.td) signals.oppTd++;
+      if (/intercept|fumble recovered by hou|fumble.*hou/.test(d)) signals.oppTurnover++;
+      if (/for (2[0-9]|[3-9][0-9]) yards/.test(d)) signals.oppExplosive++;
+      if (/sack/.test(d)) signals.houPressure++;
+    }
+  });
+  return signals;
+}
+
+/**
+ * Apply signals to a domino list — real fallen / broken resolution.
+ */
+function resolveDominoStatuses(dominos, signals, state) {
+  const possHou = state.possession === 'HOU';
+  return dominos.map((d) => {
+    let status = d.status || 'live';
+    const t = (d.text || '').toLowerCase();
+    const id = d.id || '';
+
+    // Protection / clean pocket
+    if (/protect|clean|free runner|sack/.test(t) || /protect|clean/.test(id)) {
+      if (signals.houSackAllowed >= 2) status = 'broken';
+      else if (signals.houSackAllowed === 0 && signals.houFirstDown >= 2) status = 'fallen';
+    }
+    // No turnovers
+    if (/turnover|ball security|no turnover/.test(t)) {
+      if (signals.houTurnover >= 1) status = 'broken';
+      else if ((state.qtr || 1) >= 2 && signals.houTurnover === 0 && signals.houFirstDown >= 1) status = 'fallen';
+    }
+    // Explosive prevention
+    if (/explosive|limit.*pass play/.test(t)) {
+      if (signals.oppExplosive >= 1 || signals.bigOpp >= 2) status = 'broken';
+      else if (signals.oppExplosive === 0 && (signals.bigOpp === 0)) {
+        if ((state.qtr || 1) >= 2) status = 'fallen';
+      }
+    }
+    // Edge pressure / Anderson
+    if (/anderson|clowney|edge|pressure|generate/.test(t) && d.category === 'defense') {
+      if (signals.houPressure >= 1) status = 'fallen';
+    }
+    // Takeaway
+    if (/takeaway/.test(t)) {
+      if (signals.oppTurnover >= 1) status = 'fallen';
+    }
+    // Red-zone / finish / TD
+    if (/red-zone|red zone|finish.*td|touchdown/.test(t)) {
+      if (signals.houTd >= 1) status = 'fallen';
+    }
+    // ST — if opponent scored via special teams language (rare in short list)
+    if (d.category === 'special' && /st |special|tackle|coverage/.test(t)) {
+      // stays live until explicit ST score language; no false broken
+    }
+    // Situational 3rd — only live while on that down; not resolved from history here
+    if (id === 'sit-3rd' || id === 'sit-2nd-long' || id === 'sit-rz-finish' || id === 'sit-def-stop') {
+      status = 'live';
+    }
+    return { ...d, status };
+  });
+}
+
+/**
  * Core evaluator — pure function of current game state.
- * Returns { dominos: Domino[], keyInsight: string, statusSummary: string }
- * Re-runs after every play so the live card is always current.
+ * Returns { dominos, allDominos, keyInsight, statusSummary, phaseNote }
  */
 function evaluateDominos(state) {
-  // state mirrors LIVE_DEMO shape + optional extras
   const scoreDiff = (state.houScore || 0) - (state.oppScore || 0);
   const qtr = state.qtr || 1;
   const clock = state.clockSeconds || 900;
@@ -680,32 +1141,33 @@ function evaluateDominos(state) {
   const oppAbbr = state.oppAbbr || 'DEFAULT';
   const recent = state.recentPlays || [];
   const weatherNote = (state.weather && state.weather.note) || '';
+  const signals = extractPlaySignals(recent);
 
-  // 1. Start from matchup seeds
-  const seeds = (PRE_GAME_DOMINOS[oppAbbr] || PRE_GAME_DOMINOS.DEFAULT).map(d => ({ ...d, status: 'live' }));
+  // 1. Matchup seeds
+  let seeds = (PRE_GAME_DOMINOS[oppAbbr] || PRE_GAME_DOMINOS.DEFAULT).map((d) => ({ ...d, status: 'live' }));
 
-  // 2. Situational dominos that appear/disappear based on current state
+  // 2. Situational dominos
   const situational = [];
-
-  // Current drive / next-play critical path
   if (possHou) {
     if (down === 3) {
       situational.push({
         id: 'sit-3rd',
-        text: `Convert this 3rd-and-${dist}`,
+        text: 'Convert this 3rd-and-' + dist,
         status: 'live',
-        priority: 95,
+        priority: 96,
         category: 'offense',
-        preGame: false
+        preGame: false,
+        why: 'Highest leverage snap on the field'
       });
     } else if (down === 2 && dist >= 7) {
       situational.push({
         id: 'sit-2nd-long',
-        text: 'Stay ahead of the chains on this 2nd down',
+        text: 'Stay ahead of the chains on 2nd down',
         status: 'live',
         priority: 86,
         category: 'offense',
-        preGame: false
+        preGame: false,
+        why: 'Avoid 3rd-and-long'
       });
     }
     if (isRedZone) {
@@ -713,80 +1175,83 @@ function evaluateDominos(state) {
         id: 'sit-rz-finish',
         text: 'Finish this red-zone trip with a TD',
         status: 'live',
-        priority: 94,
+        priority: 95,
         category: 'offense',
-        preGame: false
+        preGame: false,
+        why: 'Path value spikes inside the 20'
       });
     }
   } else {
-    // Defense has the ball — force a stop
     situational.push({
       id: 'sit-def-stop',
       text: 'Force a three-and-out or limited gain',
       status: 'live',
-      priority: 91,
+      priority: 92,
       category: 'defense',
-      preGame: false
+      preGame: false,
+      why: 'Offense path depends on this series'
     });
   }
 
-  // Score / time pressure
   if (scoreDiff > 0 && isLate) {
     situational.push({
       id: 'sit-protect-lead',
       text: 'Protect the lead — no empty possessions',
       status: 'live',
-      priority: 93,
+      priority: 94,
       category: 'offense',
-      preGame: false
+      preGame: false,
+      why: 'Clock is now a teammate'
     });
   } else if (scoreDiff < 0 && isLate) {
     situational.push({
       id: 'sit-comeback',
       text: 'Need scoring drives + defensive stops',
       status: 'live',
-      priority: 96,
+      priority: 97,
       category: 'offense',
-      preGame: false
+      preGame: false,
+      why: 'Every possession is leveraged'
     });
   }
 
-  // Momentum from recent plays
-  const lastBig = recent.find(p => p.big);
+  const lastBig = recent.find((p) => p.big);
   if (lastBig && lastBig.team === 'HOU') {
     situational.push({
       id: 'mom-hou',
-      text: 'Ride the momentum from the last big play',
+      text: 'Ride momentum from the last big play',
       status: 'live',
-      priority: 84,
+      priority: 83,
       category: 'momentum',
-      preGame: false
+      preGame: false,
+      why: 'Strike while the defense is unsettled'
     });
   } else if (lastBig && lastBig.team !== 'HOU') {
     situational.push({
       id: 'mom-opp',
-      text: 'Answer the opponent’s explosive play',
+      text: 'Answer the opponent explosive play',
       status: 'live',
       priority: 89,
       category: 'momentum',
-      preGame: false
+      preGame: false,
+      why: 'Path narrows if unanswered'
     });
   }
 
-  // Weather only when it is a real factor
   if (weatherNote && !/dome|indoor|not a factor/i.test(weatherNote)) {
     situational.push({
       id: 'ctx-weather',
-      text: 'Account for weather impact on ball / kicking',
+      text: 'Account for weather on ball / kicking',
       status: 'live',
       priority: 65,
       category: 'context',
-      preGame: false
+      preGame: false,
+      why: 'Real outdoor factor'
     });
   }
 
-  // Simple historical calibration: boost priority of known high-value items
-  const all = [...seeds, ...situational].map(d => {
+  // 3. Historical priority boost + season memory
+  let all = seeds.concat(situational).map((d) => {
     let p = d.priority;
     if (/protect|clean|pressure/i.test(d.text)) p *= HISTORICAL_WEIGHTS.protectQB;
     if (/3rd|third/i.test(d.text)) p *= HISTORICAL_WEIGHTS.thirdDown;
@@ -794,50 +1259,65 @@ function evaluateDominos(state) {
     if (/explosive/i.test(d.text)) p *= HISTORICAL_WEIGHTS.noExplosivesAgainst;
     if (/early-down|chains/i.test(d.text)) p *= HISTORICAL_WEIGHTS.earlyDownSuccess;
     if (/takeaway/i.test(d.text)) p *= HISTORICAL_WEIGHTS.takeaway;
-    return { ...d, priority: Math.round(p) };
+    if (typeof memoryWeightFor === 'function') p *= memoryWeightFor(d.id);
+    return Object.assign({}, d, { priority: Math.round(p) });
   });
 
-  // Sort by priority desc, then keep a working set
+  // 4. Resolve fallen / broken from play signals
+  all = resolveDominoStatuses(all, signals, state);
   all.sort((a, b) => b.priority - a.priority);
 
-  // For live glance we only surface the top remaining (live or broken)
-  const visible = all.filter(d => d.status === 'live' || d.status === 'broken').slice(0, 4);
+  // Visible: prefer live, include one broken if it is high-signal, max 4
+  const liveOnes = all.filter((d) => d.status === 'live');
+  const brokenOnes = all.filter((d) => d.status === 'broken');
+  const fallenOnes = all.filter((d) => d.status === 'fallen');
+  let visible = liveOnes.slice(0, 4);
+  if (visible.length < 4 && brokenOnes.length) {
+    visible = visible.concat(brokenOnes.slice(0, 4 - visible.length));
+  }
+  // If everything is quiet early, still show top live seeds
+  if (!visible.length) visible = all.slice(0, 4);
 
-  // Status summary
-  const liveCount = all.filter(d => d.status === 'live').length;
-  const fallenCount = all.filter(d => d.status === 'fallen').length;
-  const brokenCount = all.filter(d => d.status === 'broken').length;
-  const statusSummary = `${liveCount} live · ${fallenCount} fallen · ${brokenCount} broken`;
+  const statusSummary =
+    liveOnes.length + ' live · ' + fallenOnes.length + ' fallen · ' + brokenOnes.length + ' broken';
 
-  // Key Insight — one sentence that captures the current critical path
+  // 5. Derived insight from top path state
   let keyInsight = '';
-  if (possHou && down === 3) {
-    keyInsight = `This 3rd-and-${dist} is the highest-leverage play on the field right now.`;
+  const top = visible[0];
+  if (brokenOnes.length >= 2) {
+    keyInsight = 'Multiple path breaks — next two possessions decide if the win path survives.';
+  } else if (top && top.status === 'broken') {
+    keyInsight = 'Path narrowed: "' + top.text + '" went against Houston.';
+  } else if (possHou && down === 3) {
+    keyInsight = 'This 3rd-and-' + dist + ' is the highest-leverage snap on the field.';
   } else if (possHou && isRedZone) {
-    keyInsight = 'Red-zone finish is the clearest remaining path to adding to the lead.';
+    keyInsight = 'Red-zone finish is the clearest remaining path to points.';
   } else if (!possHou) {
-    keyInsight = 'Defense must force a stop to keep the offense’s path intact.';
+    keyInsight = 'Defense must force a stop to keep the offense path intact.';
   } else if (scoreDiff > 0 && isLate) {
-    keyInsight = 'Leading late — the remaining dominos favor controlled, low-risk football.';
-  } else if (scoreDiff < 0) {
-    keyInsight = 'Trailing — every possession and every stop now carries extra weight.';
+    keyInsight = 'Leading late — remaining dominos favor controlled, low-risk football.';
+  } else if (scoreDiff < 0 && isLate) {
+    keyInsight = 'Trailing — every possession and every stop carries extra weight.';
+  } else if (fallenOnes.length >= 2 && brokenOnes.length === 0) {
+    keyInsight = 'Path is holding — early conditions falling Houston’s way.';
+  } else if (top && top.why) {
+    keyInsight = top.why;
   } else {
     keyInsight = 'Early-down success and protection remain the foundation of the win path.';
   }
 
   return {
     dominos: visible,
-    allDominos: all,          // kept for post-game expansion
-    keyInsight,
-    statusSummary
+    allDominos: all,
+    keyInsight: keyInsight,
+    statusSummary: statusSummary,
+    signals: signals
   };
 }
 
 /**
  * Render Dominos card.
  * mode: 'live' | 'pregame'
- * oppAbbr: used in pregame to seed matchup path
- * Compact for ≤20-second scan.
  */
 function renderDominosCard(mode, oppAbbr) {
   const card = $('#dominosCard');
@@ -845,49 +1325,101 @@ function renderDominosCard(mode, oppAbbr) {
   const pill = $('#dominosStatusPill');
   if (!card || !content) return;
 
-  // Live path
-  if (mode === 'live' || LIVE_DEMO.active) {
+  function rowHtml(d) {
+    const icon = d.status === 'fallen' ? '🟢' : d.status === 'broken' ? '🔴' : '🟡';
+    const cls = d.status === 'fallen' ? 'domino-fallen' : d.status === 'broken' ? 'domino-broken' : 'domino-live';
+    const cat = CAT_LABEL[d.category] || '—';
+    const phase = d.phase === 'starter' ? ' · starters' : d.phase === 'depth' ? ' · depth' : '';
+    return (
+      '<div class="domino-row ' + cls + '">' +
+        '<span class="domino-icon">' + icon + '</span>' +
+        '<div class="domino-body">' +
+          '<div class="domino-text">' + d.text + '</div>' +
+          '<div class="domino-meta"><span class="domino-cat">' + cat + '</span>' + phase + '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function activeState() {
+    if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.active) return LIVE_GAME;
+    if (typeof LIVE_DEMO !== 'undefined' && LIVE_DEMO.active) return LIVE_DEMO;
+    return null;
+  }
+
+  // LIVE (real feed or legacy demo)
+  if (mode === 'live' || activeState()) {
+    const state = activeState() || LIVE_GAME;
     card.style.display = '';
-    const result = evaluateDominos(LIVE_DEMO);
+    const result = evaluateDominos(state);
     if (pill) pill.textContent = result.statusSummary;
     if (!result.dominos.length) {
-      content.innerHTML = `<div class="empty">Path being evaluated…</div>`;
+      content.innerHTML = '<div class="empty">Path being evaluated…</div>';
       return;
     }
-    let html = `<div class="dominos-list">`;
-    result.dominos.forEach(d => {
-      const icon = d.status === 'fallen' ? '🟢' : (d.status === 'broken' ? '🔴' : '🟡');
-      const cls = d.status === 'fallen' ? 'domino-fallen' : (d.status === 'broken' ? 'domino-broken' : 'domino-live');
-      html += `<div class="domino-row ${cls}"><span class="domino-icon">${icon}</span><span class="domino-text">${d.text}</span></div>`;
-    });
-    html += `</div>`;
-    html += `<div class="dominos-insight">${result.keyInsight}</div>`;
+    let html = '<div class="dominos-list">';
+    result.dominos.forEach(function (d) { html += rowHtml(d); });
+    html += '</div>';
+    html += '<div class="dominos-insight">' + result.keyInsight + '</div>';
     content.innerHTML = html;
     return;
   }
 
-  // Pre-game / upcoming path — show matchup must-achieve set
+  // POST-GAME hierarchy (Offense / Defense / ST)
+  if (mode === 'postgame' || (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.final)) {
+    const state = (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.final) ? LIVE_GAME : { oppAbbr: oppAbbr || 'DEFAULT', recentPlays: [] };
+    card.style.display = '';
+    const result = evaluateDominos(state);
+    if (pill) pill.textContent = 'Final path';
+    const groups = { offense: [], defense: [], special: [], player: [], momentum: [], coaching: [], context: [] };
+    (result.allDominos || result.dominos || []).forEach(function (d) {
+      const key = groups[d.category] ? d.category : 'offense';
+      groups[key].push(d);
+    });
+    const order = ['offense', 'defense', 'special', 'player', 'momentum', 'coaching', 'context'];
+    let html = '';
+    order.forEach(function (key) {
+      if (!groups[key].length) return;
+      html += '<div class="dominos-group-title">' + (CAT_LABEL[key] || key) + '</div>';
+      html += '<div class="dominos-list">';
+      groups[key].forEach(function (d) { html += rowHtml(d); });
+      html += '</div>';
+    });
+    if (!html) html = '<div class="empty">Path summary unavailable.</div>';
+    html += '<div class="dominos-insight">' + (result.keyInsight || 'Final path recorded for season memory.') + '</div>';
+    content.innerHTML = html;
+    return;
+  }
+
+  // PRE-GAME
   const abbr = oppAbbr || 'DEFAULT';
   const seeds = (PRE_GAME_DOMINOS[abbr] || PRE_GAME_DOMINOS.DEFAULT)
     .slice()
-    .sort((a, b) => b.priority - a.priority)
-    .slice(0, 4)
-    .map(d => ({ ...d, status: 'live' }));
+    .sort(function (a, b) { return b.priority - a.priority; })
+    .slice(0, 5)
+    .map(function (d) { return Object.assign({}, d, { status: 'live' }); });
 
   card.style.display = '';
   if (pill) pill.textContent = 'Before kickoff';
 
   if (!seeds.length) {
-    content.innerHTML = `<div class="empty">Matchup keys will appear closer to kickoff.</div>`;
+    content.innerHTML = '<div class="empty">Matchup keys will appear closer to kickoff.</div>';
     return;
   }
 
-  let html = `<div class="dominos-list">`;
-  seeds.forEach(d => {
-    html += `<div class="domino-row domino-live"><span class="domino-icon">🟡</span><span class="domino-text">${d.text}</span></div>`;
-  });
-  html += `</div>`;
-  html += `<div class="dominos-insight">What has to go right vs ${abbr} for Houston to win. This list updates during the game.</div>`;
+  const starterCount = seeds.filter(function (d) { return d.phase === 'starter'; }).length;
+  const depthCount = seeds.filter(function (d) { return d.phase === 'depth'; }).length;
+  let phaseNote = 'What has to go right vs ' + abbr + ' for Houston to win.';
+  if (starterCount && depthCount) {
+    phaseNote = 'Preseason path vs ' + abbr + ': starter window first, then depth evaluation. List updates live once the game starts.';
+  } else if (starterCount) {
+    phaseNote = 'Starter-window priorities vs ' + abbr + '. Updates live once the game starts.';
+  }
+
+  let html = '<div class="dominos-list">';
+  seeds.forEach(function (d) { html += rowHtml(d); });
+  html += '</div>';
+  html += '<div class="dominos-insight">' + phaseNote + '</div>';
   content.innerHTML = html;
 }
 
@@ -993,8 +1525,15 @@ const FULL_ROSTER = [
   { name: 'Marlin Klein', num: '83', pos: 'TE', ht: '6-6', wt: '250', exp: 'R', college: 'Michigan', status: 'Rookie', note: '3rd-round pick. Blocking + size. Early camp notes on physicality.' },
   // OL
   { name: 'Aireontae Ersery', num: '79', pos: 'T', ht: '6-6', wt: '330', exp: 2, college: 'Minnesota', status: 'LT starter', note: 'Year-2 LT. Camp focus on consistency and pass-pro sets.' },
-  { name: 'Wyatt Teller', num: '75', pos: 'G', ht: '6-3', wt: '323', exp: 8, college: 'Virginia Tech', status: 'LG starter', note: 'Veteran free-agent addition. Anchors the left side with power.' },
-  { name: 'Keylan Rutledge', num: '66', pos: 'G/C', ht: '—', wt: '—', exp: 'R', college: 'Georgia Tech', status: '1st-round pick', note: 'High-upside interior. Camp battles at C/G. Pancake highlights already noted.' },
+  { name: 'Wyatt Teller', num: '75', pos: 'G', ht: '6-3', wt: '323', exp: 8, college: 'Virginia Tech', status: 'LG starter', note: 'Veteran free-agent addition. Anchors the left side with power.' , links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/3121422/wyatt-teller' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/T/TellWy00.htm' }
+  ]},
+  { name: 'Keylan Rutledge', num: '66', pos: 'G/C', ht: '6-4', wt: '330', exp: 'R', college: 'Georgia Tech', status: '1st-round pick (#26)', note: '2026 1st-rounder (26th overall). Natural guard; competing for starting center. First-team All-American (2025). Live OL communication is a camp focus.', aliases: ['kentan', 'rutlage', 'rutledg'], links: [
+    { label: 'ESPN player page', url: 'https://www.espn.com/nfl/player/_/id/4839498/keylan-rutledge' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/R/RutlKe00.htm' },
+    { label: 'NFL.com roster', url: 'https://www.nfl.com/players/keylan-rutledge/' }
+  ] },
   { name: 'Ed Ingram', num: '69', pos: 'G', ht: '6-3', wt: '307', exp: 5, college: 'LSU', status: 'RG', note: 'Steady interior. Pairing with Teller improves the middle.' },
   { name: 'Braden Smith', num: '71', pos: 'T', ht: '6-5', wt: '322', exp: 8, college: 'Auburn', status: 'RT starter', note: 'Veteran RT addition. Experience and length for the right side.' },
   { name: 'Jake Andrews', num: '60', pos: 'C', ht: '6-3', wt: '308', exp: 4, college: 'Troy', status: 'Center battle', note: 'Competing with Rutledge / others for the starting C role.' },
@@ -1024,6 +1563,45 @@ const FULL_ROSTER = [
   { name: 'Kai Kroeger', num: '38', pos: 'P', ht: '6-3', wt: '213', exp: 2, college: 'South Carolina', status: 'Punter', note: 'Primary punter. Hang time and directional control.' },
   { name: 'Austin Brinkman', num: '40', pos: 'LS', ht: '6-4', wt: '241', exp: 2, college: 'West Virginia', status: 'Long snapper', note: 'Steady long snapper.' }
 ];
+
+/* Game-level insights for Schedule (preseason / season) — public lines + matchup notes */
+const GAME_INSIGHTS = {
+  LAC: {
+    favorite: 'LAC',
+    line: 'Chargers −2 (preseason consensus)',
+    ou: 'O/U ~38.5 (preseason)',
+    note: 'Preseason Week 1 is evaluation first. Starter snaps limited; depth and ST often decide the scoreboard.',
+    keys: ['Stroud clean in limited series', 'OL communication (Teller / Rutledge)', 'Anderson–Clowney early pressure', 'ST tackle consistency']
+  },
+  LV: {
+    favorite: 'HOU',
+    line: 'Texans favored (home preseason)',
+    ou: '—',
+    note: 'Preseason Week 2 often features more extended evaluation of the middle of the roster.',
+    keys: ['Depth OL continuity', 'Secondary vs vertical shots', 'Return game discipline']
+  },
+  CAR: {
+    favorite: 'HOU',
+    line: 'Texans slight road edge (preseason)',
+    ou: '—',
+    note: 'Final preseason tune-up before cuts. Focus on players fighting for the 53.',
+    keys: ['Bubble players on ST', 'No major injuries', 'Clean operation from backups']
+  },
+  BUF: {
+    favorite: 'BUF',
+    line: 'Bills favored (AFC benchmark)',
+    ou: '—',
+    note: 'Regular-season measuring stick. Protection and explosives allowed are the early dominos.',
+    keys: ['Protect Stroud vs edge', 'Limit Buffalo explosives', 'Red-zone finish']
+  },
+  DEFAULT: {
+    favorite: '—',
+    line: 'Line posts closer to kickoff',
+    ou: '—',
+    note: 'Matchup notes and market lines fill in as the week approaches.',
+    keys: ['Protection', 'Early downs', 'Explosives']
+  }
+};
 
 /* What to watch this week */
 const WATCH_THIS_WEEK = [
@@ -1164,12 +1742,49 @@ function renderSchedule() {
 
     row.addEventListener('click', () => {
       selectedGame = g;
-      showSection('pbp');
-      renderPBP();
+      showSection('schedule');
+      renderScheduleDetail(g);
     });
 
     list.appendChild(row);
   });
+}
+
+
+/** Schedule game detail — insights, line, keys, then optional Plays */
+function renderScheduleDetail(g) {
+  const list = $('#scheduleList');
+  if (!list || !g) return;
+  const insight = GAME_INSIGHTS[g.oppAbbr] || GAME_INSIGHTS.DEFAULT;
+  const favLabel = insight.favorite === 'HOU' ? 'Houston favored' :
+    insight.favorite === '—' ? 'Line TBD' :
+    insight.favorite + ' favored';
+  list.innerHTML = `
+    <button type="button" class="section-back" id="schedBackBtn">← Back to schedule</button>
+    <div class="game-detail-card">
+      <div class="game-detail-title">${g.home ? 'vs' : '@'} ${g.opp}</div>
+      <div class="small" style="margin:4px 0 10px">${g.type === 'pre' ? 'Preseason' : 'Week ' + g.week}${g.note ? ' · ' + g.note : ''} · ${g.date || ''}${g.time ? ' · ' + formatTime(g.time) : ''}${g.tv ? ' · ' + g.tv : ''}</div>
+      <div class="insight-grid">
+        <div class="insight-chip"><span class="insight-label">Market</span><strong>${favLabel}</strong></div>
+        <div class="insight-chip"><span class="insight-label">Line</span><strong>${insight.line}</strong></div>
+        <div class="insight-chip"><span class="insight-label">Total</span><strong>${insight.ou}</strong></div>
+      </div>
+      <p class="small" style="margin:10px 0 8px">${insight.note}</p>
+      <div class="small" style="font-weight:700;margin-bottom:4px">What to watch</div>
+      <ul class="opp-bullets">${(insight.keys || []).map(k => '<li>' + k + '</li>').join('')}</ul>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button type="button" class="btn" id="schedOpenPlays">Open Plays</button>
+        <button type="button" class="btn secondary" id="schedOpenGame">Game Center</button>
+      </div>
+      <p class="tend-note" style="margin-top:10px">Lines are public consensus for discussion only — not betting advice. Preseason lines move and often mean less than evaluation snaps.</p>
+    </div>
+  `;
+  const back = $('#schedBackBtn');
+  if (back) back.addEventListener('click', () => { selectedGame = null; renderSchedule(); });
+  const plays = $('#schedOpenPlays');
+  if (plays) plays.addEventListener('click', () => { showSection('pbp'); renderPBP(); });
+  const gc = $('#schedOpenGame');
+  if (gc) gc.addEventListener('click', () => { showSection('game'); renderGameCenter(); });
 }
 
 function formatTime(t) {
@@ -1352,6 +1967,92 @@ function renderGameCenter() {
   try { renderOpponentCard(); } catch (e) { /* never block Game Center */ }
   try { renderWatchWeekCard(); } catch (e) { /* never block Game Center */ }
   try { renderHistoryCard(); } catch (e) { /* never block Game Center */ }
+
+  // ---- REAL LIVE GAME (ESPN feed) ----
+  if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.active) {
+    if (modePill) {
+      modePill.textContent = 'LIVE';
+      modePill.classList.add('live');
+    }
+    const possHou = LIVE_GAME.possession === 'HOU';
+    const fg = fgRangeLabel(LIVE_GAME.yardSide || 'own', LIVE_GAME.yardNum || 50);
+    content.innerHTML = `
+      <div class="score-row">
+        <div class="team-block">
+          <div class="team-abbr">HOU</div>
+          <div class="team-score home">${LIVE_GAME.houScore}</div>
+        </div>
+        <div class="vs-clock">
+          <div style="font-size:1rem;font-weight:700;color:var(--danger)">LIVE</div>
+          <div style="margin-top:4px">Q${LIVE_GAME.qtr} · <span id="liveGameClock">${LIVE_GAME.clockDisplay || formatClock(LIVE_GAME.clockSeconds)}</span></div>
+        </div>
+        <div class="team-block">
+          <div class="team-abbr">${LIVE_GAME.oppAbbr}</div>
+          <div class="team-score">${LIVE_GAME.oppScore}</div>
+        </div>
+      </div>
+      <div class="possession-row">
+        <div class="possession-pill ${possHou ? '' : 'away'}">${possHou ? 'HOU BALL' : LIVE_GAME.oppAbbr + ' BALL'}</div>
+      </div>
+      <div class="situation-bar">
+        <span><strong>${ordSuffix(LIVE_GAME.down)} & ${LIVE_GAME.distance}</strong></span>
+        <span>${LIVE_GAME.yardline || '—'}</span>
+        <span class="fg-pill ${fg.cls}">${fg.text}</span>
+      </div>
+      <div class="live-updated" id="dataFreshness">Live feed · ${timeAgo(LIVE_GAME.lastUpdated || Date.now())}</div>
+    `;
+    if (tendencyCard) tendencyCard.style.display = possHou ? '' : 'none';
+    renderDominosCard('live');
+    const nextPlayCard = $('#nextPlayCard');
+    if (nextPlayCard) {
+      nextPlayCard.style.display = possHou ? '' : 'none';
+      if (possHou && typeof renderNextPlayLean === 'function') {
+        try { renderNextPlayLean(); } catch (e) { /* ok */ }
+      }
+    }
+    if (efficiencyCard) efficiencyCard.style.display = 'none';
+    if (driveCard) driveCard.style.display = 'none';
+    if (recapCard) recapCard.style.display = 'none';
+    const winProbCardL = $('#winProbCard');
+    if (winProbCardL) winProbCardL.style.display = 'none';
+    if (injuryCard) injuryCard.style.display = '';
+    if (opponentCard) opponentCard.style.display = '';
+    return;
+  }
+
+  // ---- FINAL / POST-GAME ----
+  if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.final) {
+    if (modePill) {
+      modePill.textContent = 'Final';
+      modePill.classList.remove('live');
+    }
+    content.innerHTML = `
+      <div class="score-row">
+        <div class="team-block">
+          <div class="team-abbr">HOU</div>
+          <div class="team-score home">${LIVE_GAME.houScore}</div>
+        </div>
+        <div class="vs-clock">
+          <div style="font-size:1rem;font-weight:700;color:var(--navy)">FINAL</div>
+          <div style="margin-top:4px">${LIVE_GAME.detail || ''}</div>
+        </div>
+        <div class="team-block">
+          <div class="team-abbr">${LIVE_GAME.oppAbbr}</div>
+          <div class="team-score">${LIVE_GAME.oppScore}</div>
+        </div>
+      </div>
+    `;
+    if (tendencyCard) tendencyCard.style.display = 'none';
+    const nextPlayCardF = $('#nextPlayCard');
+    if (nextPlayCardF) nextPlayCardF.style.display = 'none';
+    if (efficiencyCard) efficiencyCard.style.display = 'none';
+    if (driveCard) driveCard.style.display = 'none';
+    if (recapCard) recapCard.style.display = 'none';
+    renderDominosCard('postgame');
+    if (injuryCard) injuryCard.style.display = '';
+    if (opponentCard) opponentCard.style.display = '';
+    return;
+  }
 
   if (LIVE_DEMO.active) {
     if (modePill) {
@@ -1660,48 +2361,69 @@ function startCountdown(target) {
 function renderPBP() {
   const list = $('#pbpList');
   const label = $('#pbpGameLabel');
+  if (!list) return;
   list.innerHTML = '';
 
-  if (LIVE_DEMO.active) {
-    label.textContent = `· LIVE vs ${LIVE_DEMO.oppAbbr || ''}`;
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'section-back';
+  back.textContent = selectedGame ? '← Back to game insights' : '← Back to Schedule';
+  back.addEventListener('click', () => {
+    showSection('schedule');
+    if (selectedGame && typeof renderScheduleDetail === 'function') renderScheduleDetail(selectedGame);
+    else renderSchedule();
+  });
+  list.appendChild(back);
+
+  if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.active && LIVE_GAME.recentPlays && LIVE_GAME.recentPlays.length) {
+    if (label) label.textContent = '· LIVE vs ' + (LIVE_GAME.oppAbbr || '');
     const driveHeader = document.createElement('div');
     driveHeader.className = 'drive-header';
-    driveHeader.textContent = `Q${LIVE_DEMO.qtr} ${formatClock(LIVE_DEMO.clockSeconds)} · ${LIVE_DEMO.possession === 'HOU' ? 'HOU ball' : LIVE_DEMO.oppAbbr + ' ball'} · ${LIVE_DEMO.down} & ${LIVE_DEMO.distance} · ${LIVE_DEMO.yardline}`;
+    driveHeader.textContent = 'Q' + LIVE_GAME.qtr + ' ' + (LIVE_GAME.clockDisplay || '') + ' · live public feed';
+    list.appendChild(driveHeader);
+    LIVE_GAME.recentPlays.forEach((play) => {
+      const div = document.createElement('div');
+      div.className = 'play' + (play.big ? ' big' : '');
+      div.innerHTML = '<div class="play-time">Q' + (play.qtr || '') + '<br>' + (play.clock || '') + '</div><div class="play-body"><div class="play-desc">' + (play.desc || '') + '</div></div>';
+      list.appendChild(div);
+    });
+    return;
+  }
+
+  if (typeof LIVE_DEMO !== 'undefined' && LIVE_DEMO.active) {
+    if (label) label.textContent = '· LIVE vs ' + (LIVE_DEMO.oppAbbr || '');
+    const driveHeader = document.createElement('div');
+    driveHeader.className = 'drive-header';
+    driveHeader.textContent = 'Q' + LIVE_DEMO.qtr + ' ' + formatClock(LIVE_DEMO.clockSeconds) + ' · ' + (LIVE_DEMO.possession === 'HOU' ? 'HOU ball' : LIVE_DEMO.oppAbbr + ' ball');
     list.appendChild(driveHeader);
     (LIVE_DEMO.recentPlays || []).forEach((play) => {
       const div = document.createElement('div');
       div.className = 'play' + (play.big ? ' big' : '');
-      div.innerHTML = `
-        <div class="play-time">Q${play.qtr}<br>${play.clock}</div>
-        <div class="play-body"><div class="play-desc">${play.desc}</div></div>
-      `;
+      div.innerHTML = '<div class="play-time">Q' + play.qtr + '<br>' + play.clock + '</div><div class="play-body"><div class="play-desc">' + play.desc + '</div></div>';
       list.appendChild(div);
     });
     return;
   }
 
   if (selectedGame) {
-    label.textContent = `· ${selectedGame.home ? 'vs' : '@'} ${selectedGame.oppAbbr}`;
-  } else {
-    label.textContent = '· Sample scoring drive';
+    if (label) label.textContent = '· ' + (selectedGame.home ? 'vs' : '@') + ' ' + selectedGame.oppAbbr;
+  } else if (label) {
+    label.textContent = '· Select a game on Schedule';
   }
 
   const driveHeader = document.createElement('div');
   driveHeader.className = 'drive-header';
   driveHeader.textContent = selectedGame
-    ? `Sample drive illustration — real play-by-play appears when a game is live / recently finished (public data).`
-    : `Sample scoring drive (Texans style). Live play-by-play appears when a game is in progress.`;
+    ? 'No live plays yet for this game. When the game is in progress (with network), public play-by-play fills here. Use Schedule for matchup insights, favorite, and keys.'
+    : 'Pick a game on Schedule for insights — or wait for a live Texans game to stream plays here.';
   list.appendChild(driveHeader);
 
-  SAMPLE_PBP.slice().reverse().forEach((play) => {
-    const div = document.createElement('div');
-    div.className = 'play' + (play.big ? ' big' : '') + (play.score ? ' score' : '') + (play.td ? ' td' : '');
-    div.innerHTML = `
-      <div class="play-time">Q${play.qtr}<br>${play.clock}</div>
-      <div class="play-body"><div class="play-desc">${play.desc}</div></div>
-    `;
-    list.appendChild(div);
-  });
+  if (!selectedGame) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = 'Tip: open Schedule, tap a game for favored team / line / keys, then Open Plays.';
+    list.appendChild(empty);
+  }
 }
 
 /* ---------- Training Camp + News (Texans.com RSS + ESPN) ---------- */
@@ -2341,14 +3063,20 @@ function renderRoster() {
     const filtered = FULL_ROSTER.filter(p => {
       const posOk = rosterFilterPos === 'ALL' ||
         p.pos === rosterFilterPos ||
-        (rosterFilterPos === 'OL' && ['T', 'G', 'C', 'OL'].includes(p.pos)) ||
+        (rosterFilterPos === 'OL' && (['T', 'G', 'C', 'OL', 'G/C', 'OT'].includes(p.pos) || /G|C|T/.test(p.pos))) ||
         (rosterFilterPos === 'DE' && p.pos === 'DE') ||
         (rosterFilterPos === 'DT' && p.pos === 'DT') ||
         (rosterFilterPos === 'ST' && ['K', 'P', 'LS'].includes(p.pos));
       if (!posOk) return false;
       if (!q) return true;
+      const nameL = p.name.toLowerCase();
+      const aliasHit = Array.isArray(p.aliases) && p.aliases.some((a) => String(a).toLowerCase().includes(q) || q.includes(String(a).toLowerCase()));
+      // Tolerate common misspellings (e.g. "kentan" → Keylan Rutledge)
+      const fuzzy = q.length >= 3 && nameL.split(/\s+/).some((part) => part.startsWith(q.slice(0, 3)) || q.startsWith(part.slice(0, 3)));
       return (
-        p.name.toLowerCase().includes(q) ||
+        nameL.includes(q) ||
+        aliasHit ||
+        fuzzy ||
         (p.num && p.num.toString().includes(q)) ||
         p.pos.toLowerCase().includes(q) ||
         (p.status && p.status.toLowerCase().includes(q)) ||
@@ -2386,11 +3114,18 @@ function renderRoster() {
         });
         if (wasOpen || !body) return;
         body.classList.remove('hidden');
+        const linkHtml = (p.links && p.links.length)
+          ? '<div class="player-links">' + p.links.map((L) =>
+              '<a class="player-link" href="' + L.url + '" target="_blank" rel="noopener noreferrer">' + L.label + ' ↗</a>'
+            ).join('') + '</div>' +
+            '<div class="small" style="margin-top:4px;opacity:0.8">Trusted sources only (ESPN, PFR, NFL.com). Read widely; form your own view.</div>'
+          : '<div class="small" style="margin-top:6px;opacity:0.8">No external scouting links attached for this roster line yet.</div>';
         body.innerHTML = `
           <strong>${p.name}</strong> · #${p.num || '—'} · ${p.pos}<br>
           ${p.ht || ''} ${p.wt || ''} · Exp: ${p.exp || '—'} · ${p.college || ''}<br>
           <span class="small" style="display:block;margin-top:6px">${p.note || 'No extended note yet.'}</span>
-          <span class="small" style="display:block;margin-top:4px;opacity:0.85">Phase note: Preseason roster is larger. Regular-season and postseason use the final 53-man + practice squad.</span>
+          ${linkHtml}
+          <span class="small" style="display:block;margin-top:6px;opacity:0.85">Phase note: Preseason roster is larger. Regular-season and postseason use the final 53-man + practice squad.</span>
         `;
         btn.setAttribute('aria-expanded', 'true');
         if (hint) hint.textContent = 'Tap to close ▴';
@@ -2490,6 +3225,14 @@ function init() {
   setTimeout(() => loadNews(false), 600);
   setTimeout(() => loadCamp(false), 900);
   setTimeout(() => loadVideos(false), 1200);
+  // Live game feed: try once, then poll so Dominos rewrites during real games
+  setTimeout(async () => {
+    try {
+      await refreshLiveGame();
+      renderGameCenter();
+    } catch (e) { /* offline / CORS ok — pre-game path still works */ }
+    startLiveGamePoll();
+  }, 400);
 }
 
 /* Start: check password first */

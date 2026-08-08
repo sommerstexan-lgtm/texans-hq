@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v15.1 · About</div>
+      <div id="statusPill" class="status-pill">v15.8 · Polish</div>
 
 
 
@@ -230,39 +230,91 @@
           <div class="card-title">About Texans HQ</div>
           <div class="about-body">
             <p><strong>What this is</strong><br>
-            A personal Houston Texans app built for a father and son to follow the team together. It is not an official NFL or Texans product.</p>
+            A personal Houston Texans HQ built for a father and son to follow the team together — watch smarter, argue better, and see the path to a win as it unfolds. It is not an official NFL or Texans product.</p>
 
-            <p><strong>What it gives you</strong></p>
+            <p><strong>What it gives you (every tab)</strong></p>
             <ul class="about-list">
-              <li><strong>Game Center</strong> — scoreboard, situation, tendencies, injuries, opponent notes, and the Next Play Lean.</li>
-              <li><strong>Next Play Lean</strong> — a situation-based guess (run vs pass and more detail) so you can argue about what Houston should call. It uses 2025 Texans tendencies plus down, distance, field position, score, and clock.</li>
-              <li><strong>Play-by-Play</strong> — drive and play list (demo now; real feed later).</li>
-              <li><strong>Schedule</strong> — full 2026 preseason, regular season, and later postseason.</li>
-              <li><strong>Roster</strong> — searchable by name, number, or position with short notes.</li>
-              <li><strong>Stats, Camp, News, Videos</strong> — team snapshot, training-camp updates, headlines, and ranked video picks.</li>
-              <li><strong>Notes</strong> — private notes that stay only on this device.</li>
+              <li><strong>Game</strong> — scoreboard (upcoming / live / final), Dominos to Win, injuries, opponent preview, Next Play Lean when Houston has the ball.</li>
+              <li><strong>Plays</strong> — live public play-by-play when a game is on; otherwise guidance to Schedule. Always includes a <em>Back</em> control to return to game insights or the full schedule.</li>
+              <li><strong>Schedule</strong> — full 2026 slate. Tap any game for <em>favored team, line, total, matchup note, and keys to watch</em>, then jump to Plays or Game Center. Back returns to the list.</li>
+              <li><strong>Camp</strong> — training-camp updates from public team / ESPN feeds with offline cache.</li>
+              <li><strong>Stats</strong> — team snapshot and player cards with expandable notes.</li>
+              <li><strong>Roster</strong> — searchable camp/preseason roster (fuzzy search for misspellings). Tap a player for notes plus <em>trusted</em> external links only (ESPN, Pro Football Reference, NFL.com) — no hype mills.</li>
+              <li><strong>News / Videos</strong> — public headlines and ranked video picks with refresh.</li>
+              <li><strong>Notes</strong> — private, on-device only.</li>
+              <li><strong>About</strong> — this guide.</li>
             </ul>
 
-            <p><strong>Next Play Lean — important rules</strong></p>
+            <p><strong>Dominos to Win — the idea</strong><br>
+            Most apps show a score or a generic “keys to the game.” Dominos is different. It treats a win as a <em>path of conditions</em> that must hold for Houston — protection, early downs, edge pressure, explosives prevented, red-zone finish, special teams, named player hinges, and more. Before kickoff you see the matchup must-achieve set. During the game the list rewrites as plays happen: what still matters, what already fell Houston’s way, and what broke against them. After the whistle you get a full unit breakdown. Over the season the app remembers which conditions actually decided games and quietly improves priority the next time.</p>
+
+            <p><strong>Three modes (one card)</strong></p>
             <ul class="about-list">
-              <li>It is a <em>lean</em>, not a guarantee. Use it for discussion, not as fact.</li>
-              <li>Accuracy is tracked automatically when the next play is known.</li>
-              <li><strong>Preseason never counts</strong> toward the accuracy numbers or any learning.</li>
-              <li>Only regular-season and postseason results are kept for analysis.</li>
+              <li><strong>Before kickoff</strong> — pill reads <em>Before kickoff</em>. Matchup-specific path for the next opponent. Preseason paths are phase-aware: <em>starters</em> window first, then <em>depth</em> evaluation.</li>
+              <li><strong>Live</strong> — when a Texans game is in progress and the network feed is available, the card shows the highest-leverage remaining dominos plus a one-line insight. Status colors update from real play text.</li>
+              <li><strong>Final path</strong> — after the game, Dominos expands into a hierarchy grouped by unit (OFF / DEF / ST / PLY and related categories) so you can review the whole path, not only the live shortlist.</li>
             </ul>
 
-            <p><strong>Current limitations</strong></p>
+            <p><strong>How to read the colors (20-second glance)</strong></p>
             <ul class="about-list">
-              <li>Right now the “live” game is a built-in demo. Real live play-by-play for actual 2026 games is not connected yet.</li>
-              <li>Roster and depth notes are based on public training-camp information and will change after cuts.</li>
-              <li>News and videos depend on public feeds and may be delayed or incomplete when offline.</li>
-              <li>Win probability and some stats are simplified for quick reading, not full models.</li>
+              <li>🟡 <strong>Live</strong> — still required; watch this now</li>
+              <li>🟢 <strong>Fallen</strong> — achieved in Houston’s favor</li>
+              <li>🔴 <strong>Broken</strong> — went against Houston; the path narrowed</li>
+            </ul>
+            <p>Each row also shows a category chip (<strong>OFF</strong>, <strong>DEF</strong>, <strong>ST</strong>, <strong>PLY</strong>, etc.) and, in preseason, a phase tag (<strong>starters</strong> or <strong>depth</strong>). The line under the list is the single highest-leverage insight right now — glance, absorb, look back at the TV.</p>
+
+            <p><strong>What the path covers</strong></p>
+            <ul class="about-list">
+              <li><strong>Offense</strong> — clean pocket, OL fits, early-down success, third downs, red-zone finish, ball security, depth assignment football</li>
+              <li><strong>Defense</strong> — edge pressure, stops on schedule, explosives prevented, takeaways, third-down defense</li>
+              <li><strong>Special teams</strong> — coverage, tackle consistency, hidden yardage, no free points the other way</li>
+              <li><strong>Players</strong> — named hinges when one player is a real lever (Stroud, Higgins, Anderson / Clowney, Mills in the depth window, and others as matchups dictate)</li>
+              <li><strong>Momentum &amp; context</strong> — answering an explosive, protecting a late lead, weather when it actually matters</li>
+            </ul>
+
+            <p><strong>Live feed (how it stays current)</strong><br>
+            During Texans games the app pulls public ESPN scoreboard and play data (same family of endpoints used for News). Scores, clock, situation, and recent play text feed the Dominos engine so fallen / broken status is driven by what happened on the field — not by a static checklist. Polling runs in the background while you stay in the app. If the network is unavailable, the pre-game path still works offline; live rewriting resumes when the feed is reachable again.</p>
+
+            <p><strong>Post-game hierarchy</strong><br>
+            When the game is final, Dominos switches to <em>Final path</em>: every tracked condition grouped under offense, defense, special teams, and player categories with its final status. That is the review mode — built for after the broadcast, when you have time to study what held and what broke.</p>
+
+            <p><strong>Season memory (gets smarter over time)</strong><br>
+            After each final, this device stores which dominos fell and which broke. Future games slightly raise the priority of conditions that kept deciding wins and ease ones that kept failing. No account and no cloud upload — memory stays on this device only. Preseason paths are useful for evaluation; regular season and postseason carry the heavier weight for long-term calibration.</p>
+
+            <p><strong>What to watch for on the card</strong></p>
+            <ul class="about-list">
+              <li>A <strong>3rd-and-long</strong> or <strong>red-zone</strong> domino at the top — highest leverage right now</li>
+              <li>A <strong>broken</strong> protection or explosive-play domino — the path just got harder</li>
+              <li>Several <strong>fallen</strong> early-down / protection items while leading — controlled football is working</li>
+              <li>Defense on the field with <strong>force a stop</strong> live — the offense path depends on this series</li>
+              <li>Preseason: <strong>starters</strong> tags early, then <strong>depth</strong> tags after the evaluation window shifts</li>
+            </ul>
+
+            <p><strong>Dominos vs Next Play Lean</strong><br>
+            Next Play Lean answers: “What might they call on <em>this</em> snap?”<br>
+            Dominos answers: “What still has to be true for Houston to <em>win the game</em>?”<br>
+            They sit next to each other on purpose. One is the next call; the other is the win path.</p>
+
+            <p><strong>Next Play Lean — rules</strong></p>
+            <ul class="about-list">
+              <li>It is a <em>lean</em>, not a guarantee — built for discussion.</li>
+              <li>Accuracy is tracked when the next play is known.</li>
+              <li><strong>Preseason never counts</strong> toward Next Play Lean accuracy or learning.</li>
+              <li>Only regular-season and postseason results feed that accuracy log.</li>
+            </ul>
+
+            <p><strong>Honest limits</strong></p>
+            <ul class="about-list">
+              <li>Live feed needs network. Opening the app as a raw <code>file://</code> page can block ESPN requests (browser security). Hosted or served over http/https is best on game day. Pre-game Dominos always work offline.</li>
+              <li>Play-text resolution is strong for sacks, explosives, turnovers, first downs, and scores; ultra-fine alignment labels (exact coverage shell on every snap) are not claimed on the live card.</li>
+              <li>Roster and depth notes are public camp-era information and will change after cuts.</li>
+              <li>News and videos depend on public feeds and may lag or be empty offline.</li>
             </ul>
 
             <p><strong>Privacy</strong><br>
-            Password-protected. Notes and accuracy logs stay on this device only. Nothing is uploaded to a server.</p>
+            Password-protected. Notes, Next Play accuracy, and Dominos season memory stay on this device only. Nothing is uploaded to a server.</p>
 
-            <p class="small" style="margin-top:12px">Built for personal use. Version shown in the header. Enjoy the arguments.</p>
+            <p class="small" style="margin-top:12px">Built for personal use. Version in the header. Dominos is the feature that turns watching into understanding — so a father and son can see the same path and argue about the next one.</p>
           </div>
         </div>
       </section>
