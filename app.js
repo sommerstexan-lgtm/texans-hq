@@ -1,14 +1,17 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.2
+   Texans HQ — Personal PWA  v15.4.1
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
    Roster + Next Play Lean + Dominos to Win (causal path model)
+   Active nav: black box + white icon/label
+   Demo removed · Game Center truthful
+   Dominos: clear labels (Before kickoff / live updates)
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.2';
-const APP_VERSION_LABEL = 'v15.2 · Dominos';
+const APP_VERSION = 'v15.4.1';
+const APP_VERSION_LABEL = 'v15.4.1 · Clear';
 
 /* Stable key — never changes across versions so the device stays unlocked */
 const UNLOCK_KEY = 'texans-hq-device-unlocked';
@@ -201,26 +204,27 @@ const TEAM_STAT_DETAILS = {
 };
 
 
-/* Demo live state — for testing UI before real 2026 games start */
+/* Live game state — inactive by default. Demo live mode removed.
+   When real live data is available, set active:true and populate fields. */
 const LIVE_DEMO = {
-  active: true,
+  active: false,
   home: true,
   opp: 'Buffalo Bills',
   oppAbbr: 'BUF',
-  houScore: 17,
-  oppScore: 14,
-  qtr: 3,
-  clockSeconds: 6 * 60 + 12, // ticking demo clock starts at 6:12
-  possession: 'HOU', // HOU or OPP
-  down: 2,
-  distance: 7,
-  yardline: 'Opp 38',
-  tendency: { pass: 61, run: 39, note: 'Season early-down + small game tilt' },
+  houScore: 0,
+  oppScore: 0,
+  qtr: 1,
+  clockSeconds: 0,
+  possession: 'HOU',
+  down: 1,
+  distance: 10,
+  yardline: '—',
+  tendency: { pass: 0, run: 0, note: '' },
   efficiency: {
-    thirdDown: '4/9',
-    thirdPct: '44%',
-    redZone: '1/2',
-    redPct: '50% TD',
+    thirdDown: '—',
+    thirdPct: '—',
+    redZone: '—',
+    redPct: '—',
     timeoutsHou: 2,
     timeoutsOpp: 3
   },
@@ -628,9 +632,12 @@ const PRE_GAME_DOMINOS = {
     { id: 'buf-st', text: 'No special-teams points allowed', category: 'special', priority: 78, preGame: true }
   ],
   LAC: [
-    { id: 'lac-eval', text: 'Starter evaluation snaps stay clean', category: 'offense', priority: 70, preGame: true },
-    { id: 'lac-ol', text: 'OL communication vs Chargers front', category: 'offense', priority: 75, preGame: true },
-    { id: 'lac-edge', text: 'Anderson + Clowney generate early pressure', category: 'defense', priority: 72, preGame: true }
+    { id: 'lac-protect', text: 'Keep Stroud clean in limited starter snaps', category: 'offense', priority: 90, preGame: true },
+    { id: 'lac-ol', text: 'OL communication vs Chargers front holds', category: 'offense', priority: 86, preGame: true },
+    { id: 'lac-edge', text: 'Anderson + Clowney generate early pressure', category: 'defense', priority: 84, preGame: true },
+    { id: 'lac-higgins', text: 'Higgins chemistry shows in live reps', category: 'player', priority: 80, preGame: true },
+    { id: 'lac-st', text: 'Special teams / tackle consistency clean', category: 'special', priority: 75, preGame: true },
+    { id: 'lac-depth', text: 'Depth players evaluated without major mistakes', category: 'offense', priority: 70, preGame: true }
   ],
   DEFAULT: [
     { id: 'def-protect', text: 'Protect Stroud — limit free runners', category: 'offense', priority: 90, preGame: true },
@@ -826,39 +833,71 @@ function evaluateDominos(state) {
   };
 }
 
-/** Render the live Dominos card (compact, ≤20-second scan) */
-function renderDominosCard() {
+/**
+ * Render Dominos card.
+ * mode: 'live' | 'pregame'
+ * oppAbbr: used in pregame to seed matchup path
+ * Compact for ≤20-second scan.
+ */
+function renderDominosCard(mode, oppAbbr) {
   const card = $('#dominosCard');
   const content = $('#dominosContent');
   const pill = $('#dominosStatusPill');
   if (!card || !content) return;
 
-  if (!LIVE_DEMO.active) {
-    card.style.display = 'none';
+  // Live path
+  if (mode === 'live' || LIVE_DEMO.active) {
+    card.style.display = '';
+    const result = evaluateDominos(LIVE_DEMO);
+    if (pill) pill.textContent = result.statusSummary;
+    if (!result.dominos.length) {
+      content.innerHTML = `<div class="empty">Path being evaluated…</div>`;
+      return;
+    }
+    let html = `<div class="dominos-list">`;
+    result.dominos.forEach(d => {
+      const icon = d.status === 'fallen' ? '🟢' : (d.status === 'broken' ? '🔴' : '🟡');
+      const cls = d.status === 'fallen' ? 'domino-fallen' : (d.status === 'broken' ? 'domino-broken' : 'domino-live');
+      html += `<div class="domino-row ${cls}"><span class="domino-icon">${icon}</span><span class="domino-text">${d.text}</span></div>`;
+    });
+    html += `</div>`;
+    html += `<div class="dominos-insight">${result.keyInsight}</div>`;
+    content.innerHTML = html;
     return;
   }
 
+  // Pre-game / upcoming path — show matchup must-achieve set
+  const abbr = oppAbbr || 'DEFAULT';
+  const seeds = (PRE_GAME_DOMINOS[abbr] || PRE_GAME_DOMINOS.DEFAULT)
+    .slice()
+    .sort((a, b) => b.priority - a.priority)
+    .slice(0, 4)
+    .map(d => ({ ...d, status: 'live' }));
+
   card.style.display = '';
-  const result = evaluateDominos(LIVE_DEMO);
+  if (pill) pill.textContent = 'Before kickoff';
 
-  if (pill) pill.textContent = result.statusSummary;
-
-  if (!result.dominos.length) {
-    content.innerHTML = `<div class="empty">Path being evaluated…</div>`;
+  if (!seeds.length) {
+    content.innerHTML = `<div class="empty">Matchup keys will appear closer to kickoff.</div>`;
     return;
   }
 
   let html = `<div class="dominos-list">`;
-  result.dominos.forEach(d => {
-    const icon = d.status === 'fallen' ? '🟢' : (d.status === 'broken' ? '🔴' : '🟡');
-    const cls = d.status === 'fallen' ? 'domino-fallen' : (d.status === 'broken' ? 'domino-broken' : 'domino-live');
-    html += `<div class="domino-row ${cls}"><span class="domino-icon">${icon}</span><span class="domino-text">${d.text}</span></div>`;
+  seeds.forEach(d => {
+    html += `<div class="domino-row domino-live"><span class="domino-icon">🟡</span><span class="domino-text">${d.text}</span></div>`;
   });
   html += `</div>`;
-  html += `<div class="dominos-insight">${result.keyInsight}</div>`;
-
+  html += `<div class="dominos-insight">What has to go right vs ${abbr} for Houston to win. This list updates during the game.</div>`;
   content.innerHTML = html;
 }
+
+/* Injury / availability (camp / early preseason — public-style) */
+const INJURY_REPORT = [
+  { name: 'British Brooks', pos: 'RB', status: 'Out (hand)', note: 'Broke hand in camp, surgery; ~3-week outlook. May miss all preseason.' },
+  { name: 'Tank Dell', pos: 'WR', status: 'Returning', note: 'Working back from 2024 knee. Monitor live snaps in preseason.' },
+  { name: 'D.J. Turner', pos: 'WR', status: 'IR', note: 'On injured reserve.' },
+  { name: 'Azeez Al-Shaair', pos: 'LB', status: 'Monitor', note: 'Any camp bumps are watched closely given his leadership role.' }
+];
 
 /* Opponent one-pager (low-bias, public facts style) keyed by abbr */
 const OPPONENT_PREVIEWS = {
@@ -1299,6 +1338,7 @@ function renderDepthChart() {
 
 function renderGameCenter() {
   const content = $('#gameCenterContent');
+  if (!content) return;
   const modePill = $('#gameModePill');
   const tendencyCard = $('#tendencyCard');
   const efficiencyCard = $('#efficiencyCard');
@@ -1308,14 +1348,14 @@ function renderGameCenter() {
   const recapCard = $('#recapCard');
   const upcomingCard = $('#upcomingCard');
 
-  renderInjuryCard();
-  renderOpponentCard();
-  renderWatchWeekCard();
-  renderHistoryCard();
+  try { renderInjuryCard(); } catch (e) { /* never block Game Center */ }
+  try { renderOpponentCard(); } catch (e) { /* never block Game Center */ }
+  try { renderWatchWeekCard(); } catch (e) { /* never block Game Center */ }
+  try { renderHistoryCard(); } catch (e) { /* never block Game Center */ }
 
   if (LIVE_DEMO.active) {
     if (modePill) {
-      modePill.textContent = 'Demo live';
+      modePill.textContent = 'LIVE';
       modePill.classList.add('live');
     }
     const possHou = LIVE_DEMO.possession === 'HOU';
@@ -1349,11 +1389,6 @@ function renderGameCenter() {
       </div>
       <div class="weather-row small">${LIVE_DEMO.weather ? LIVE_DEMO.weather.note : ''}</div>
       <div class="live-updated" id="dataFreshness">Data fresh · just now</div>
-      <div class="demo-toggle">
-        <button type="button" class="active" id="btnDemoLive">Demo live</button>
-        <button type="button" id="btnDemoRecap">Sample recap</button>
-        <button type="button" id="btnDemoUpcoming">Upcoming only</button>
-      </div>
     `;
 
     if (tendencyCard && possHou) {
@@ -1378,8 +1413,8 @@ function renderGameCenter() {
       tendencyCard.style.display = 'none';
     }
 
-    // Dominos to Win (causal path — always evaluated in live mode)
-    renderDominosCard();
+    // Dominos to Win (causal path — live evaluation)
+    renderDominosCard('live');
 
     // Next Play Lean (detailed situation model)
     const nextPlayCard = $('#nextPlayCard');
@@ -1430,7 +1465,6 @@ function renderGameCenter() {
     if (upcomingCard) upcomingCard.style.display = 'none';
     renderWinProbCard();
     startLiveRefresh();
-    wireDemoToggles();
     return;
   }
 
@@ -1441,8 +1475,6 @@ function renderGameCenter() {
   }
   stopLiveRefresh();
   if (tendencyCard) tendencyCard.style.display = 'none';
-  const dominosCardUp = $('#dominosCard');
-  if (dominosCardUp) dominosCardUp.style.display = 'none';
   const nextPlayCardUp = $('#nextPlayCard');
   if (nextPlayCardUp) nextPlayCardUp.style.display = 'none';
   if (efficiencyCard) efficiencyCard.style.display = 'none';
@@ -1461,8 +1493,13 @@ function renderGameCenter() {
   const next = getNextGame();
   if (!next) {
     content.innerHTML = `<div class="empty">Season complete or schedule ended.</div>`;
+    const dominosCardNone = $('#dominosCard');
+    if (dominosCardNone) dominosCardNone.style.display = 'none';
     return;
   }
+  // Pre-game Dominos path for the upcoming opponent (visible before kickoff)
+  renderDominosCard('pregame', next.oppAbbr);
+
   const kick = new Date(next.date + 'T' + (next.time || '12:00') + ':00');
   content.innerHTML = `
     <div class="score-row">
@@ -1484,15 +1521,10 @@ function renderGameCenter() {
       <span>${kick.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${formatTime(next.time)}</span>
       ${next.tv ? `<span class="tv-badge${next.tv === 'Prime Video' ? ' prime' : ''}">${next.tv}</span>` : ''}
     </div>
-    <div class="demo-toggle">
-      <button type="button" id="btnDemoLive">Demo live</button>
-      <button type="button" id="btnDemoRecap">Sample recap</button>
-      <button type="button" class="active" id="btnDemoUpcoming">Upcoming only</button>
-    </div>
   `;
-  $('#nextGamePreview').textContent = `${next.home ? 'vs' : '@'} ${next.opp} · ${kick.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
+  const preview = $('#nextGamePreview');
+  if (preview) preview.textContent = `${next.home ? 'vs' : '@'} ${next.opp} · ${kick.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
   startCountdown(kick);
-  wireDemoToggles();
 }
 
 function ordSuffix(n) {
@@ -1505,13 +1537,17 @@ function ordSuffix(n) {
 function renderInjuryCard() {
   const el = $('#injuryContent');
   if (!el) return;
+  if (typeof INJURY_REPORT === 'undefined' || !INJURY_REPORT.length) {
+    el.innerHTML = `<div class="empty">Injury report unavailable.</div>`;
+    return;
+  }
   el.innerHTML = INJURY_REPORT.map((r) => {
-    const cls = r.status.toLowerCase();
+    const cls = (r.status || '').toLowerCase();
     return `<div class="injury-row">
       <span class="injury-status ${cls}">${r.status}</span>
       <div><strong>${r.name}</strong> <span class="small">(${r.pos})</span><br><span class="small">${r.note}</span></div>
     </div>`;
-  }).join('') + `<p class="tend-note">Demo/public-style list — replace with official report closer to games. Always verify on team/NFL sources.</p>`;
+  }).join('') + `<p class="tend-note">Public-style list — replace with official report closer to games. Always verify on team/NFL sources.</p>`;
 }
 
 function renderOpponentCard() {
@@ -1569,42 +1605,33 @@ function renderRecapDemo() {
   const r = SAMPLE_RECAP;
   content.innerHTML = `
     <div class="recap-score">HOU ${r.houScore} – ${r.oppScore} ${r.oppAbbr}</div>
-    <div class="text-center small">${r.result} · Preseason sample</div>
-    <div class="demo-toggle">
-      <button type="button" id="btnDemoLive">Demo live</button>
-      <button type="button" class="active" id="btnDemoRecap">Sample recap</button>
-      <button type="button" id="btnDemoUpcoming">Upcoming only</button>
-    </div>
+    <div class="text-center small">${r.result} · Sample</div>
   `;
-  $('#recapContent').innerHTML = `
-    <div class="recap-stats">
-      ${r.teamStats.map(s => `<div><strong>${s.label}</strong><br>HOU ${s.hou} · ${s.opp}</div>`).join('')}
-    </div>
-    <div class="spotlight-block outstanding">
-      <h4>Outstanding</h4>
-      ${r.outstanding.map(x => `<div>${x}</div>`).join('')}
-    </div>
-    <div class="spotlight-block">
-      <h4>Solid</h4>
-      ${r.solid.map(x => `<div>${x}</div>`).join('')}
-    </div>
-    <div class="spotlight-block quiet">
-      <h4>Quiet</h4>
-      ${r.quiet.map(x => `<div>${x}</div>`).join('')}
-    </div>
-    <p class="tend-note">Rule-based labels from public-style box score thresholds — not official grades.</p>
-  `;
-  wireDemoToggles();
+  const recapEl = $('#recapContent');
+  if (recapEl) {
+    recapEl.innerHTML = `
+      <div class="recap-stats">
+        ${r.teamStats.map(s => `<div><strong>${s.label}</strong><br>HOU ${s.hou} · ${s.opp}</div>`).join('')}
+      </div>
+      <div class="spotlight-block outstanding">
+        <h4>Outstanding</h4>
+        ${r.outstanding.map(x => `<div>${x}</div>`).join('')}
+      </div>
+      <div class="spotlight-block">
+        <h4>Solid</h4>
+        ${r.solid.map(x => `<div>${x}</div>`).join('')}
+      </div>
+      <div class="spotlight-block quiet">
+        <h4>Quiet</h4>
+        ${r.quiet.map(x => `<div>${x}</div>`).join('')}
+      </div>
+      <p class="tend-note">Rule-based labels from public-style box score thresholds — not official grades.</p>
+    `;
+  }
 }
 
-function wireDemoToggles() {
-  const live = $('#btnDemoLive');
-  const recap = $('#btnDemoRecap');
-  const up = $('#btnDemoUpcoming');
-  if (live) live.onclick = () => { LIVE_DEMO.active = true; renderGameCenter(); renderPBP(); };
-  if (recap) recap.onclick = () => { renderRecapDemo(); };
-  if (up) up.onclick = () => { LIVE_DEMO.active = false; renderGameCenter(); renderPBP(); };
-}
+/* Demo toggles removed — no longer used */
+function wireDemoToggles() {}
 
 function startCountdown(target) {
   const el = $('#countdown');
@@ -1636,12 +1663,12 @@ function renderPBP() {
   list.innerHTML = '';
 
   if (LIVE_DEMO.active) {
-    label.textContent = '· Demo live vs BUF';
+    label.textContent = `· LIVE vs ${LIVE_DEMO.oppAbbr || ''}`;
     const driveHeader = document.createElement('div');
     driveHeader.className = 'drive-header';
     driveHeader.textContent = `Q${LIVE_DEMO.qtr} ${formatClock(LIVE_DEMO.clockSeconds)} · ${LIVE_DEMO.possession === 'HOU' ? 'HOU ball' : LIVE_DEMO.oppAbbr + ' ball'} · ${LIVE_DEMO.down} & ${LIVE_DEMO.distance} · ${LIVE_DEMO.yardline}`;
     list.appendChild(driveHeader);
-    LIVE_DEMO.recentPlays.forEach((play) => {
+    (LIVE_DEMO.recentPlays || []).forEach((play) => {
       const div = document.createElement('div');
       div.className = 'play' + (play.big ? ' big' : '');
       div.innerHTML = `
@@ -1663,7 +1690,7 @@ function renderPBP() {
   driveHeader.className = 'drive-header';
   driveHeader.textContent = selectedGame
     ? `Sample drive illustration — real play-by-play appears when a game is live / recently finished (public data).`
-    : `Sample scoring drive (Texans style) — switch Game Center to Demo live for full live UI.`;
+    : `Sample scoring drive (Texans style). Live play-by-play appears when a game is in progress.`;
   list.appendChild(driveHeader);
 
   SAMPLE_PBP.slice().reverse().forEach((play) => {

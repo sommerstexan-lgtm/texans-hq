@@ -45,46 +45,46 @@
         <div class="card scoreboard">
           <div class="card-title-row">
             <div class="card-title" style="margin-bottom:0">Game Center</div>
-            <span id="gameModePill" class="mode-pill">Demo live</span>
+            <span id="gameModePill" class="mode-pill">Upcoming</span>
           </div>
           <div id="gameCenterContent">
-            <div class="loading">Loading…</div>
+            <div class="empty">Loading schedule…</div>
           </div>
         </div>
-        <div class="card" id="tendencyCard">
+        <div class="card" id="tendencyCard" style="display:none">
           <div class="card-title">Offensive tendency (HOU ball)</div>
           <div id="tendencyContent"></div>
         </div>
-        <div class="card" id="dominosCard">
+        <div class="card" id="dominosCard" style="display:none">
           <div class="card-title-row">
             <div class="card-title" style="margin-bottom:0">Dominos to Win</div>
             <span class="mode-pill" id="dominosStatusPill">—</span>
           </div>
           <div id="dominosContent">
-            <div class="empty">Available in live / demo when the path can be evaluated.</div>
+            <div class="empty">Pre-game path loads with the next matchup.</div>
           </div>
         </div>
-        <div class="card" id="nextPlayCard">
+        <div class="card" id="nextPlayCard" style="display:none">
           <div class="card-title-row">
             <div class="card-title" style="margin-bottom:0">Next Play Lean</div>
             <span class="mode-pill" id="nextPlayPhasePill">Reg/Post only</span>
           </div>
           <p class="small" style="margin:4px 0 8px">Situation-based lean for you &amp; your son to argue over. Preseason excluded from accuracy tracking.</p>
           <div id="nextPlayContent">
-            <div class="empty">Available when HOU has the ball in a live or demo situation.</div>
+            <div class="empty">Available when HOU has the ball in a live game.</div>
           </div>
           <div id="nextPlayAccuracy" class="small mt-8" style="display:none"></div>
         </div>
-        <div class="card" id="winProbCard">
+        <div class="card" id="winProbCard" style="display:none">
           <div class="card-title">Win probability (simplified)</div>
           <div id="winProbContent"></div>
         </div>
 
-        <div class="card" id="efficiencyCard">
+        <div class="card" id="efficiencyCard" style="display:none">
           <div class="card-title">This game efficiency</div>
           <div id="efficiencyContent"></div>
         </div>
-        <div class="card" id="driveCard">
+        <div class="card" id="driveCard" style="display:none">
           <div class="card-title">This drive</div>
           <div id="driveSummary"></div>
         </div>

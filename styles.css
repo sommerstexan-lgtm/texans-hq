@@ -527,11 +527,14 @@ body {
 }
 
 .nav-btn.active {
-  color: var(--success);
+  color: #FFFFFF;
   font-weight: 700;
+  background: #000000;
+  border-radius: 8px;
+  padding: 4px 2px 3px;
 }
 .nav-btn.active svg {
-  fill: var(--success);
+  fill: #FFFFFF;
 }
 
 .nav-btn svg {
@@ -1389,4 +1392,18 @@ a.video-item {
   line-height: 1.4;
   color: var(--navy);
   font-weight: 600;
+}
+
+/* ===== Active nav: high-contrast black box (v15.2.1) =====
+   Black background behind icon + label; icon and text pure white.
+   Overrides earlier muted/green active styles for clear visibility. */
+.bottom-nav .nav-btn.active {
+  color: #FFFFFF !important;
+  font-weight: 700;
+  background: #000000 !important;
+  border-radius: 8px;
+  padding: 4px 2px 3px !important;
+}
+.bottom-nav .nav-btn.active svg {
+  fill: #FFFFFF !important;
 }
