@@ -1,17 +1,79 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.9
+   Texans HQ — Personal PWA  v15.13
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
    Roster + Next Play Lean + Dominos to Win (causal path model)
    Active nav: black box + white icon/label
    Demo removed · Game Center truthful
-   Dual-path: possession mirror, opp tendency/lean, scheme similarity
+   Export/import backup + post-game reminder
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.9';
-const APP_VERSION_LABEL = 'v15.9 · Dual path';
+const APP_VERSION = 'v15.13';
+
+const APP_VERSION_LABEL = 'v15.13 · Backup';
+
+/* ============================================================
+   INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
+   Boot self-test + cache schema versions + required roster names
+   ============================================================ */
+const CACHE_SCHEMA = {
+  roster: 1,
+  camp: 2,
+  news: 2,
+  videos: 1,
+  dominosMemory: 1
+};
+const REQUIRED_ROSTER_NAMES = [
+  'C.J. Stroud', 'Nico Collins', 'Will Anderson Jr.', 'Derek Stingley Jr.',
+  'Keylan Rutledge', 'Lewis Bond', 'David Montgomery', 'Azeez Al-Shaair'
+];
+
+function purgeStaleCache(key, schemaVersion) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && parsed._schema !== schemaVersion) {
+      localStorage.removeItem(key);
+    }
+  } catch (e) {
+    try { localStorage.removeItem(key); } catch (e2) {}
+  }
+}
+
+function runIntegritySelfTest() {
+  const issues = [];
+  try {
+    if (typeof FULL_ROSTER === 'undefined' || !Array.isArray(FULL_ROSTER) || FULL_ROSTER.length < 80) {
+      issues.push('Baked roster thin (' + (FULL_ROSTER ? FULL_ROSTER.length : 0) + ')');
+    } else {
+      const names = new Set(FULL_ROSTER.map(function (p) { return p.name; }));
+      REQUIRED_ROSTER_NAMES.forEach(function (n) {
+        if (!names.has(n)) issues.push('Missing required name: ' + n);
+      });
+    }
+    if (typeof LIVE_DEMO !== 'undefined' && LIVE_DEMO.active === true) {
+      issues.push('LIVE_DEMO unexpectedly active');
+      LIVE_DEMO.active = false;
+    }
+    if (typeof PRE_GAME_DOMINOS === 'undefined' || !PRE_GAME_DOMINOS.DEFAULT) {
+      issues.push('PRE_GAME_DOMINOS missing DEFAULT seeds');
+    }
+    if (typeof evaluateDominos !== 'function' || typeof evaluateDominosForSide !== 'function') {
+      issues.push('Dominos evaluators missing');
+    }
+    if (typeof loadRoster !== 'function' || typeof rosterIntegrityCheck !== 'function') {
+      issues.push('Roster loader/guard missing');
+    }
+  } catch (e) {
+    issues.push('Self-test exception: ' + (e && e.message ? e.message : 'unknown'));
+  }
+  return { ok: issues.length === 0, issues: issues };
+}
+
+
 
 /* Stable key — never changes across versions so the device stays unlocked */
 const UNLOCK_KEY = 'texans-hq-device-unlocked';
@@ -118,14 +180,7 @@ const SCHEDULE_2026 = [
 ];
 
 /* ---------- Sample Play-by-Play (for offline / demo of a scoring drive) ---------- */
-const SAMPLE_PBP = [
-  { qtr: 2, clock: '4:12', team: 'HOU', desc: 'C.J. Stroud pass complete to Nico Collins for 18 yards to the LAC 32.', big: false },
-  { qtr: 2, clock: '3:41', team: 'HOU', desc: 'Joe Mixon rush left tackle for 7 yards to the LAC 25.', big: false },
-  { qtr: 2, clock: '3:05', team: 'HOU', desc: 'C.J. Stroud pass incomplete intended for Dalton Schultz.', big: false },
-  { qtr: 2, clock: '2:59', team: 'HOU', desc: 'C.J. Stroud pass complete to Jayden Higgins for 14 yards to the LAC 11. FIRST DOWN.', big: true },
-  { qtr: 2, clock: '2:18', team: 'HOU', desc: 'Joe Mixon rush up the middle for 3 yards to the LAC 8.', big: false },
-  { qtr: 2, clock: '1:42', team: 'HOU', desc: 'C.J. Stroud pass complete to Nico Collins for 8 yards. TOUCHDOWN. Ka\'imi Fairbairn extra point is GOOD.', big: true, score: true, td: true }
-];
+/* SAMPLE_PBP removed — no demo plays */
 
 /* ---------- Training Camp notes (real intel as of Aug 4 2026) ---------- */
 const CAMP_NOTES = [
@@ -231,49 +286,7 @@ const TEAM_STAT_DETAILS = {
 
 /* Live game state — inactive by default. Demo live mode removed.
    When real live data is available, set active:true and populate fields. */
-const LIVE_DEMO = {
-  active: false,
-  home: true,
-  opp: 'Buffalo Bills',
-  oppAbbr: 'BUF',
-  houScore: 0,
-  oppScore: 0,
-  qtr: 1,
-  clockSeconds: 0,
-  possession: 'HOU',
-  down: 1,
-  distance: 10,
-  yardline: '—',
-  tendency: { pass: 0, run: 0, note: '' , links: [
-    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4688819/tank-dell' },
-    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/D/DellTa00.htm' }
-  ]},
-  efficiency: {
-    thirdDown: '—',
-    thirdPct: '—',
-    redZone: '—',
-    redPct: '—',
-    timeoutsHou: 2,
-    timeoutsOpp: 3
-  },
-  drive: {
-    plays: 5,
-    yards: 42,
-    time: '2:18',
-    summary: 'HOU ball at Opp 38 · 2nd & 7'
-  },
-  recentPlays: [
-    { qtr: 3, clock: '6:12', team: 'HOU', desc: 'C.J. Stroud pass complete to Nico Collins for 12 yards to the BUF 38. FIRST DOWN.', big: true },
-    { qtr: 3, clock: '6:41', team: 'HOU', desc: 'Joe Mixon rush left tackle for 5 yards to the BUF 50.', big: false },
-    { qtr: 3, clock: '7:15', team: 'HOU', desc: 'C.J. Stroud pass complete to Dalton Schultz for 8 yards to the HOU 45.', big: false },
-    { qtr: 3, clock: '7:48', team: 'HOU', desc: 'Joe Mixon rush up the middle for 4 yards to the HOU 37.', big: false }
-  ],
-  /* Yard line as opponent 38 → FG range: field goal range */
-  yardNum: 38,
-  yardSide: 'opp', // 'own' or 'opp'
-  weather: { temp: 78, wind: '6 mph', note: 'Dome / indoor — weather not a factor' },
-  lastUpdated: Date.now()
-};
+const LIVE_DEMO = { active: false }; // permanently disabled — never used for UI truth
 
 
 /* ============================================================
@@ -448,9 +461,16 @@ function situationFromEspn(summary, competition) {
     if (sit.downDistanceText) {
       // e.g. "1st & 10 at HOU 25"
     }
+    // ESPN may return team id string, numeric id, or { id, abbreviation }
     const poss = sit.possession;
-    if (poss && poss === ESPN_TEAM_ID) possession = 'HOU';
-    else if (poss) possession = 'OPP';
+    const possId = poss && typeof poss === 'object'
+      ? String(poss.id || (poss.team && poss.team.id) || '')
+      : String(poss || '');
+    const possAbbr = poss && typeof poss === 'object'
+      ? String(poss.abbreviation || (poss.team && poss.team.abbreviation) || '').toUpperCase()
+      : '';
+    if (possId === String(ESPN_TEAM_ID) || possAbbr === 'HOU') possession = 'HOU';
+    else if (possId || possAbbr || poss) possession = 'OPP';
     // yardline number
     const yl = sit.yardLine;
     if (typeof yl === 'number') {
@@ -831,42 +851,37 @@ function resolvePendingPrediction(actualPlayDesc, phase) {
   _pendingPrediction = null;
 }
 
-/** Watch recent plays / situation and auto-resolve + re-predict */
+/** Watch recent plays / situation and auto-resolve + re-predict (LIVE_GAME only) */
 function autoTrackNextPlay() {
-  if (!LIVE_DEMO.active) return;
+  if (typeof LIVE_GAME === 'undefined' || !LIVE_GAME.active) return;
 
-  const plays = LIVE_DEMO.recentPlays || [];
+  const plays = LIVE_GAME.recentPlays || [];
   if (plays.length > 0) {
     const latest = plays[0];
-    const playKey = `${latest.qtr}|${latest.clock}|${latest.desc}`;
+    const playKey = (latest.qtr || '') + '|' + (latest.clock || '') + '|' + (latest.desc || '');
     if (_lastSeenPlayKey && playKey !== _lastSeenPlayKey) {
-      // A new play appeared → resolve previous prediction against it
       if (latest.team === 'HOU') {
-        resolvePendingPrediction(latest.desc, 'demo');
+        resolvePendingPrediction(latest.desc, 'live');
       }
     }
     _lastSeenPlayKey = playKey;
   }
 
-  // If HOU has the ball and we don't have a pending lean for this exact situation, create one
-  if (LIVE_DEMO.possession === 'HOU') {
+  if (LIVE_GAME.possession === 'HOU') {
     const sit = {
-      down: LIVE_DEMO.down,
-      distance: LIVE_DEMO.distance,
-      yardNum: LIVE_DEMO.yardNum,
-      yardSide: LIVE_DEMO.yardSide,
-      scoreDiff: (LIVE_DEMO.houScore || 0) - (LIVE_DEMO.oppScore || 0),
-      qtr: LIVE_DEMO.qtr,
-      clockSeconds: LIVE_DEMO.clockSeconds
+      down: LIVE_GAME.down,
+      distance: LIVE_GAME.distance,
+      yardNum: LIVE_GAME.yardNum,
+      yardSide: LIVE_GAME.yardSide,
+      scoreDiff: (LIVE_GAME.houScore || 0) - (LIVE_GAME.oppScore || 0),
+      qtr: LIVE_GAME.qtr,
+      clockSeconds: LIVE_GAME.clockSeconds
     };
     const fp = situationFingerprint(sit);
     if (!_pendingPrediction || _pendingPrediction.fingerprint !== fp) {
-      const pred = predictNextPlay({ ...sit, isPreseason: false });
-      _pendingPrediction = { fingerprint: fp, pred, ts: Date.now() };
+      const pred = predictNextPlay(Object.assign({}, sit, { isPreseason: false }));
+      _pendingPrediction = { fingerprint: fp, pred: pred, ts: Date.now() };
     }
-  } else {
-    // Ball changed hands or situation reset — clear pending if needed
-    // (actual resolution already happened on the play that ended possession)
   }
 }
 
@@ -879,9 +894,7 @@ function renderNextPlayLean() {
   // Always run the auto-tracker first so accuracy stays current
   autoTrackNextPlay();
 
-  // Prefer real LIVE_GAME, fall back to LIVE_DEMO
-  const src = (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.active) ? LIVE_GAME
-    : (LIVE_DEMO.active ? LIVE_DEMO : null);
+  const src = (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.active) ? LIVE_GAME : null;
   if (!src || src.possession !== 'HOU') {
     content.innerHTML = `<div class="empty">Available when HOU has the ball in a live game.</div>`;
     if (accEl) accEl.style.display = 'none';
@@ -1320,6 +1333,11 @@ function evaluateDominosForSide(state, side) {
     });
   }
   all = resolveDominoStatuses(all, signals, state);
+  all.forEach(function (d) {
+    if (typeof memoryWeightFor === 'function') {
+      d.priority = Math.round((d.priority || 50) * memoryWeightFor(d.id));
+    }
+  });
   all.sort(function (a, b) { return b.priority - a.priority; });
   const liveOnes = all.filter(function (d) { return d.status === 'live'; });
   const brokenOnes = all.filter(function (d) { return d.status === 'broken'; });
@@ -1563,7 +1581,8 @@ function renderDominosCard(mode, oppAbbr) {
 
   function activeState() {
     if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.active) return LIVE_GAME;
-    if (typeof LIVE_DEMO !== 'undefined' && LIVE_DEMO.active) return LIVE_DEMO;
+    // LIVE_DEMO never used as active state
+
     return null;
   }
 
@@ -1727,69 +1746,350 @@ const DEPTH_CHART = {
    Insights focus on things typical apps skip: camp status, role clarity, father-son watch points, practical viewing notes.
 */
 const FULL_ROSTER = [
-  // QB
-  { name: 'C.J. Stroud', num: '7', pos: 'QB', ht: '6-3', wt: '218', exp: 4, college: 'Ohio State', status: 'Starter', note: 'Franchise QB Year 4. Camp focus = timing + ball security. Preseason early-down mix is the real signal.' },
-  { name: 'Davis Mills', num: '10', pos: 'QB', ht: '6-4', wt: '225', exp: 6, college: 'Stanford', status: 'Backup', note: 'Reliable #2. Preseason will get significant snaps while starters rest.' },
-  { name: 'Graham Mertz', num: '18', pos: 'QB', ht: '6-2', wt: '216', exp: 2, college: 'Florida', status: 'Camp battle', note: 'Fighting for the #3 / practice-squad path. Preseason tape decides.' },
-  // RB
-  { name: 'David Montgomery', num: '32', pos: 'RB', ht: '5-11', wt: '230', exp: 8, college: 'Iowa State', status: 'Starter', note: 'New lead back. Power, short-yardage, early downs. Pass-pro still key.' },
-  { name: 'Woody Marks', num: '4', pos: 'RB', ht: '5-10', wt: '208', exp: 2, college: 'USC', status: 'Change of pace', note: 'Year-2 all-around back. Expect complementary role + special teams value.' },
-  { name: 'Jawhar Jordan', num: '25', pos: 'RB', ht: '5-10', wt: '185', exp: 1, college: 'Louisville', status: 'Speed / depth', note: 'Juice and vision. Camp riser candidate for the 53 or PS.' },
-  { name: 'British Brooks', num: '44', pos: 'RB', ht: '5-11', wt: '225', exp: 3, college: 'North Carolina', status: 'ST / depth · Injured', note: 'Broke hand in camp (surgery, ~3-week outlook). Special-teams ace; timeline may affect final cuts.' },
-  { name: 'Noah Whittington', num: '26', pos: 'RB', ht: '—', wt: '—', exp: 'R', college: 'Oregon', status: 'Rookie depth', note: 'UDFA. Preseason opportunity if Brooks misses time.' },
-  // WR
-  { name: 'Nico Collins', num: '12', pos: 'WR', ht: '6-4', wt: '222', exp: 6, college: 'Michigan', status: 'WR1', note: 'Pro Bowl vertical + contested. Rest days normal. Defenses will scheme him heavily vs BUF.' },
-  { name: 'Jayden Higgins', num: '81', pos: 'WR', ht: '6-4', wt: '215', exp: 2, college: 'Iowa State', status: 'WR2 / rising', note: 'Camp standout vs top corners. Year-2 leap candidate — watch preseason targets.' },
-  { name: 'Tank Dell', num: '1', pos: 'WR', ht: '5-10', wt: '165', exp: 4, college: 'Houston', status: 'Returning', note: 'Back from 2024 knee (missed 2025). Camp participation + preseason snaps = real timeline.' },
-  { name: 'Xavier Hutchinson', num: '19', pos: 'WR', ht: '6-3', wt: '210', exp: 4, college: 'Iowa State', status: 'Depth / ST', note: 'Reliable depth and special teams. Solid camp contributor.' },
-  { name: 'Jaylin Noel', num: '13', pos: 'WR', ht: '—', wt: '—', exp: 1, college: '—', status: 'Young depth', note: 'Watch preseason for separation and return ability.' },
-  { name: 'Justin Watson', num: '84', pos: 'WR', ht: '—', wt: '—', exp: 'Vet', college: '—', status: 'Veteran depth', note: 'Known for special teams and reliable hands.' },
-  // TE
-  { name: 'Dalton Schultz', num: '86', pos: 'TE', ht: '6-5', wt: '242', exp: 8, college: 'Stanford', status: 'Starter', note: 'Safety valve + red-zone. Intermediate reliability for Stroud remains high value.' },
-  { name: 'Foster Moreau', num: '87', pos: 'TE', ht: '6-4', wt: '250', exp: 8, college: 'LSU', status: 'Blocking / depth', note: 'Veteran blocker and red-zone presence. Strong addition to TE room.' },
-  { name: 'Brevin Jordan', num: '9', pos: 'TE', ht: '6-3', wt: '245', exp: 6, college: 'Miami', status: 'Receiving TE', note: 'Athletic option. Returning from prior injury — monitor snaps.' },
-  { name: 'Cade Stover', num: '8', pos: 'TE', ht: '—', wt: '—', exp: 2, college: 'Ohio State', status: 'Depth / blocker', note: 'Y-TE / inline. Camp competition for the 3rd/4th TE spots.' },
-  { name: 'Marlin Klein', num: '83', pos: 'TE', ht: '6-6', wt: '250', exp: 'R', college: 'Michigan', status: 'Rookie', note: '3rd-round pick. Blocking + size. Early camp notes on physicality.' },
-  // OL
-  { name: 'Aireontae Ersery', num: '79', pos: 'T', ht: '6-6', wt: '330', exp: 2, college: 'Minnesota', status: 'LT starter', note: 'Year-2 LT. Camp focus on consistency and pass-pro sets.' },
-  { name: 'Wyatt Teller', num: '75', pos: 'G', ht: '6-3', wt: '323', exp: 8, college: 'Virginia Tech', status: 'LG starter', note: 'Veteran free-agent addition. Anchors the left side with power.' , links: [
+  // ===== QB =====
+  { name: 'C.J. Stroud', num: '7', pos: 'QB', ht: '6-3', wt: '218', exp: 4, college: 'Ohio State', status: 'Starter', note: 'Franchise QB. Pocket presence and deep ball remain the offense’s identity.', links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4432577/cj-stroud' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/S/StroCJ00.htm' },
+    { label: 'NFL.com', url: 'https://www.nfl.com/players/c-j-stroud/' }
+  ] },
+  { name: 'Davis Mills', num: '10', pos: 'QB', ht: '6-4', wt: '225', exp: 6, college: 'Stanford', status: 'Backup', note: 'Reliable No. 2. Preseason evaluation window after starters sit.' },
+  { name: 'Graham Mertz', num: '18', pos: 'QB', ht: '6-3', wt: '216', exp: 'R', college: 'Florida', status: 'Roster battle', note: 'Developmental third QB. Camp/preseason snaps decide 53 vs PS.' },
+
+  // ===== RB =====
+  { name: 'David Montgomery', num: '32', pos: 'RB', ht: '5-11', wt: '230', exp: 8, college: 'Iowa State', status: 'Starter', note: 'New lead back. Power, short-yardage, early downs.', links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4035538/david-montgomery' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/M/MontDa01.htm' }
+  ] },
+  { name: 'Woody Marks', num: '4', pos: 'RB', ht: '5-10', wt: '208', exp: 2, college: 'USC', status: 'Change of pace', note: 'Year-2 all-around back. Complementary role + ST value.' },
+  { name: 'Jawhar Jordan', num: '25', pos: 'RB', ht: '5-10', wt: '185', exp: 1, college: 'Louisville', status: 'Speed / depth', note: 'Juice and vision. Camp riser candidate.' },
+  { name: 'British Brooks', num: '44', pos: 'RB', ht: '5-11', wt: '225', exp: 3, college: 'North Carolina', status: 'ST / depth · Injured', note: 'Hand injury in camp (surgery timeline). Special-teams ace.' },
+  { name: 'Noah Whittington', num: '26', pos: 'RB', ht: '5-10', wt: '200', exp: 'R', college: 'Oregon', status: 'Rookie depth', note: 'UDFA. Preseason opportunity if Brooks misses time.' },
+  { name: 'Joshua Pitsenberger', num: '31', pos: 'RB', ht: '6-0', wt: '215', exp: 'R', college: 'Yale', status: 'Rookie', note: 'Camp body / practice-squad candidate.' },
+  { name: 'Evan Hull', num: '42', pos: 'RB', ht: '5-10', wt: '209', exp: 3, college: 'Northwestern', status: 'Depth', note: 'Versatile back competing for a late roster or PS spot.' },
+
+  // ===== WR =====
+  { name: 'Nico Collins', num: '12', pos: 'WR', ht: '6-4', wt: '222', exp: 6, college: 'Michigan', status: 'WR1', note: 'Primary vertical and contested-catch threat.', links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4258179/nico-collins' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/C/CollNi00.htm' }
+  ] },
+  { name: 'Jayden Higgins', num: '81', pos: 'WR', ht: '6-4', wt: '215', exp: 2, college: 'Iowa State', status: 'Rising WR', note: 'Year-2 chemistry with Stroud is a camp storyline.', links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4689388/jayden-higgins' },
+    { label: 'NFL.com', url: 'https://www.nfl.com/players/jayden-higgins/' }
+  ] },
+  { name: 'Tank Dell', num: '1', pos: 'WR', ht: '5-10', wt: '165', exp: 4, college: 'Houston', status: 'Returning', note: 'Working back from prior knee. Monitor live preseason snaps.', links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4688819/tank-dell' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/D/DellTa00.htm' }
+  ] },
+  { name: 'Xavier Hutchinson', num: '19', pos: 'WR', ht: '6-3', wt: '210', exp: 4, college: 'Iowa State', status: 'Depth / slot flex', note: 'Reliable depth with contested-catch size.' },
+  { name: 'Jaylin Noel', num: '13', pos: 'WR', ht: '5-11', wt: '190', exp: 1, college: 'Iowa State', status: 'Young depth', note: 'Speed and separation traits; fighting for snaps.' },
+  { name: 'Justin Watson', num: '84', pos: 'WR', ht: '6-3', wt: '215', exp: 9, college: 'Penn', status: 'Veteran depth', note: 'Special teams + situational deep threat.' },
+  { name: 'Lewis Bond', num: '82', pos: 'WR', ht: '5-11', wt: '190', exp: 'R', college: 'Boston College', status: 'Rookie', note: '2026 rookie WR. Camp/preseason evaluation for 53 or practice squad.', aliases: ['louis bond'] },
+  { name: 'Jared Wayne', num: '89', pos: 'WR', ht: '6-3', wt: '210', exp: 2, college: 'Pittsburgh', status: 'Depth', note: 'Size on the outside; competing through cuts.' },
+  { name: 'Daniel Sobkowicz', num: '17', pos: 'WR', ht: '6-3', wt: '205', exp: 'R', college: 'Illinois State', status: 'Rookie', note: 'Camp invite / UDFA path. Preseason reps matter.' },
+  { name: 'Treyvhon Saunders', num: '14', pos: 'WR', ht: '5-10', wt: '190', exp: 'R', college: 'Colgate', status: 'Rookie', note: 'Small-school speed; long-shot 53, realistic PS candidate.' },
+  { name: 'Josh Kelly', num: '85', pos: 'WR', ht: '6-1', wt: '192', exp: 1, college: 'Texas Tech', status: 'Depth', note: 'Competing for a receiver depth chart spot.' },
+  { name: 'Jha\'Quan Jackson', num: '88', pos: 'WR', ht: '5-9', wt: '188', exp: 2, college: 'Tulane', status: 'Depth / returns', note: 'Slot and return flexibility.' },
+  { name: 'D.J. Turner', num: '16', pos: 'WR', ht: '5-11', wt: '205', exp: 4, college: 'Pittsburgh', status: 'IR', note: 'On injured reserve — listed for completeness.' },
+
+  // ===== TE =====
+  { name: 'Dalton Schultz', num: '86', pos: 'TE', ht: '6-5', wt: '242', exp: 9, college: 'Stanford', status: 'Starter', note: 'Primary TE in the pass game and red zone.' },
+  { name: 'Cade Stover', num: '8', pos: 'TE', ht: '6-4', wt: '251', exp: 3, college: 'Ohio State', status: 'Blocking / depth', note: 'Inline and move TE versatility.' },
+  { name: 'Brevin Jordan', num: '9', pos: 'TE', ht: '6-3', wt: '245', exp: 6, college: 'Miami', status: 'Pass threat', note: 'Athletic mismatch piece when healthy.' },
+  { name: 'Foster Moreau', num: '87', pos: 'TE', ht: '6-4', wt: '250', exp: 7, college: 'LSU', status: 'Blocking TE', note: 'Veteran inline blocker and red-zone body.' },
+  { name: 'Marlin Klein', num: '83', pos: 'TE', ht: '6-6', wt: '250', exp: 'R', college: 'Michigan', status: 'Rookie', note: 'Size and blocking; early camp physicality notes.' },
+  { name: 'Layne Pryor', num: '49', pos: 'TE', ht: '6-2', wt: '250', exp: 1, college: 'Northern Iowa', status: 'Depth', note: 'Fighting for a TE depth chart spot.' },
+  { name: 'Louis Hansen', num: '47', pos: 'TE', ht: '6-5', wt: '240', exp: 'R', college: 'Connecticut', status: 'Rookie', note: 'Camp TE depth.' },
+
+  // ===== OL =====
+  { name: 'Aireontae Ersery', num: '79', pos: 'T', ht: '6-6', wt: '330', exp: 2, college: 'Minnesota', status: 'LT starter', note: 'Year-2 LT. Consistency and pass-pro sets are the focus.' },
+  { name: 'Wyatt Teller', num: '75', pos: 'G', ht: '6-4', wt: '315', exp: 9, college: 'Virginia Tech', status: 'LG starter', note: 'Veteran free-agent addition. Anchors the left interior.', links: [
     { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/3121422/wyatt-teller' },
     { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/T/TellWy00.htm' }
-  ]},
-  { name: 'Keylan Rutledge', num: '66', pos: 'G/C', ht: '6-4', wt: '330', exp: 'R', college: 'Georgia Tech', status: '1st-round pick (#26)', note: '2026 1st-rounder (26th overall). Natural guard; competing for starting center. First-team All-American (2025). Live OL communication is a camp focus.', aliases: ['kentan', 'rutlage', 'rutledg'], links: [
+  ] },
+  { name: 'Keylan Rutledge', num: '66', pos: 'G/C', ht: '6-4', wt: '330', exp: 'R', college: 'Georgia Tech', status: '1st-round pick (#26)', note: '2026 1st-rounder. Natural guard; competing at center. All-American (2025).', aliases: ['kentan', 'rutlage', 'rutledg'], links: [
     { label: 'ESPN player page', url: 'https://www.espn.com/nfl/player/_/id/4839498/keylan-rutledge' },
     { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/R/RutlKe00.htm' },
     { label: 'NFL.com roster', url: 'https://www.nfl.com/players/keylan-rutledge/' }
   ] },
   { name: 'Ed Ingram', num: '69', pos: 'G', ht: '6-3', wt: '307', exp: 5, college: 'LSU', status: 'RG', note: 'Steady interior. Pairing with Teller improves the middle.' },
-  { name: 'Braden Smith', num: '71', pos: 'T', ht: '6-5', wt: '322', exp: 8, college: 'Auburn', status: 'RT starter', note: 'Veteran RT addition. Experience and length for the right side.' },
-  { name: 'Jake Andrews', num: '60', pos: 'C', ht: '6-3', wt: '308', exp: 4, college: 'Troy', status: 'Center battle', note: 'Competing with Rutledge / others for the starting C role.' },
-  { name: 'Trent Brown', num: '77', pos: 'T', ht: '6-8', wt: '380', exp: 12, college: 'Florida', status: 'Swing tackle', note: 'Massive veteran depth. Valuable insurance at either tackle.' },
-  // EDGE / DL
-  { name: 'Will Anderson Jr.', num: '51', pos: 'DE', ht: '6-4', wt: '243', exp: 4, college: 'Alabama', status: 'All-Pro edge', note: 'Primary pass-rush force. Alignment with Clowney/Hunter is a weekly storyline.' },
-  { name: 'Danielle Hunter', num: '55', pos: 'DE', ht: '6-5', wt: '263', exp: 12, college: 'LSU', status: 'Pro Bowl edge', note: 'Veteran production. Core of the returning #1 defense.' },
-  { name: 'Jadeveon Clowney', num: '90', pos: 'DE', ht: '6-5', wt: '266', exp: 13, college: 'South Carolina', status: 'Hometown return', note: '1-year deal, #90 back. Rotational early-down + situational rush. Nostalgia that still produces.' },
-  { name: 'Logan Hall', num: '96', pos: 'DE', ht: '6-6', wt: '283', exp: 5, college: 'Houston', status: 'Interior / edge flex', note: 'Voluntarily switched from 90 for Clowney. Solid rotation piece.' },
-  { name: 'Sheldon Rankins', num: '98', pos: 'DT', ht: '6-2', wt: '305', exp: 11, college: 'Louisville', status: 'DT starter', note: 'Veteran interior presence. Run defense + push.' },
-  { name: 'Tommy Togiai', num: '72', pos: 'DT', ht: '6-2', wt: '296', exp: 4, college: 'Ohio State', status: 'DT rotation', note: 'Strong camp notes on interior disruption.' },
-  { name: 'Kayden McDonald', num: '93', pos: 'DT', ht: '6-3', wt: '326', exp: 'R', college: 'Ohio State', status: 'Rookie DT', note: 'Draft pick. Size and power for the rotation.' },
-  // LB
-  { name: 'Azeez Al-Shaair', num: '0', pos: 'LB', ht: '6-2', wt: '228', exp: 8, college: 'Florida Atlantic', status: 'MLB / leader', note: 'Communicator + run-fit. Extension locked him in. Watch availability if any camp bumps.' },
-  { name: 'Henry To\'oTo\'o', num: '39', pos: 'LB', ht: '6-2', wt: '228', exp: 3, college: 'Alabama', status: 'Starter', note: 'Physical LB. Key to the front-seven continuity.' },
-  { name: 'Marte Mapu', num: '14', pos: 'LB', ht: '6-3', wt: '230', exp: 4, college: 'Sacramento State', status: 'Depth / hybrid', note: 'Versatile. Can play multiple LB spots and contribute in sub packages.' },
-  { name: 'E.J. Speed', num: '45', pos: 'LB', ht: '6-4', wt: '227', exp: 7, college: 'Tarleton State', status: 'Veteran depth', note: 'Experience and special teams. Depth chart competition remains open.' },
-  // DB
-  { name: 'Derek Stingley Jr.', num: '24', pos: 'CB', ht: '6-1', wt: '195', exp: 4, college: 'LSU', status: 'CB1', note: 'Shutdown corner. Often shadows the #1 WR. Camp 1-on-1s are data, not final grades.' },
-  { name: 'Kamari Lassiter', num: '3', pos: 'CB', ht: '6-0', wt: '180', exp: 3, college: 'Georgia', status: 'CB2', note: 'Rising starter. Physical and competitive. Pair with Stingley is elite.' },
-  { name: 'Jalen Pitre', num: '5', pos: 'S', ht: '6-0', wt: '200', exp: 5, college: 'Baylor', status: 'SS / nickel', note: 'Versatile safety who can play the slot. Key to the secondary flexibility.' },
-  { name: 'Calen Bullock', num: '2', pos: 'S', ht: '6-3', wt: '190', exp: 3, college: 'USC', status: 'FS', note: 'Range and ball skills. Starting free safety.' },
-  { name: 'Reed Blankenship', num: '6', pos: 'S', ht: '6-1', wt: '203', exp: 5, college: 'Middle Tennessee', status: 'Depth / starter candidate', note: 'Veteran safety depth with starting experience.' },
-  { name: 'Tremon Smith', num: '11', pos: 'CB', ht: '5-11', wt: '190', exp: 8, college: 'Central Arkansas', status: 'ST / depth', note: 'Special teams ace and CB depth.' },
-  // ST
+  { name: 'Braden Smith', num: '71', pos: 'T', ht: '6-6', wt: '312', exp: 9, college: 'Auburn', status: 'RT starter', note: 'Veteran RT addition. Length and experience on the right.' },
+  { name: 'Jake Andrews', num: '60', pos: 'C', ht: '6-3', wt: '308', exp: 4, college: 'Troy', status: 'Center battle', note: 'Competing with Rutledge for the starting C role.' },
+  { name: 'Trent Brown', num: '77', pos: 'T', ht: '6-8', wt: '380', exp: 12, college: 'Florida', status: 'Swing tackle', note: 'Massive veteran depth at either tackle.' },
+  { name: 'Blake Fisher', num: '57', pos: 'T', ht: '6-6', wt: '312', exp: 3, college: 'Notre Dame', status: 'Tackle depth', note: 'Developmental tackle with starting upside if injuries hit.' },
+  { name: 'Jarrett Patterson', num: '54', pos: 'C/G', ht: '6-4', wt: '310', exp: 4, college: 'Notre Dame', status: 'Interior depth', note: 'Flexible C/G depth for the 53 or injury replacements.' },
+  { name: 'Febechi Nwaiwu', num: '64', pos: 'G', ht: '6-4', wt: '319', exp: 'R', college: 'Oklahoma', status: 'Rookie G', note: 'Interior developmental piece; camp evaluation.' },
+  { name: 'Evan Brown', num: '67', pos: 'C/G', ht: '6-3', wt: '320', exp: 8, college: 'SMU', status: 'Veteran depth', note: 'Experienced interior who can play C or G.' },
+  { name: 'Eli Cox', num: '65', pos: 'C', ht: '6-4', wt: '309', exp: 1, college: 'Kentucky', status: 'Depth', note: 'Young center depth behind the starter battle.' },
+  { name: 'Jarrett Kingston', num: '63', pos: 'T', ht: '6-4', wt: '308', exp: 3, college: 'USC', status: 'Depth', note: 'Tackle depth competing through cuts.' },
+  { name: 'Sam Hagen', num: '76', pos: 'OL', ht: '6-6', wt: '320', exp: 'R', college: 'South Dakota State', status: 'Rookie', note: 'Camp OL body.' },
+  { name: 'James Neal III', num: '70', pos: 'T', ht: '6-5', wt: '310', exp: 1, college: '—', status: 'Depth', note: 'Tackle depth / camp invite path.' },
+
+  // ===== EDGE / DL =====
+  { name: 'Will Anderson Jr.', num: '51', pos: 'DE', ht: '6-4', wt: '243', exp: 4, college: 'Alabama', status: 'All-Pro edge', note: 'Primary pass-rush force. Alignment with Clowney/Hunter is a weekly storyline.', links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4429013/will-anderson-jr' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/A/AndeWi01.htm' }
+  ] },
+  { name: 'Danielle Hunter', num: '55', pos: 'DE', ht: '6-5', wt: '263', exp: 12, college: 'LSU', status: 'Pro Bowl edge', note: 'Veteran production. Core of the front.', links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/2969939/danielle-hunter' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/H/HuntDa01.htm' }
+  ] },
+  { name: 'Jadeveon Clowney', num: '90', pos: 'DE', ht: '6-5', wt: '266', exp: 13, college: 'South Carolina', status: 'Hometown return', note: 'Rotational early-down + situational rush. Still produces.' },
+  { name: 'Logan Hall', num: '90', pos: 'DE', ht: '6-6', wt: '283', exp: 5, college: 'Houston', status: 'Interior / edge flex', note: 'Rotation piece; number may share timeline with Clowney listing.' },
+  { name: 'Sheldon Rankins', num: '98', pos: 'DT', ht: '6-2', wt: '305', exp: 11, college: 'Louisville', status: 'Interior starter', note: 'Veteran DT production and run defense.' },
+  { name: 'Tommy Togiai', num: '72', pos: 'DT', ht: '6-2', wt: '296', exp: 5, college: 'Ohio State', status: 'Rotation DT', note: 'Interior rotation and run fits.' },
+  { name: 'Kayden McDonald', num: '93', pos: 'DT', ht: '6-3', wt: '310', exp: 'R', college: '—', status: 'Rookie', note: 'Developmental DT.' },
+  { name: 'Solomon Byrd', num: '50', pos: 'DE', ht: '6-3', wt: '250', exp: 1, college: 'USC', status: 'Edge depth', note: 'Young edge rotation candidate.' },
+  { name: 'Ali Gaye', num: '95', pos: 'DE', ht: '6-6', wt: '265', exp: 3, college: 'LSU', status: 'Edge depth', note: 'Length on the edge; competing for snaps.' },
+  { name: 'Dylan Horton', num: '92', pos: 'DE', ht: '6-4', wt: '275', exp: 4, college: 'TCU', status: 'Edge / DE', note: 'Rotation defensive end.' },
+  { name: 'Dominique Robinson', num: '94', pos: 'DE', ht: '6-5', wt: '275', exp: 5, college: 'Miami (OH)', status: 'Edge depth', note: 'Veteran edge depth.' },
+  { name: 'Dominic Bailey', num: '96', pos: 'DT', ht: '6-3', wt: '292', exp: 'R', college: 'Tennessee', status: 'Rookie DT', note: 'Interior developmental piece.' },
+  { name: 'Kyonte Hamilton', num: '58', pos: 'DT', ht: '6-4', wt: '304', exp: 2, college: 'Rutgers', status: 'DT depth', note: 'Nose/3-tech flexibility.' },
+  { name: 'Naquan Jones', num: '91', pos: 'DT', ht: '6-3', wt: '313', exp: 6, college: 'Michigan State', status: 'DT depth', note: 'Veteran interior body.' },
+  { name: 'Junior Tafuna', num: '53', pos: 'DT', ht: '6-3', wt: '305', exp: 1, college: 'Utah', status: 'Depth', note: 'Young DT depth.' },
+  { name: 'Sabastian Harsh', num: '94', pos: 'DE', ht: '6-2', wt: '255', exp: 'R', college: 'N.C. State', status: 'Rookie', note: 'Camp edge body.' },
+  { name: 'Mario Edwards', num: '97', pos: 'DT', ht: '6-3', wt: '280', exp: 11, college: 'Florida State', status: 'Veteran DT', note: 'Experienced interior when active on the 90.' },
+
+  // ===== LB =====
+  { name: 'Azeez Al-Shaair', num: '0', pos: 'LB', ht: '6-2', wt: '228', exp: 8, college: 'Florida Atlantic', status: 'MIKE leader', note: 'Defensive communicator and tackle machine.', links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/3915373/azeez-al-shaair' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/A/AlShAz00.htm' }
+  ] },
+  { name: 'Henry To\'oTo\'o', num: '39', pos: 'LB', ht: '6-2', wt: '228', exp: 4, college: 'Alabama', status: 'Starter LB', note: 'Range and coverage ability in the second level.' },
+  { name: 'E.J. Speed', num: '45', pos: 'LB', ht: '6-4', wt: '227', exp: 8, college: 'Tarleton State', status: 'WILL / depth', note: 'Veteran speed and ST value.' },
+  { name: 'Marte Mapu', num: '14', pos: 'LB', ht: '6-3', wt: '230', exp: 2, college: '—', status: 'LB / hybrid', note: 'Athletic hybrid linebacker.' },
+  { name: 'Jamal Hill', num: '56', pos: 'LB', ht: '6-0', wt: '226', exp: 3, college: 'Oregon', status: 'Depth / ST', note: 'Special teams and LB depth.' },
+  { name: 'K.C. Ossai', num: '52', pos: 'LB', ht: '6-2', wt: '241', exp: 1, college: 'Louisiana', status: 'Young LB', note: 'Developmental linebacker.' },
+  { name: 'Aiden Fisher', num: '59', pos: 'LB', ht: '6-1', wt: '231', exp: 'R', college: 'Indiana', status: 'Rookie', note: 'Camp LB evaluation.' },
+  { name: 'Jake Hansen', num: '35', pos: 'LB', ht: '6-1', wt: '230', exp: 5, college: 'Illinois', status: 'ST / depth', note: 'Special teams core candidate.' },
+  { name: 'Jacob Hummel', num: '33', pos: 'LB', ht: '6-1', wt: '229', exp: 5, college: 'Iowa State', status: 'ST / depth', note: 'Veteran special teamer.' },
+  { name: 'Wade Woodaz', num: '30', pos: 'LB', ht: '6-2', wt: '230', exp: 'R', college: '—', status: 'Rookie', note: 'Camp linebacker.' },
+  { name: 'Sione Takitaki', num: '47', pos: 'LB', ht: '6-1', wt: '238', exp: 7, college: 'BYU', status: 'Veteran LB', note: 'Experienced depth when on the active roster.' },
+
+  // ===== DB =====
+  { name: 'Derek Stingley Jr.', num: '24', pos: 'CB', ht: '6-1', wt: '195', exp: 5, college: 'LSU', status: 'CB1', note: 'Shutdown corner and tone-setter.', links: [
+    { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4430001/derek-stingley-jr' },
+    { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/S/StinDe00.htm' }
+  ] },
+  { name: 'Kamari Lassiter', num: '3', pos: 'CB', ht: '6-0', wt: '180', exp: 2, college: 'Georgia', status: 'CB2', note: 'Young starter opposite Stingley.' },
+  { name: 'Jalen Pitre', num: '5', pos: 'S', ht: '6-0', wt: '200', exp: 5, college: 'Baylor', status: 'SS / nickel', note: 'Versatile safety and box defender.' },
+  { name: 'Calen Bullock', num: '2', pos: 'S', ht: '6-3', wt: '190', exp: 3, college: 'USC', status: 'FS', note: 'Range and ball skills in the back end.' },
+  { name: 'Reed Blankenship', num: '6', pos: 'S', ht: '6-1', wt: '203', exp: 5, college: 'Middle Tennessee', status: 'Safety depth', note: 'Veteran safety with starting experience.' },
+  { name: 'Tremon Smith', num: '11', pos: 'CB', ht: '5-11', wt: '190', exp: 9, college: 'Central Arkansas', status: 'ST / depth', note: 'Special teams ace and CB depth.' },
+  { name: 'Jaylin Smith', num: '22', pos: 'CB', ht: '5-11', wt: '190', exp: 2, college: 'USC', status: 'CB depth', note: 'Young corner competing for snaps.' },
+  { name: 'Brandon Codrington', num: '17', pos: 'CB', ht: '5-9', wt: '185', exp: 3, college: 'North Carolina Central', status: 'Nickel / ST', note: 'Slot and return flexibility.' },
+  { name: 'Ja\'Marcus Ingram', num: '20', pos: 'CB', ht: '6-2', wt: '190', exp: 3, college: 'Buffalo', status: 'CB depth', note: 'Length on the outside.' },
+  { name: 'Alijah Huzzie', num: '28', pos: 'CB', ht: '5-10', wt: '195', exp: 1, college: 'North Carolina', status: 'Young CB', note: 'Developmental corner.' },
+  { name: 'Jaylen Reed', num: '23', pos: 'S', ht: '6-0', wt: '212', exp: 2, college: 'Penn State', status: 'Safety depth', note: 'Young safety depth.' },
+  { name: 'Kamari Ramsey', num: '27', pos: 'S', ht: '6-0', wt: '204', exp: 'R', college: 'USC', status: 'Rookie S', note: 'Camp safety evaluation.' },
+  { name: 'Kaevon Merriweather', num: '21', pos: 'S', ht: '6-0', wt: '210', exp: 2, college: '—', status: 'Safety depth', note: 'Competing for a safety spot.' },
+  { name: 'M.J. Stewart', num: '29', pos: 'S', ht: '5-11', wt: '205', exp: 9, college: 'North Carolina', status: 'Veteran DB', note: 'Experienced defensive back depth.' },
+  { name: 'Stephen Hall', num: '41', pos: 'CB', ht: '6-0', wt: '202', exp: 'R', college: 'Missouri', status: 'Rookie CB', note: 'Camp corner.' },
+  { name: 'Collin Wright', num: '37', pos: 'CB', ht: '6-0', wt: '190', exp: 'R', college: '—', status: 'Rookie', note: 'Camp CB body.' },
+
+  // ===== ST =====
   { name: 'Ka\'imi Fairbairn', num: '15', pos: 'K', ht: '6-0', wt: '183', exp: 11, college: 'UCLA', status: 'Kicker', note: 'Reliable veteran. Leg strength and accuracy remain high.' },
-  { name: 'Kai Kroeger', num: '38', pos: 'P', ht: '6-3', wt: '213', exp: 2, college: 'South Carolina', status: 'Punter', note: 'Primary punter. Hang time and directional control.' },
+  { name: 'Kai Kroeger', num: '38', pos: 'P', ht: '6-4', wt: '213', exp: 2, college: 'South Carolina', status: 'Punter', note: 'Primary punter. Hang time and directional control.' },
+  { name: 'Jack Stonehouse', num: '36', pos: 'P', ht: '6-1', wt: '215', exp: 'R', college: 'Syracuse', status: 'Punter battle', note: 'Competing for the punting job in camp/preseason.' },
   { name: 'Austin Brinkman', num: '40', pos: 'LS', ht: '6-4', wt: '241', exp: 2, college: 'West Virginia', status: 'Long snapper', note: 'Steady long snapper.' }
 ];
+
+
+
+/* ============================================================
+   LIVE ROSTER + MIN-SIZE GUARD (v15.10)
+   Source order: ESPN live → offline cache → baked FULL_ROSTER
+   Integrity: warn if active list is thinner than expected phase
+   ============================================================ */
+const ROSTER_CACHE_KEY = 'texans-hq-roster-cache-v1';
+const ROSTER_ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/34/roster';
+/** Camp ~90; after final cuts expect >= 53 active-style names */
+const ROSTER_MIN_CAMP = 80;
+const ROSTER_MIN_REGULAR = 50;
+
+/** Working roster used by UI — always start from baked list */
+let ACTIVE_ROSTER = FULL_ROSTER.slice();
+let ROSTER_META = { source: 'baked', savedAt: null, count: FULL_ROSTER.length, warning: null };
+
+function heightInToStr(inches) {
+  if (inches == null || isNaN(inches)) return '—';
+  const n = Math.round(Number(inches));
+  return Math.floor(n / 12) + '-' + (n % 12);
+}
+
+function normalizeEspnAthlete(it) {
+  const pos = (it.position && it.position.abbreviation) || '—';
+  const years = it.experience && typeof it.experience.years === 'number' ? it.experience.years : null;
+  const exp = years === 0 ? 'R' : (years != null ? years : '—');
+  const college = (it.college && (it.college.shortName || it.college.name)) || '';
+  const statusName = (it.status && (it.status.abbreviation || it.status.name)) || 'Active';
+  const ht = it.displayHeight
+    ? String(it.displayHeight).replace("'", '-').replace('"', '').replace(/\s/g, '')
+    : heightInToStr(it.height);
+  const wt = it.displayWeight
+    ? String(it.displayWeight).replace(/\s*lbs?/i, '')
+    : (it.weight != null ? String(Math.round(it.weight)) : '—');
+  const id = it.id ? String(it.id) : '';
+  const links = id
+    ? [{ label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/' + id + '/' + String(it.displayName || '').toLowerCase().replace(/[^a-z0-9]+/g, '-') }]
+    : [];
+  return {
+    name: it.displayName || ((it.firstName || '') + ' ' + (it.lastName || '')).trim(),
+    num: it.jersey != null ? String(it.jersey) : '',
+    pos: pos,
+    ht: ht,
+    wt: wt,
+    exp: exp,
+    college: college,
+    status: statusName,
+    note: '',
+    espnId: id,
+    links: links,
+    source: 'espn'
+  };
+}
+
+function mergeRosterNotes(liveList, localList) {
+  const byName = {};
+  (localList || []).forEach(function (p) {
+    byName[String(p.name || '').toLowerCase()] = p;
+  });
+  return (liveList || []).map(function (live) {
+    const local = byName[String(live.name || '').toLowerCase()];
+    if (!local) return live;
+    const merged = Object.assign({}, live);
+    if (local.note) merged.note = local.note;
+    if (local.aliases) merged.aliases = local.aliases;
+    if (local.status && (!live.status || live.status === 'Active')) merged.status = local.status;
+    // Prefer richer local links + ESPN
+    const links = [];
+    const seen = {};
+    (local.links || []).concat(live.links || []).forEach(function (L) {
+      if (!L || !L.url || seen[L.url]) return;
+      seen[L.url] = true;
+      links.push(L);
+    });
+    if (links.length) merged.links = links;
+    return merged;
+  });
+}
+
+function rosterIntegrityCheck(list) {
+  const arr = list || [];
+  const n = arr.length;
+  const min = ROSTER_MIN_CAMP;
+  const names = new Set(arr.map(function (p) { return p && p.name; }));
+  const missing = (typeof REQUIRED_ROSTER_NAMES !== 'undefined' ? REQUIRED_ROSTER_NAMES : []).filter(function (n) {
+    return !names.has(n);
+  });
+  if (n < min) {
+    return {
+      ok: false,
+      warning: 'Roster integrity warning: only ' + n + ' players loaded (expected ≥' + min + ' in camp/preseason). Tap Refresh. Missing critical names: ' + (missing.length ? missing.join(', ') : 'n/a')
+    };
+  }
+  if (missing.length) {
+    return {
+      ok: false,
+      warning: 'Roster integrity warning: missing required player(s): ' + missing.join(', ') + '. Tap Refresh to pull the live ESPN list.'
+    };
+  }
+  return { ok: true, warning: null };
+}
+
+function applyActiveRoster(list, source, savedAt) {
+  ACTIVE_ROSTER = (list && list.length) ? list.slice() : FULL_ROSTER.slice();
+  const integrity = rosterIntegrityCheck(ACTIVE_ROSTER);
+  ROSTER_META = {
+    source: source || 'baked',
+    savedAt: savedAt || null,
+    count: ACTIVE_ROSTER.length,
+    warning: integrity.warning
+  };
+  return integrity;
+}
+
+function readRosterCache() {
+  try {
+    const raw = localStorage.getItem(ROSTER_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const need = (CACHE_SCHEMA && CACHE_SCHEMA.roster) || 1;
+    if (!parsed || parsed._schema !== need) {
+      localStorage.removeItem(ROSTER_CACHE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch (e) { return null; }
+}
+
+function writeRosterCache(players) {
+  try {
+    localStorage.setItem(ROSTER_CACHE_KEY, JSON.stringify({
+      _schema: (CACHE_SCHEMA && CACHE_SCHEMA.roster) || 1,
+      savedAt: Date.now(),
+      count: (players || []).length,
+      players: players
+    }));
+  } catch (e) { /* quota / private mode */ }
+}
+
+async function fetchLiveRoster() {
+  const res = await fetch(ROSTER_ESPN_URL, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Roster HTTP ' + res.status);
+  const data = await res.json();
+  const items = [];
+  (data.athletes || []).forEach(function (g) {
+    (g.items || []).forEach(function (it) { items.push(normalizeEspnAthlete(it)); });
+  });
+  if (!items.length) throw new Error('Empty roster payload');
+  return mergeRosterNotes(items, FULL_ROSTER);
+}
+
+/**
+ * Load order: live ESPN → cache → baked.
+ * Always runs integrity check. Safe to call on boot and on Refresh.
+ */
+async function loadRoster(forceNetwork) {
+  let list = null;
+  let source = 'baked';
+  let savedAt = null;
+
+  if (forceNetwork !== false) {
+    try {
+      list = await fetchLiveRoster();
+      source = 'espn';
+      savedAt = Date.now();
+      writeRosterCache(list);
+    } catch (e) {
+      /* fall through */
+    }
+  }
+
+  if (!list || !list.length) {
+    const cached = readRosterCache();
+    if (cached && cached.players && cached.players.length) {
+      list = mergeRosterNotes(cached.players, FULL_ROSTER);
+      source = 'cache';
+      savedAt = cached.savedAt || null;
+    }
+  }
+
+  if (!list || !list.length) {
+    list = FULL_ROSTER.slice();
+    source = 'baked';
+  }
+
+  applyActiveRoster(list, source, savedAt);
+  return ROSTER_META;
+}
+
+function rosterSourceLabel() {
+  const m = ROSTER_META || {};
+  if (m.source === 'espn') return 'Live ESPN · ' + m.count + ' players' + (m.savedAt ? ' · ' + timeAgo(m.savedAt) : '');
+  if (m.source === 'cache') return 'Offline cache · ' + m.count + ' players' + (m.savedAt ? ' · saved ' + timeAgo(m.savedAt) : '');
+  return 'Built-in list · ' + m.count + ' players';
+}
+
 
 /* Game-level insights for Schedule (preseason / season) — public lines + matchup notes */
 const GAME_INSIGHTS = {
@@ -1857,29 +2157,7 @@ const OPPONENT_HISTORY = {
 let liveRefreshTimer = null;
 
 /* Sample completed game recap (demo) */
-const SAMPLE_RECAP = {
-  opp: 'Los Angeles Chargers',
-  oppAbbr: 'LAC',
-  result: 'W 21-17',
-  houScore: 21,
-  oppScore: 17,
-  teamStats: [
-    { label: 'Total yards', hou: 352, opp: 318 },
-    { label: 'Pass yards', hou: 241, opp: 198 },
-    { label: 'Rush yards', hou: 111, opp: 120 },
-    { label: 'Turnovers', hou: 1, opp: 2 }
-  ],
-  outstanding: [
-    'Nico Collins  7-118-1',
-    'Will Anderson  2 sacks'
-  ],
-  solid: [
-    'C.J. Stroud  21/33, 241 yds, 2 TD, 1 INT'
-  ],
-  quiet: [
-    'Joe Mixon  12 car, 38 yds'
-  ]
-};
+/* SAMPLE_RECAP removed — no demo recap */
 
 /* ---------- State ---------- */
 let currentSection = 'game';
@@ -1903,6 +2181,7 @@ function showSection(id) {
   if (id === 'stats') renderStats();
   if (id === 'roster') renderRoster();
   if (id === 'videos') loadVideos(false);
+  if (id === 'notes' && typeof updateBackupStatusLine === 'function') updateBackupStatusLine();
 }
 
 
@@ -2037,23 +2316,7 @@ function stopLiveRefresh() {
 
 function startLiveRefresh() {
   stopLiveRefresh();
-  if (!LIVE_DEMO.active) return;
-  liveRefreshTimer = setInterval(() => {
-    if (!LIVE_DEMO.active) { stopLiveRefresh(); return; }
-    // Tick the demo game clock down 1 second
-    if (typeof LIVE_DEMO.clockSeconds === 'number' && LIVE_DEMO.clockSeconds > 0) {
-      LIVE_DEMO.clockSeconds -= 1;
-      const clockEl = $('#liveGameClock');
-      if (clockEl) clockEl.textContent = formatClock(LIVE_DEMO.clockSeconds);
-    }
-    LIVE_DEMO.lastUpdated = Date.now();
-    const el = $('#liveUpdatedAt');
-    if (el) el.textContent = 'Updated ' + timeAgo(LIVE_DEMO.lastUpdated);
-    const el2 = $('#dataFreshness');
-    if (el2) el2.textContent = 'Data fresh · ' + timeAgo(LIVE_DEMO.lastUpdated);
-    // Keep next-play accuracy tracking current
-    if (typeof autoTrackNextPlay === 'function') autoTrackNextPlay();
-  }, 1000);
+  if (typeof LIVE_DEMO !== 'undefined') LIVE_DEMO.active = false;
 }
 
 function formatClock(totalSec) {
@@ -2197,6 +2460,8 @@ function renderGameCenter() {
 
   // ---- REAL LIVE GAME (ESPN feed) ----
   if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.active) {
+    const backupRemLive = $('#backupReminder');
+    if (backupRemLive) backupRemLive.style.display = 'none';
     if (modePill) {
       modePill.textContent = 'LIVE';
       modePill.classList.add('live');
@@ -2232,13 +2497,22 @@ function renderGameCenter() {
     if (tendencyCard) tendencyCard.style.display = possHou ? '' : 'none';
     if (possHou) {
       hideOppCards();
-      // HOU tendency from live state if available
       try {
         const tc = $('#tendencyContent');
-        if (tc && LIVE_GAME.tendency) {
-          /* keep existing tendency path if wired */
+        const tTitle = $('#tendencyCardTitle');
+        if (tTitle) tTitle.textContent = 'Offensive tendency (HOU ball)';
+        if (tc && typeof predictOppTendency === 'function') {
+          // Reuse fingerprint engine with HOU prior for consistent pass/run bars
+          const t = predictOppTendency(Object.assign({}, LIVE_GAME, { oppAbbr: 'HOU' }));
+          // Invert naming: this is HOU on offense
+          tc.innerHTML =
+            '<div class="tendency-bars">' +
+              '<div class="tend-row"><span class="tend-label">Pass</span><div class="tend-track"><div class="tend-fill pass" style="width:' + t.passP + '%"></div></div><span class="tend-pct">' + t.passP + '%</span></div>' +
+              '<div class="tend-row"><span class="tend-label">Run</span><div class="tend-track"><div class="tend-fill run" style="width:' + t.runP + '%"></div></div><span class="tend-pct">' + t.runP + '%</span></div>' +
+            '</div>' +
+            '<div class="tend-note" style="margin-top:8px"><strong>' + t.primary + '</strong> — situational HOU prior (' + t.family + '). Live plays rewrite Dominos.</div>';
         }
-      } catch (e) {}
+      } catch (e) { /* keep card visible even if tendency fails */ }
     } else {
       if (typeof renderOppTendencyCard === 'function') renderOppTendencyCard(LIVE_GAME);
       if (typeof renderOppNextPlayLean === 'function') renderOppNextPlayLean(LIVE_GAME);
@@ -2264,6 +2538,7 @@ function renderGameCenter() {
   // ---- FINAL / POST-GAME ----
   if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.final) {
     if (typeof hideOppCards === 'function') hideOppCards();
+    if (typeof renderBackupReminder === 'function') renderBackupReminder();
     if (modePill) {
       modePill.textContent = 'Final';
       modePill.classList.remove('live');
@@ -2296,122 +2571,11 @@ function renderGameCenter() {
     return;
   }
 
-  if (LIVE_DEMO.active) {
-    if (modePill) {
-      modePill.textContent = 'LIVE';
-      modePill.classList.add('live');
-    }
-    const possHou = LIVE_DEMO.possession === 'HOU';
-    const fg = fgRangeLabel(LIVE_DEMO.yardSide || 'opp', LIVE_DEMO.yardNum || 38);
-    content.innerHTML = `
-      <div class="score-row">
-        <div class="team-block">
-          <div class="team-abbr">HOU</div>
-          <div class="team-score home">${LIVE_DEMO.houScore}</div>
-        </div>
-        <div class="vs-clock">
-          <div style="font-size:1rem;font-weight:700;color:var(--danger)">LIVE</div>
-          <div style="margin-top:4px">Q${LIVE_DEMO.qtr} · <span id="liveGameClock">${formatClock(LIVE_DEMO.clockSeconds)}</span></div>
-        </div>
-        <div class="team-block">
-          <div class="team-abbr">${LIVE_DEMO.oppAbbr}</div>
-          <div class="team-score">${LIVE_DEMO.oppScore}</div>
-        </div>
-      </div>
-      <div class="possession-row">
-        <div class="possession-pill ${possHou ? '' : 'away'}">${possHou ? 'HOU BALL' : LIVE_DEMO.oppAbbr + ' BALL'}</div>
-      </div>
-      <div class="situation-bar">
-        <span><strong>${ordSuffix(LIVE_DEMO.down)} & ${LIVE_DEMO.distance}</strong></span>
-        <span>${LIVE_DEMO.yardline}</span>
-        <span class="fg-pill ${fg.cls}">${fg.text}</span>
-      </div>
-      <div class="timeout-row">
-        <span class="to-chip">HOU timeouts: <strong>${LIVE_DEMO.efficiency.timeoutsHou}</strong></span>
-        <span class="to-chip">${LIVE_DEMO.oppAbbr} timeouts: <strong>${LIVE_DEMO.efficiency.timeoutsOpp}</strong></span>
-      </div>
-      <div class="weather-row small">${LIVE_DEMO.weather ? LIVE_DEMO.weather.note : ''}</div>
-      <div class="live-updated" id="dataFreshness">Data fresh · just now</div>
-    `;
-
-    if (tendencyCard && possHou) {
-      tendencyCard.style.display = '';
-      const t = LIVE_DEMO.tendency;
-      $('#tendencyContent').innerHTML = `
-        <div class="tendency-bars">
-          <div class="tend-row">
-            <span class="tend-label">Pass</span>
-            <div class="tend-track"><div class="tend-fill pass" style="width:${t.pass}%"></div></div>
-            <span class="tend-pct">${t.pass}%</span>
-          </div>
-          <div class="tend-row">
-            <span class="tend-label">Run</span>
-            <div class="tend-track"><div class="tend-fill" style="width:${t.run}%"></div></div>
-            <span class="tend-pct">${t.run}%</span>
-          </div>
-        </div>
-        <div class="tend-note">${t.note} · not a guarantee</div>
-      `;
-    } else if (tendencyCard) {
-      tendencyCard.style.display = 'none';
-    }
-
-    // Dominos to Win (causal path — live evaluation)
-    renderDominosCard('live');
-
-    // Next Play Lean (detailed situation model)
-    const nextPlayCard = $('#nextPlayCard');
-    if (nextPlayCard) {
-      nextPlayCard.style.display = possHou ? '' : 'none';
-      if (possHou) renderNextPlayLean();
-    }
-
-    if (efficiencyCard) {
-      efficiencyCard.style.display = '';
-      const e = LIVE_DEMO.efficiency;
-      $('#efficiencyContent').innerHTML = `
-        <div class="eff-grid">
-          <div class="eff-item">
-            <div class="eff-value">${e.thirdDown}</div>
-            <div class="eff-label">3rd down · ${e.thirdPct}</div>
-          </div>
-          <div class="eff-item">
-            <div class="eff-value">${e.redZone}</div>
-            <div class="eff-label">Red zone · ${e.redPct}</div>
-          </div>
-        </div>
-        <div class="tend-note mt-8">This-game snapshot · updates with live data when available</div>
-      `;
-    }
-
-    if (driveCard) {
-      driveCard.style.display = '';
-      const d = LIVE_DEMO.drive;
-      const mini = LIVE_DEMO.recentPlays.slice(0, 3).map(pl =>
-        `<div>Q${pl.qtr} ${pl.clock} — ${pl.desc}</div>`
-      ).join('');
-      $('#driveSummary').innerHTML = `
-        <div class="drive-meta">
-          <strong>${d.plays} plays</strong> · ${d.yards} yards · ${d.time}<br>${d.summary}
-        </div>
-        <div class="drive-plays-mini">${mini}</div>
-      `;
-    }
-
-    if (injuryCard) injuryCard.style.display = '';
-    if (opponentCard) opponentCard.style.display = '';
-    const watchWeekCard = $('#watchWeekCard');
-    const historyCard = $('#historyCard');
-    if (watchWeekCard) watchWeekCard.style.display = '';
-    if (historyCard) historyCard.style.display = '';
-    if (recapCard) recapCard.style.display = 'none';
-    if (upcomingCard) upcomingCard.style.display = 'none';
-    renderWinProbCard();
-    startLiveRefresh();
-    return;
-  }
+  // LIVE_DEMO UI path permanently removed — only LIVE_GAME (real feed) shows live mode
 
   // Upcoming mode
+  const backupRemUp = $('#backupReminder');
+  if (backupRemUp) backupRemUp.style.display = 'none';
   if (modePill) {
     modePill.textContent = 'Upcoming';
     modePill.classList.remove('live');
@@ -2513,68 +2677,12 @@ function renderOpponentCard() {
 }
 
 function renderRecapDemo() {
-  const content = $('#gameCenterContent');
-  const modePill = $('#gameModePill');
-  const tendencyCard = $('#tendencyCard');
-  const efficiencyCard = $('#efficiencyCard');
-  const driveCard = $('#driveCard');
-  const injuryCard = $('#injuryCard');
-  const opponentCard = $('#opponentCard');
+  /* Demo recap permanently removed */
+  if (typeof LIVE_DEMO !== 'undefined') LIVE_DEMO.active = false;
   const recapCard = $('#recapCard');
-  const upcomingCard = $('#upcomingCard');
-  LIVE_DEMO.active = false;
-  if (modePill) {
-    modePill.textContent = 'Sample recap';
-    modePill.classList.remove('live');
-  }
-  stopLiveRefresh();
-  if (tendencyCard) tendencyCard.style.display = 'none';
-  const dominosCardRecap = $('#dominosCard');
-  if (dominosCardRecap) dominosCardRecap.style.display = 'none';
-  const nextPlayCardRecap = $('#nextPlayCard');
-  if (nextPlayCardRecap) nextPlayCardRecap.style.display = 'none';
-  if (efficiencyCard) efficiencyCard.style.display = 'none';
-  if (driveCard) driveCard.style.display = 'none';
-  if (injuryCard) injuryCard.style.display = 'none';
-  if (opponentCard) opponentCard.style.display = 'none';
-  const winProbCard = $('#winProbCard');
-  const watchWeekCard = $('#watchWeekCard');
-  const historyCard = $('#historyCard');
-  if (winProbCard) winProbCard.style.display = 'none';
-  if (watchWeekCard) watchWeekCard.style.display = 'none';
-  if (historyCard) historyCard.style.display = 'none';
-  if (upcomingCard) upcomingCard.style.display = 'none';
-  if (recapCard) recapCard.style.display = '';
-
-  const r = SAMPLE_RECAP;
-  content.innerHTML = `
-    <div class="recap-score">HOU ${r.houScore} – ${r.oppScore} ${r.oppAbbr}</div>
-    <div class="text-center small">${r.result} · Sample</div>
-  `;
-  const recapEl = $('#recapContent');
-  if (recapEl) {
-    recapEl.innerHTML = `
-      <div class="recap-stats">
-        ${r.teamStats.map(s => `<div><strong>${s.label}</strong><br>HOU ${s.hou} · ${s.opp}</div>`).join('')}
-      </div>
-      <div class="spotlight-block outstanding">
-        <h4>Outstanding</h4>
-        ${r.outstanding.map(x => `<div>${x}</div>`).join('')}
-      </div>
-      <div class="spotlight-block">
-        <h4>Solid</h4>
-        ${r.solid.map(x => `<div>${x}</div>`).join('')}
-      </div>
-      <div class="spotlight-block quiet">
-        <h4>Quiet</h4>
-        ${r.quiet.map(x => `<div>${x}</div>`).join('')}
-      </div>
-      <p class="tend-note">Rule-based labels from public-style box score thresholds — not official grades.</p>
-    `;
-  }
+  if (recapCard) recapCard.style.display = 'none';
 }
 
-/* Demo toggles removed — no longer used */
 function wireDemoToggles() {}
 
 function startCountdown(target) {
@@ -2633,20 +2741,8 @@ function renderPBP() {
     return;
   }
 
-  if (typeof LIVE_DEMO !== 'undefined' && LIVE_DEMO.active) {
-    if (label) label.textContent = '· LIVE vs ' + (LIVE_DEMO.oppAbbr || '');
-    const driveHeader = document.createElement('div');
-    driveHeader.className = 'drive-header';
-    driveHeader.textContent = 'Q' + LIVE_DEMO.qtr + ' ' + formatClock(LIVE_DEMO.clockSeconds) + ' · ' + (LIVE_DEMO.possession === 'HOU' ? 'HOU ball' : LIVE_DEMO.oppAbbr + ' ball');
-    list.appendChild(driveHeader);
-    (LIVE_DEMO.recentPlays || []).forEach((play) => {
-      const div = document.createElement('div');
-      div.className = 'play' + (play.big ? ' big' : '');
-      div.innerHTML = '<div class="play-time">Q' + play.qtr + '<br>' + play.clock + '</div><div class="play-body"><div class="play-desc">' + play.desc + '</div></div>';
-      list.appendChild(div);
-    });
-    return;
-  }
+  // Demo PBP path removed
+
 
   if (selectedGame) {
     if (label) label.textContent = '· ' + (selectedGame.home ? 'vs' : '@') + ' ' + selectedGame.oppAbbr;
@@ -3179,6 +3275,275 @@ async function loadVideos(fromButton) {
   }
 }
 
+
+/* ============================================================
+   BACKUP EXPORT / IMPORT (v15.13)
+   Full replace on import (with confirm). Reminder after Final.
+   ============================================================ */
+const NOTES_KEY = 'texans-hq-notes-v1';
+const BACKUP_META_KEY = 'texans-hq-backup-meta-v1';
+const BACKUP_REMINDER_KEY = 'texans-hq-backup-reminder-v1';
+const BACKUP_SCHEMA = 1;
+
+function readBackupMeta() {
+  try {
+    const raw = localStorage.getItem(BACKUP_META_KEY);
+    if (!raw) return { lastExportAt: null };
+    const p = JSON.parse(raw);
+    return { lastExportAt: p.lastExportAt || null };
+  } catch (e) {
+    return { lastExportAt: null };
+  }
+}
+
+function writeBackupMeta(meta) {
+  try {
+    localStorage.setItem(BACKUP_META_KEY, JSON.stringify(meta));
+  } catch (e) {}
+}
+
+function readReminderMap() {
+  try {
+    const raw = localStorage.getItem(BACKUP_REMINDER_KEY);
+    if (!raw) return {};
+    const p = JSON.parse(raw);
+    return p && typeof p === 'object' ? p : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function writeReminderMap(map) {
+  try {
+    localStorage.setItem(BACKUP_REMINDER_KEY, JSON.stringify(map));
+  } catch (e) {}
+}
+
+function gameReminderKey(game) {
+  if (!game) return '';
+  const d = (game.date || new Date().toISOString().slice(0, 10));
+  const opp = game.oppAbbr || game.opp || 'OPP';
+  return d + '|' + opp;
+}
+
+function collectBackupPayload() {
+  let notes = '';
+  try { notes = localStorage.getItem(NOTES_KEY) || ''; } catch (e) {}
+  let nextPlay = null;
+  try {
+    const raw = localStorage.getItem(NEXT_PLAY_STORAGE_KEY);
+    nextPlay = raw ? JSON.parse(raw) : null;
+  } catch (e) { nextPlay = null; }
+  let dominos = null;
+  try {
+    dominos = loadDominosMemory();
+  } catch (e) {
+    dominos = { games: [], weights: {} };
+  }
+  return {
+    _schema: BACKUP_SCHEMA,
+    app: 'texans-hq',
+    version: (typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'unknown'),
+    exportedAt: new Date().toISOString(),
+    data: {
+      notes: notes,
+      nextPlayLog: nextPlay,
+      dominosMemory: dominos
+    }
+  };
+}
+
+function downloadJson(filename, obj) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () {
+    try { document.body.removeChild(a); } catch (e) {}
+    try { URL.revokeObjectURL(url); } catch (e) {}
+  }, 500);
+}
+
+function exportAppData() {
+  const payload = collectBackupPayload();
+  const day = payload.exportedAt.slice(0, 10);
+  downloadJson('texans-hq-backup-' + day + '.json', payload);
+  writeBackupMeta({ lastExportAt: Date.now() });
+  updateBackupStatusLine();
+  const msg = $('#backupActionMsg');
+  if (msg) {
+    msg.style.display = '';
+    msg.textContent = 'Backup downloaded. Keep the file somewhere safe (Drive, computer, etc.).';
+  }
+  return payload;
+}
+
+function validateBackupPayload(obj) {
+  if (!obj || typeof obj !== 'object') return 'File is not a valid backup object.';
+  if (obj.app && obj.app !== 'texans-hq') return 'This file is not a Texans HQ backup.';
+  if (obj._schema && obj._schema > BACKUP_SCHEMA) return 'This backup is from a newer app version.';
+  if (!obj.data || typeof obj.data !== 'object') return 'Backup is missing the data section.';
+  return null;
+}
+
+function applyImportPayload(obj) {
+  const data = obj.data || {};
+  // Full replace for the three durable stores
+  try {
+    localStorage.setItem(NOTES_KEY, typeof data.notes === 'string' ? data.notes : '');
+  } catch (e) {}
+  try {
+    if (data.nextPlayLog && typeof data.nextPlayLog === 'object') {
+      localStorage.setItem(NEXT_PLAY_STORAGE_KEY, JSON.stringify(data.nextPlayLog));
+    } else {
+      localStorage.removeItem(NEXT_PLAY_STORAGE_KEY);
+    }
+  } catch (e) {}
+  try {
+    const mem = data.dominosMemory && typeof data.dominosMemory === 'object'
+      ? data.dominosMemory
+      : { games: [], weights: {} };
+    if (!Array.isArray(mem.games)) mem.games = [];
+    if (!mem.weights || typeof mem.weights !== 'object') mem.weights = {};
+    saveDominosMemory(mem);
+  } catch (e) {}
+  // Refresh UI
+  loadNotes();
+  updateBackupStatusLine();
+  const msg = $('#backupActionMsg');
+  if (msg) {
+    msg.style.display = '';
+    msg.textContent = 'Import complete. Notes, accuracy log, and Dominos memory on this device were replaced.';
+  }
+}
+
+function importAppDataFromFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function () {
+    try {
+      const obj = JSON.parse(String(reader.result || ''));
+      const err = validateBackupPayload(obj);
+      if (err) {
+        alert(err);
+        return;
+      }
+      const notesLen = (obj.data && typeof obj.data.notes === 'string') ? obj.data.notes.length : 0;
+      const games = (obj.data && obj.data.dominosMemory && obj.data.dominosMemory.games)
+        ? obj.data.dominosMemory.games.length : 0;
+      const when = obj.exportedAt ? String(obj.exportedAt).slice(0, 19).replace('T', ' ') : 'unknown time';
+      const ok = confirm(
+        'Import will REPLACE all of the following on this device:\n\n' +
+        '• Personal notes\n' +
+        '• Next Play Lean accuracy log\n' +
+        '• Dominos season memory\n\n' +
+        'Backup file: ' + when + '\n' +
+        'Notes length: ' + notesLen + ' chars · Dominos games stored: ' + games + '\n\n' +
+        'This cannot be undone unless you already exported a backup of the current device.\n\n' +
+        'Continue with import?'
+      );
+      if (!ok) return;
+      applyImportPayload(obj);
+    } catch (e) {
+      alert('Could not read that file as JSON.');
+    }
+  };
+  reader.onerror = function () {
+    alert('Could not read the selected file.');
+  };
+  reader.readAsText(file);
+}
+
+function updateBackupStatusLine() {
+  const el = $('#backupStatusLine');
+  if (!el) return;
+  const meta = readBackupMeta();
+  if (meta.lastExportAt) {
+    el.textContent = 'Last export: ' + timeAgo(meta.lastExportAt) + ' · ' + new Date(meta.lastExportAt).toLocaleString();
+  } else {
+    el.textContent = 'Last export: never — export after games so notes and season memory are safe.';
+  }
+}
+
+function shouldShowBackupReminder() {
+  if (typeof LIVE_GAME === 'undefined' || !LIVE_GAME.final) return false;
+  const key = gameReminderKey({
+    date: (LIVE_GAME.lastUpdated ? new Date(LIVE_GAME.lastUpdated).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)),
+    oppAbbr: LIVE_GAME.oppAbbr
+  });
+  if (!key) return false;
+  const map = readReminderMap();
+  return !map[key];
+}
+
+function dismissBackupReminder() {
+  if (typeof LIVE_GAME === 'undefined') return;
+  const key = gameReminderKey({
+    date: (LIVE_GAME.lastUpdated ? new Date(LIVE_GAME.lastUpdated).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)),
+    oppAbbr: LIVE_GAME.oppAbbr
+  });
+  const map = readReminderMap();
+  map[key] = Date.now();
+  writeReminderMap(map);
+  const card = $('#backupReminder');
+  if (card) card.style.display = 'none';
+}
+
+function renderBackupReminder() {
+  const card = $('#backupReminder');
+  if (!card) return;
+  if (!shouldShowBackupReminder()) {
+    card.style.display = 'none';
+    return;
+  }
+  const text = $('#backupReminderText');
+  if (text) {
+    text.textContent = 'Game final vs ' + (LIVE_GAME.oppAbbr || 'OPP') +
+      ' — export notes, accuracy log, and Dominos memory so nothing is lost if this device is cleared.';
+  }
+  card.style.display = '';
+}
+
+function bindBackupUi() {
+  const exportBtn = $('#exportDataBtn');
+  if (exportBtn && !exportBtn.dataset.bound) {
+    exportBtn.dataset.bound = '1';
+    exportBtn.addEventListener('click', function () { exportAppData(); });
+  }
+  const importBtn = $('#importDataBtn');
+  const fileInput = $('#importFileInput');
+  if (importBtn && fileInput && !importBtn.dataset.bound) {
+    importBtn.dataset.bound = '1';
+    importBtn.addEventListener('click', function () {
+      fileInput.value = '';
+      fileInput.click();
+    });
+    fileInput.addEventListener('change', function () {
+      const f = fileInput.files && fileInput.files[0];
+      if (f) importAppDataFromFile(f);
+    });
+  }
+  const remExport = $('#backupReminderExport');
+  if (remExport && !remExport.dataset.bound) {
+    remExport.dataset.bound = '1';
+    remExport.addEventListener('click', function () {
+      exportAppData();
+      dismissBackupReminder();
+    });
+  }
+  const remDismiss = $('#backupReminderDismiss');
+  if (remDismiss && !remDismiss.dataset.bound) {
+    remDismiss.dataset.bound = '1';
+    remDismiss.addEventListener('click', function () { dismissBackupReminder(); });
+  }
+  updateBackupStatusLine();
+}
+
+
 /* ---------- Local Notes ---------- */
 function loadNotes() {
   const saved = localStorage.getItem('texans-hq-notes-v1');
@@ -3275,7 +3640,28 @@ function renderRoster() {
   const countEl = $('#rosterCount');
   const searchEl = $('#rosterSearch');
   const filtersEl = $('#rosterFilters');
+  const integrityEl = $('#rosterIntegrity');
+  const phasePill = $('#rosterPhasePill');
   if (!list) return;
+
+  // Ensure we always have a working list
+  if (!ACTIVE_ROSTER || !ACTIVE_ROSTER.length) {
+    applyActiveRoster(FULL_ROSTER.slice(), 'baked', null);
+  }
+
+  // Integrity banner
+  if (integrityEl) {
+    if (ROSTER_META && ROSTER_META.warning) {
+      integrityEl.style.display = '';
+      integrityEl.textContent = ROSTER_META.warning;
+    } else {
+      integrityEl.style.display = 'none';
+      integrityEl.textContent = '';
+    }
+  }
+  if (phasePill) {
+    phasePill.textContent = rosterSourceLabel();
+  }
 
   // Position filter chips
   if (filtersEl && !filtersEl.dataset.ready) {
@@ -3302,8 +3688,9 @@ function renderRoster() {
   applyRosterFilter();
 
   function applyRosterFilter() {
+    const base = ACTIVE_ROSTER && ACTIVE_ROSTER.length ? ACTIVE_ROSTER : FULL_ROSTER;
     const q = (searchEl ? searchEl.value : '').trim().toLowerCase();
-    const filtered = FULL_ROSTER.filter(p => {
+    const filtered = base.filter(p => {
       const posOk = rosterFilterPos === 'ALL' ||
         p.pos === rosterFilterPos ||
         (rosterFilterPos === 'OL' && (['T', 'G', 'C', 'OL', 'G/C', 'OT'].includes(p.pos) || /G|C|T/.test(p.pos))) ||
@@ -3312,39 +3699,43 @@ function renderRoster() {
         (rosterFilterPos === 'ST' && ['K', 'P', 'LS'].includes(p.pos));
       if (!posOk) return false;
       if (!q) return true;
-      const nameL = p.name.toLowerCase();
+      const nameL = (p.name || '').toLowerCase();
       const aliasHit = Array.isArray(p.aliases) && p.aliases.some((a) => String(a).toLowerCase().includes(q) || q.includes(String(a).toLowerCase()));
-      // Tolerate common misspellings (e.g. "kentan" → Keylan Rutledge)
       const fuzzy = q.length >= 3 && nameL.split(/\s+/).some((part) => part.startsWith(q.slice(0, 3)) || q.startsWith(part.slice(0, 3)));
       return (
         nameL.includes(q) ||
         aliasHit ||
         fuzzy ||
         (p.num && p.num.toString().includes(q)) ||
-        p.pos.toLowerCase().includes(q) ||
+        (p.pos && p.pos.toLowerCase().includes(q)) ||
         (p.status && p.status.toLowerCase().includes(q)) ||
         (p.college && p.college.toLowerCase().includes(q))
       );
     });
 
-    list.innerHTML = filtered.map((p, idx) => `
-      <button type="button" class="player-card player-card-btn roster-card" data-roster-idx="${FULL_ROSTER.indexOf(p)}" aria-expanded="false">
+    list.innerHTML = filtered.map((p) => {
+      const idx = base.indexOf(p);
+      return `
+      <button type="button" class="player-card player-card-btn roster-card" data-roster-idx="${idx}" aria-expanded="false">
         <div class="player-card-top">
           <span class="player-name">${p.num ? '#' + p.num + ' ' : ''}${p.name}</span>
           <span class="player-pos">${p.pos}</span>
         </div>
-        <div class="player-note">${p.status || ''} ${p.ht && p.wt ? '· ' + p.ht + ' / ' + p.wt : ''} ${p.exp ? '· Exp ' + p.exp : ''}</div>
+        <div class="player-note">${p.status || ''} ${p.ht && p.wt ? '· ' + p.ht + ' / ' + p.wt : ''} ${p.exp != null && p.exp !== '' ? '· Exp ' + p.exp : ''}</div>
         <div class="player-expand-hint">Tap for insights ▾</div>
         <div class="player-detail-body hidden"></div>
-      </button>
-    `).join('') || '<div class="empty">No players match. Try a different name, number, or position.</div>';
+      </button>`;
+    }).join('') || '<div class="empty">No players match. Try a different name, number, or position.</div>';
 
-    if (countEl) countEl.textContent = `${filtered.length} player${filtered.length !== 1 ? 's' : ''} shown · Camp / preseason roster (cuts to 53 for regular + postseason)`;
+    if (countEl) {
+      countEl.textContent = filtered.length + ' shown · ' + base.length + ' on active roster · ' + rosterSourceLabel();
+    }
 
     list.querySelectorAll('[data-roster-idx]').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.getAttribute('data-roster-idx'), 10);
-        const p = FULL_ROSTER[idx];
+        const baseNow = ACTIVE_ROSTER && ACTIVE_ROSTER.length ? ACTIVE_ROSTER : FULL_ROSTER;
+        const p = baseNow[idx];
         if (!p) return;
         const body = btn.querySelector('.player-detail-body');
         const hint = btn.querySelector('.player-expand-hint');
@@ -3447,11 +3838,32 @@ function renderStats() {
 /* ---------- Init ---------- */
 function init() {
   setVersionPill();
+  // Hard-disable demo path every boot (anti-distortion)
+  if (typeof LIVE_DEMO !== 'undefined') LIVE_DEMO.active = false;
+  // Purge schema-mismatched caches
+  try {
+    if (typeof purgeStaleCache === 'function') {
+      purgeStaleCache(ROSTER_CACHE_KEY, CACHE_SCHEMA.roster);
+      purgeStaleCache(CAMP_CACHE_KEY, CACHE_SCHEMA.camp);
+      purgeStaleCache(NEWS_CACHE_KEY, CACHE_SCHEMA.news);
+      purgeStaleCache(VIDEO_CACHE_KEY, CACHE_SCHEMA.videos);
+    }
+  } catch (e) {}
+  const selfTest = typeof runIntegritySelfTest === 'function' ? runIntegritySelfTest() : { ok: true, issues: [] };
+  if (!selfTest.ok) {
+    console.warn('Texans HQ integrity:', selfTest.issues);
+  }
+  // Seed roster from baked list immediately (integrity runs here)
+  applyActiveRoster(FULL_ROSTER.slice(), 'baked', null);
+  if (!selfTest.ok && ROSTER_META) {
+    ROSTER_META.warning = (ROSTER_META.warning ? ROSTER_META.warning + ' · ' : '') + 'Boot check: ' + selfTest.issues.slice(0, 2).join('; ');
+  }
   renderSchedule();
   renderGameCenter();
   renderCamp();
   renderStats();
   loadNotes();
+  if (typeof bindBackupUi === 'function') bindBackupUi();
   const newsBtn = $('#newsRefreshBtn');
   if (newsBtn) {
     newsBtn.addEventListener('click', () => loadNews(true));
@@ -3464,10 +3876,35 @@ function init() {
   if (videosBtn) {
     videosBtn.addEventListener('click', () => loadVideos(true));
   }
+  const rosterBtn = $('#rosterRefreshBtn');
+  if (rosterBtn && !rosterBtn.dataset.bound) {
+    rosterBtn.dataset.bound = '1';
+    rosterBtn.addEventListener('click', async () => {
+      rosterBtn.disabled = true;
+      rosterBtn.textContent = 'Updating…';
+      try {
+        await loadRoster(true);
+        renderRoster();
+      } catch (e) {
+        applyActiveRoster(FULL_ROSTER.slice(), 'baked', null);
+        renderRoster();
+      } finally {
+        rosterBtn.disabled = false;
+        rosterBtn.textContent = 'Refresh';
+      }
+    });
+  }
   // Pre-warm feeds in background (network, non-blocking)
   setTimeout(() => loadNews(false), 600);
   setTimeout(() => loadCamp(false), 900);
   setTimeout(() => loadVideos(false), 1200);
+  // Live roster: try ESPN, else cache, else baked — always integrity-checked
+  setTimeout(async () => {
+    try {
+      await loadRoster(true);
+      if (currentSection === 'roster') renderRoster();
+    } catch (e) { /* offline ok */ }
+  }, 500);
   // Live game feed: try once, then poll so Dominos rewrites during real games
   setTimeout(async () => {
     try {

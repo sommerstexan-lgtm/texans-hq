@@ -1500,3 +1500,12 @@ a.video-item {
   text-decoration: none;
 }
 .player-link:hover { background: #dde3ea; }
+
+
+/* Backup reminder */
+#backupReminder {
+  border-left: 4px solid var(--navy);
+}
+#backupStatusLine {
+  font-weight: 600;
+}

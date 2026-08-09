@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v15.9 · Dual path</div>
+      <div id="statusPill" class="status-pill">v15.13 · Backup</div>
 
 
 
@@ -50,6 +50,12 @@
           <div id="gameCenterContent">
             <div class="empty">Loading schedule…</div>
           </div>
+        </div>
+        <div class="card" id="backupReminder" style="display:none">
+          <div class="card-title">Backup reminder</div>
+          <p class="small" id="backupReminderText" style="margin:0 0 10px">Game is final — export your notes and season memory?</p>
+          <button type="button" class="btn" id="backupReminderExport">Export backup</button>
+          <button type="button" class="btn secondary" id="backupReminderDismiss" style="margin-left:8px">Not now</button>
         </div>
         <div class="card" id="tendencyCard" style="display:none">
           <div class="card-title" id="tendencyCardTitle">Offensive tendency (HOU ball)</div>
@@ -187,10 +193,14 @@
         <div class="card">
           <div class="card-title-row">
             <div class="card-title" style="margin-bottom:0">Team Roster</div>
-            <span class="mode-pill" id="rosterPhasePill">Camp · Pre</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="mode-pill" id="rosterPhasePill">Camp · Pre</span>
+              <button type="button" class="btn-refresh" id="rosterRefreshBtn" aria-label="Refresh roster">Refresh</button>
+            </div>
           </div>
-          <p class="small" style="margin:6px 0 8px">Search by name, number or position. Training-camp / preseason roster (trims to 53 before regular season). Tap any player for insights most apps ignore.</p>
-          <input type="search" id="rosterSearch" class="lock-input" placeholder="Name, # or pos (e.g. 7, Stroud, WR)" style="margin-bottom:10px; width:100%; box-sizing:border-box;" autocomplete="off" />
+          <p class="small" style="margin:6px 0 8px">Live public roster when online · merged with local notes · offline uses last save. Search by name, number or position. Tap a player for notes + trusted links.</p>
+          <div id="rosterIntegrity" class="tend-note" style="display:none;margin-bottom:8px"></div>
+          <input type="search" id="rosterSearch" class="lock-input" placeholder="Name, # or pos (e.g. 7, Stroud, WR, Bond)" style="margin-bottom:10px; width:100%; box-sizing:border-box;" autocomplete="off" />
           <div id="rosterFilters" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;"></div>
           <div id="rosterList" class="roster-list"></div>
           <p class="small mt-8" id="rosterCount"></p>
@@ -236,6 +246,15 @@
           <button class="btn secondary" id="clearNotesBtn" style="margin-left:8px">Clear</button>
           <p class="small mt-8">Saved to this device only. Never uploaded.</p>
         </div>
+        <div class="card">
+          <div class="card-title">Backup &amp; restore</div>
+          <p class="small" style="margin:0 0 8px">Export notes, Next Play accuracy, and Dominos season memory as one file. Import <strong>replaces</strong> those three on this device.</p>
+          <p class="small" id="backupStatusLine" style="margin:0 0 10px">Last export: never</p>
+          <button type="button" class="btn" id="exportDataBtn">Export backup</button>
+          <button type="button" class="btn secondary" id="importDataBtn" style="margin-left:8px">Import backup…</button>
+          <input type="file" id="importFileInput" accept="application/json,.json" style="display:none" />
+          <p class="tend-note" id="backupActionMsg" style="margin-top:10px;display:none"></p>
+        </div>
       </section>
 
       <!-- 8. ABOUT -->
@@ -255,7 +274,7 @@
               <li><strong>Stats</strong> — team snapshot and player cards with expandable notes.</li>
               <li><strong>Roster</strong> — searchable camp/preseason roster (fuzzy search for misspellings). Tap a player for notes plus <em>trusted</em> external links only (ESPN, Pro Football Reference, NFL.com) — no hype mills.</li>
               <li><strong>News / Videos</strong> — public headlines and ranked video picks with refresh.</li>
-              <li><strong>Notes</strong> — private, on-device only.</li>
+              <li><strong>Notes</strong> — private, on-device only, with <em>Export / Import backup</em> (notes + accuracy log + Dominos memory).</li>
               <li><strong>About</strong> — this guide.</li>
             </ul>
 
@@ -325,7 +344,7 @@ When the <em>opponent</em> has the ball, the same rigor flips: opponent tendency
             <ul class="about-list">
               <li>Live feed needs network. Opening the app as a raw <code>file://</code> page can block ESPN requests (browser security). Hosted or served over http/https is best on game day. Pre-game Dominos always work offline.</li>
               <li>Play-text resolution is strong for sacks, explosives, turnovers, first downs, and scores; ultra-fine alignment labels (exact coverage shell on every snap) are not claimed on the live card.</li>
-              <li>Roster and depth notes are public camp-era information and will change after cuts.</li>
+              <li>Roster prefers the live ESPN team feed when online, then last offline cache, then the baked-in list. Guards: min-size (≥80 camp), required-name check (Stroud, Bond, Rutledge, …), cache schema versioning, and a boot self-test that surfaces integrity failures instead of silent gaps.</li>
               <li>News and videos depend on public feeds and may lag or be empty offline.</li>
             </ul>
 
