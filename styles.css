@@ -1509,3 +1509,30 @@ a.video-item {
 #backupStatusLine {
   font-weight: 600;
 }
+
+/* Compact companion window beside Prime / NFL+ */
+body.dock-mode {
+  padding-bottom: 0;
+}
+body.dock-mode .bottom-nav {
+  display: none !important;
+}
+body.dock-mode .main .section:not(#sec-game) {
+  display: none !important;
+}
+body.dock-mode #watchWeekCard,
+body.dock-mode #historyCard,
+body.dock-mode #injuryCard,
+body.dock-mode #opponentCard,
+body.dock-mode #upcomingCard,
+body.dock-mode #recapCard,
+body.dock-mode #backupReminder,
+body.dock-mode #efficiencyCard,
+body.dock-mode #driveCard,
+body.dock-mode #winProbCard {
+  display: none !important;
+}
+body.dock-mode .app-header {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}

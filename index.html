@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v15.13 · Backup</div>
+      <div id="statusPill" class="status-pill">v15.14 · Lab</div>
 
 
 
@@ -77,9 +77,9 @@
         <div class="card" id="nextPlayCard" style="display:none">
           <div class="card-title-row">
             <div class="card-title" style="margin-bottom:0" id="nextPlayCardTitle">Next Play Lean</div>
-            <span class="mode-pill" id="nextPlayPhasePill">Reg/Post only</span>
+            <span class="mode-pill" id="nextPlayPhasePill">Official: reg/post · Lab: pre</span>
           </div>
-          <p class="small" style="margin:4px 0 8px" id="nextPlayHelp">Situation-based lean for you &amp; your son to argue over. Preseason excluded from accuracy tracking.</p>
+          <p class="small" style="margin:4px 0 8px" id="nextPlayHelp">Situation-based lean for you &amp; your son to argue over. Preseason scores a separate lab book and never moves regular-season accuracy.</p>
           <div id="nextPlayContent">
             <div class="empty">Available when HOU has the ball in a live game.</div>
           </div>
@@ -252,6 +252,11 @@
           <p class="small" id="backupStatusLine" style="margin:0 0 10px">Last export: never</p>
           <button type="button" class="btn" id="exportDataBtn">Export backup</button>
           <button type="button" class="btn secondary" id="importDataBtn" style="margin-left:8px">Import backup…</button>
+          <div style="margin-top:10px">
+            <button type="button" class="btn secondary" id="resetOfficialBookBtn">Reset official book</button>
+            <button type="button" class="btn secondary" id="resetLabBookBtn" style="margin-left:8px">Clear preseason lab</button>
+          </div>
+          <p class="small" style="margin-top:8px">Official book = regular season + playoffs. Lab = Panthers and other preseason tests. They never mix.</p>
           <input type="file" id="importFileInput" accept="application/json,.json" style="display:none" />
           <p class="tend-note" id="backupActionMsg" style="margin-top:10px;display:none"></p>
         </div>
@@ -336,8 +341,9 @@ When the <em>opponent</em> has the ball, the same rigor flips: opponent tendency
             <ul class="about-list">
               <li>It is a <em>lean</em>, not a guarantee — built for discussion.</li>
               <li>Accuracy is tracked when the next play is known.</li>
-              <li><strong>Preseason never counts</strong> toward Next Play Lean accuracy or learning.</li>
-              <li>Only regular-season and postseason results feed that accuracy log.</li>
+              <li><strong>Preseason is a separate lab book</strong> — you can test thoroughly (Panthers, etc.) without moving official numbers or Dominos weights.</li>
+              <li>Only regular-season and postseason results feed the official accuracy log and Dominos season memory.</li>
+              <li><strong>Game dock</strong> — Pop out a small window so Prime / NFL+ can stay on the laptop while HQ keeps polling. Switching tabs no longer has to kill the live view.</li>
             </ul>
 
             <p><strong>Honest limits</strong></p>

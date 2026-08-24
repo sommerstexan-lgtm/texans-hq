@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.13
+   Texans HQ — Personal PWA  v15.14
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -7,12 +7,14 @@
    Active nav: black box + white icon/label
    Demo removed · Game Center truthful
    Export/import backup + post-game reminder
+   Preseason lab book (does not touch official Next Play / Dominos weights)
+   Game-day dock window + tab-focus refresh
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.13';
+const APP_VERSION = 'v15.14';
 
-const APP_VERSION_LABEL = 'v15.13 · Backup';
+const APP_VERSION_LABEL = 'v15.14 · Lab';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -322,11 +324,62 @@ const LIVE_GAME = {
   weather: null,
   lastUpdated: 0,
   detail: '',
-  home: true
+  home: true,
+  phase: 'unk',          // 'pre' | 'reg' | 'post' | 'unk'
+  seasonType: null       // ESPN season.type when known (1 pre, 2 reg, 3 post)
 };
 
 let livePollTimer = null;
 const LIVE_POLL_MS = 25000;
+const LIVE_POLL_MS_HIDDEN = 45000;
+
+function isDockWindow() {
+  try {
+    return new URLSearchParams(location.search).get('dock') === '1';
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Official book = regular season + postseason only.
+ * Preseason and unknown-phase live games stay in the lab book.
+ */
+function isOfficialScoringPhase(phase) {
+  return phase === 'reg' || phase === 'post';
+}
+
+function inferSeasonPhase(event, competition) {
+  const raw = (event && event.season && event.season.type)
+    || (competition && competition.season && competition.season.type)
+    || (event && event.seasonType)
+    || null;
+  const n = raw != null ? parseInt(raw, 10) : NaN;
+  if (n === 1) return 'pre';
+  if (n === 2) return 'reg';
+  if (n === 3) return 'post';
+
+  const iso = (event && event.date) ? String(event.date).slice(0, 10) : '';
+  if (iso && typeof SCHEDULE_2026 !== 'undefined') {
+    const hit = SCHEDULE_2026.find((g) => g.date === iso);
+    if (hit && hit.type === 'pre') return 'pre';
+    if (hit && hit.type === 'reg') return 'reg';
+    if (hit && hit.type === 'post') return 'post';
+  }
+  // August NFL games without a schedule hit are almost always preseason
+  if (iso && /-08-/.test(iso)) return 'pre';
+  return 'unk';
+}
+
+function currentScoringPhase() {
+  if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.phase && LIVE_GAME.phase !== 'unk') {
+    return LIVE_GAME.phase;
+  }
+  const next = typeof getNextGame === 'function' ? getNextGame() : null;
+  if (next && next.type === 'pre') return 'pre';
+  if (next && next.type === 'reg') return 'reg';
+  return (LIVE_GAME && LIVE_GAME.phase) || 'unk';
+}
 
 function loadDominosMemory() {
   try {
@@ -335,6 +388,7 @@ function loadDominosMemory() {
     const parsed = JSON.parse(raw);
     return {
       games: Array.isArray(parsed.games) ? parsed.games : [],
+      labGames: Array.isArray(parsed.labGames) ? parsed.labGames : [],
       weights: parsed.weights && typeof parsed.weights === 'object' ? parsed.weights : {}
     };
   } catch (e) {
@@ -354,6 +408,7 @@ function saveDominosMemory(mem) {
 function recordDominosSeasonResult(oppAbbr, allDominos) {
   if (!allDominos || !allDominos.length) return;
   const mem = loadDominosMemory();
+  const phase = currentScoringPhase();
   const fallen = allDominos.filter((d) => d.status === 'fallen').map((d) => d.id);
   const broken = allDominos.filter((d) => d.status === 'broken').map((d) => d.id);
   const catFallen = {};
@@ -364,10 +419,19 @@ function recordDominosSeasonResult(oppAbbr, allDominos) {
   const entry = {
     date: new Date().toISOString().slice(0, 10),
     opp: oppAbbr,
+    phase: phase,
     fallen: fallen,
     broken: broken,
     categories: catFallen
   };
+  if (!isOfficialScoringPhase(phase)) {
+    // Lab only — reviewable, never moves official priority weights
+    mem.labGames = (mem.labGames || []).filter((g) => !(g.date === entry.date && g.opp === entry.opp));
+    mem.labGames.push(entry);
+    if (mem.labGames.length > 20) mem.labGames = mem.labGames.slice(-20);
+    saveDominosMemory(mem);
+    return;
+  }
   // avoid duplicate same-day same-opp
   mem.games = (mem.games || []).filter((g) => !(g.date === entry.date && g.opp === entry.opp));
   mem.games.push(entry);
@@ -573,6 +637,8 @@ async function refreshLiveGame() {
     LIVE_GAME.clockSeconds = parseClockToSeconds(LIVE_GAME.clockDisplay);
     LIVE_GAME.detail = (event.status && event.status.type && event.status.type.detail) || '';
     LIVE_GAME.lastUpdated = Date.now();
+    LIVE_GAME.seasonType = (event.season && event.season.type) || null;
+    LIVE_GAME.phase = inferSeasonPhase(event, competition);
 
     if (isIn) {
       LIVE_GAME.active = true;
@@ -619,19 +685,67 @@ async function refreshLiveGame() {
 
 function stopLiveGamePoll() {
   if (livePollTimer) {
+    clearTimeout(livePollTimer);
     clearInterval(livePollTimer);
     livePollTimer = null;
   }
 }
 
+function livePollDelayMs() {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden' && !isDockWindow()) {
+    return LIVE_POLL_MS_HIDDEN;
+  }
+  return LIVE_POLL_MS;
+}
+
 function startLiveGamePoll() {
   stopLiveGamePoll();
-  livePollTimer = setInterval(async () => {
-    const changed = await refreshLiveGame();
-    if (typeof currentSection !== 'undefined' && currentSection === 'game') {
-      try { renderGameCenter(); } catch (e) { /* keep UI stable */ }
+  const tick = async () => {
+    try {
+      await refreshLiveGame();
+      if (typeof currentSection === 'undefined' || currentSection === 'game' || isDockWindow()) {
+        try { renderGameCenter(); } catch (e) { /* keep UI stable */ }
+      }
+    } catch (e) { /* keep polling */ }
+    stopLiveGamePoll();
+    livePollTimer = setTimeout(tick, livePollDelayMs());
+  };
+  livePollTimer = setTimeout(tick, livePollDelayMs());
+}
+
+async function refreshLiveGameIfVisible() {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden' && !isDockWindow()) return;
+  try {
+    await refreshLiveGame();
+    if (typeof currentSection === 'undefined' || currentSection === 'game' || isDockWindow()) {
+      renderGameCenter();
     }
-  }, LIVE_POLL_MS);
+  } catch (e) { /* ok */ }
+}
+
+function bindLiveKeepAlive() {
+  if (bindLiveKeepAlive._bound) return;
+  bindLiveKeepAlive._bound = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      refreshLiveGameIfVisible();
+      startLiveGamePoll();
+    }
+  });
+  window.addEventListener('focus', () => { refreshLiveGameIfVisible(); });
+  window.addEventListener('pageshow', () => { refreshLiveGameIfVisible(); });
+}
+
+function openGameDock() {
+  const url = new URL(location.href);
+  url.searchParams.set('dock', '1');
+  const features = 'popup=yes,width=420,height=780,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes';
+  const w = window.open(url.toString(), 'texansHqDock', features);
+  if (!w) {
+    alert('Pop-out was blocked. Allow pop-ups for this site, then try again — or snap this window beside Prime / NFL+.');
+    return;
+  }
+  try { w.focus(); } catch (e) {}
 }
 
 
@@ -661,12 +775,25 @@ const BASE_TENDENCIES = {
   screenBase: 0.05
 };
 
+function emptyNextPlayLog() {
+  return {
+    predictions: [],
+    accuracy: { correct: 0, total: 0, bySituation: {} },
+    lab: { correct: 0, total: 0 }
+  };
+}
+
 function loadNextPlayLog() {
   try {
     const raw = localStorage.getItem(NEXT_PLAY_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : { predictions: [], accuracy: { correct: 0, total: 0, bySituation: {} } };
+    if (!raw) return emptyNextPlayLog();
+    const parsed = JSON.parse(raw);
+    if (!parsed.accuracy) parsed.accuracy = { correct: 0, total: 0, bySituation: {} };
+    if (!parsed.lab) parsed.lab = { correct: 0, total: 0 };
+    if (!Array.isArray(parsed.predictions)) parsed.predictions = [];
+    return parsed;
   } catch (e) {
-    return { predictions: [], accuracy: { correct: 0, total: 0, bySituation: {} } };
+    return emptyNextPlayLog();
   }
 }
 
@@ -674,6 +801,26 @@ function saveNextPlayLog(log) {
   try {
     localStorage.setItem(NEXT_PLAY_STORAGE_KEY, JSON.stringify(log));
   } catch (e) { /* ignore quota */ }
+}
+
+/** Zero the official book only. Preseason lab rows stay. */
+function resetOfficialNextPlayBook() {
+  const log = loadNextPlayLog();
+  const kept = (log.predictions || []).filter((p) => !isOfficialScoringPhase(p.phase));
+  log.predictions = kept;
+  log.accuracy = { correct: 0, total: 0, bySituation: {} };
+  if (!log.lab) log.lab = { correct: 0, total: 0 };
+  saveNextPlayLog(log);
+  return log;
+}
+
+function resetLabNextPlayBook() {
+  const log = loadNextPlayLog();
+  const kept = (log.predictions || []).filter((p) => isOfficialScoringPhase(p.phase));
+  log.predictions = kept;
+  log.lab = { correct: 0, total: 0 };
+  saveNextPlayLog(log);
+  return log;
 }
 
 /** Core predictor — returns ranked leans with reasons */
@@ -810,17 +957,13 @@ function classifyPlayType(desc) {
 /** Call when a new actual play is known. Auto-scores the pending lean if one exists. */
 function resolvePendingPrediction(actualPlayDesc, phase) {
   if (!_pendingPrediction) return;
-  // Never count preseason toward accuracy
-  if (phase === 'pre') {
-    _pendingPrediction = null;
-    return;
-  }
   const actualType = classifyPlayType(actualPlayDesc);
   if (!actualType) return; // can't classify → leave pending
 
   const pred = _pendingPrediction.pred;
   const primaryType = pred.primaryType; // 'Run' or 'Pass'
   const correct = primaryType === actualType;
+  const usePhase = phase || currentScoringPhase();
 
   const log = loadNextPlayLog();
   const entry = {
@@ -833,19 +976,18 @@ function resolvePendingPrediction(actualPlayDesc, phase) {
     actual: actualType,
     actualDesc: (actualPlayDesc || '').slice(0, 120),
     correct,
-    phase: phase || 'reg'
+    phase: usePhase
   };
   log.predictions.unshift(entry);
   if (log.predictions.length > 300) log.predictions.length = 300;
 
-  if (phase !== 'pre' && phase !== 'demo') {
-    // Only regular + postseason count in the official accuracy numbers
+  if (isOfficialScoringPhase(usePhase)) {
     log.accuracy.total += 1;
     if (correct) log.accuracy.correct += 1;
-  } else if (phase === 'demo') {
-    // Track demo separately so the numbers still move for testing
-    log.accuracy.total += 1;
-    if (correct) log.accuracy.correct += 1;
+  } else {
+    // Preseason / unknown / explicit lab — visible for Thursday testing, never official
+    log.lab.total += 1;
+    if (correct) log.lab.correct += 1;
   }
   saveNextPlayLog(log);
   _pendingPrediction = null;
@@ -861,7 +1003,7 @@ function autoTrackNextPlay() {
     const playKey = (latest.qtr || '') + '|' + (latest.clock || '') + '|' + (latest.desc || '');
     if (_lastSeenPlayKey && playKey !== _lastSeenPlayKey) {
       if (latest.team === 'HOU') {
-        resolvePendingPrediction(latest.desc, 'live');
+        resolvePendingPrediction(latest.desc, currentScoringPhase());
       }
     }
     _lastSeenPlayKey = playKey;
@@ -875,11 +1017,12 @@ function autoTrackNextPlay() {
       yardSide: LIVE_GAME.yardSide,
       scoreDiff: (LIVE_GAME.houScore || 0) - (LIVE_GAME.oppScore || 0),
       qtr: LIVE_GAME.qtr,
-      clockSeconds: LIVE_GAME.clockSeconds
+      clockSeconds: LIVE_GAME.clockSeconds,
+      isPreseason: currentScoringPhase() === 'pre'
     };
     const fp = situationFingerprint(sit);
     if (!_pendingPrediction || _pendingPrediction.fingerprint !== fp) {
-      const pred = predictNextPlay(Object.assign({}, sit, { isPreseason: false }));
+      const pred = predictNextPlay(sit);
       _pendingPrediction = { fingerprint: fp, pred: pred, ts: Date.now() };
     }
   }
@@ -902,6 +1045,7 @@ function renderNextPlayLean() {
   }
 
   const scoreDiff = (src.houScore || 0) - (src.oppScore || 0);
+  const phase = currentScoringPhase();
   const pred = predictNextPlay({
     down: src.down,
     distance: src.distance,
@@ -910,7 +1054,7 @@ function renderNextPlayLean() {
     scoreDiff,
     qtr: src.qtr,
     clockSeconds: src.clockSeconds,
-    isPreseason: false
+    isPreseason: phase === 'pre'
   });
 
   // Keep pending in sync with what is displayed
@@ -938,7 +1082,7 @@ function renderNextPlayLean() {
   });
   html += `</div>
     <p class="tend-note" style="margin-top:10px">Transparent lean based on 2025 Texans situational rates + current down/distance/field/score/clock. Not a guarantee — for argument purposes only.</p>
-    <p class="small" style="margin-top:6px; opacity:0.9">Accuracy is captured automatically when the next play is known. Preseason never counts.</p>
+    <p class="small" style="margin-top:6px; opacity:0.9">${phase === 'pre' ? 'Preseason lab is scoring this game. Official regular-season book stays untouched.' : 'Accuracy is captured automatically when the next play is known. Preseason never counts in the official book.'}</p>
     <div style="margin-top:8px">
       <button type="button" class="btn secondary" id="btnViewAccuracy" style="padding:6px 12px; font-size:0.85rem">View accuracy log</button>
     </div>
@@ -948,32 +1092,33 @@ function renderNextPlayLean() {
   // Accuracy summary
   const log = loadNextPlayLog();
   if (accEl) {
-    if (log.accuracy.total > 0) {
-      const pct = Math.round((log.accuracy.correct / log.accuracy.total) * 100);
-      accEl.style.display = '';
-      accEl.innerHTML = `Auto-tracked accuracy: <strong>${pct}%</strong> (${log.accuracy.correct}/${log.accuracy.total}). Preseason excluded.`;
-    } else {
-      accEl.style.display = '';
-      accEl.innerHTML = `No leans scored yet. Accuracy updates automatically after each play. Preseason never counts.`;
-    }
+    accEl.style.display = '';
+    const lab = log.lab || { correct: 0, total: 0 };
+    const off = log.accuracy || { correct: 0, total: 0 };
+    const labPct = lab.total ? Math.round((lab.correct / lab.total) * 100) + '%' : '—';
+    const offPct = off.total ? Math.round((off.correct / off.total) * 100) + '%' : '—';
+    accEl.innerHTML = `Lab (preseason): <strong>${labPct}</strong> (${lab.correct}/${lab.total}) · Official book: <strong>${offPct}</strong> (${off.correct}/${off.total})`;
   }
 
   const viewBtn = $('#btnViewAccuracy');
   if (viewBtn) {
     viewBtn.onclick = () => {
       const log = loadNextPlayLog();
+      const lab = log.lab || { correct: 0, total: 0 };
       let msg = `Automatic accuracy log (local only)\n\n`;
-      msg += `Correct: ${log.accuracy.correct} / ${log.accuracy.total}\n\n`;
+      msg += `Official book (reg + post): ${log.accuracy.correct} / ${log.accuracy.total}\n`;
+      msg += `Lab (preseason / test): ${lab.correct} / ${lab.total}\n\n`;
       if (log.predictions.length === 0) {
         msg += `No predictions scored yet.`;
       } else {
         msg += `Recent scored leans:\n`;
-        log.predictions.slice(0, 10).forEach((p, i) => {
+        log.predictions.slice(0, 12).forEach((p, i) => {
           const mark = p.correct === true ? '✓' : (p.correct === false ? '✗' : '?');
-          msg += `${i + 1}. ${mark} ${p.situation} → ${p.primary} (actual: ${p.actual || '?'})\n`;
+          const ph = p.phase ? ' [' + p.phase + ']' : '';
+          msg += `${i + 1}. ${mark}${ph} ${p.situation} → ${p.primary} (actual: ${p.actual || '?'})\n`;
         });
       }
-      msg += `\nPreseason is never included. Scoring happens automatically from play descriptions.`;
+      msg += `\nPreseason is lab-only and never moves the official book.`;
       alert(msg);
     };
   }
@@ -2463,7 +2608,8 @@ function renderGameCenter() {
     const backupRemLive = $('#backupReminder');
     if (backupRemLive) backupRemLive.style.display = 'none';
     if (modePill) {
-      modePill.textContent = 'LIVE';
+      const ph = currentScoringPhase();
+      modePill.textContent = ph === 'pre' ? 'LIVE · PRE LAB' : (ph === 'post' ? 'LIVE · POST' : 'LIVE');
       modePill.classList.add('live');
     }
     const possHou = LIVE_GAME.possession === 'HOU';
@@ -2491,8 +2637,11 @@ function renderGameCenter() {
         <span>${LIVE_GAME.yardline || '—'}</span>
         <span class="fg-pill ${fg.cls}">${fg.text}</span>
       </div>
-      <div class="live-updated" id="dataFreshness">Live feed · ${timeAgo(LIVE_GAME.lastUpdated || Date.now())}</div>
+      <div class="live-updated" id="dataFreshness">Live feed · ${timeAgo(LIVE_GAME.lastUpdated || Date.now())}${currentScoringPhase() === 'pre' ? ' · preseason lab (official book off)' : ''}</div>
+      ${isDockWindow() ? '' : '<div style="margin-top:10px"><button type="button" class="btn secondary" id="btnOpenDock">Pop out game dock</button></div>'}
     `;
+    const dockBtn = $('#btnOpenDock');
+    if (dockBtn) dockBtn.onclick = openGameDock;
     // Possession mirror: HOU ball → Texans cards; Opp ball → opponent cards + defensive Dominos
     if (tendencyCard) tendencyCard.style.display = possHou ? '' : 'none';
     if (possHou) {
@@ -2540,7 +2689,7 @@ function renderGameCenter() {
     if (typeof hideOppCards === 'function') hideOppCards();
     if (typeof renderBackupReminder === 'function') renderBackupReminder();
     if (modePill) {
-      modePill.textContent = 'Final';
+      modePill.textContent = currentScoringPhase() === 'pre' ? 'Final · PRE LAB' : 'Final';
       modePill.classList.remove('live');
     }
     content.innerHTML = `
@@ -2629,7 +2778,10 @@ function renderGameCenter() {
       <span>${kick.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${formatTime(next.time)}</span>
       ${next.tv ? `<span class="tv-badge${next.tv === 'Prime Video' ? ' prime' : ''}">${next.tv}</span>` : ''}
     </div>
+    ${isDockWindow() ? '' : '<div style="margin-top:10px"><button type="button" class="btn secondary" id="btnOpenDock">Pop out game dock</button><p class="small" style="margin-top:6px">Keeps scoreboard + leans in a small window beside Prime / NFL+.</p></div>'}
   `;
+  const dockBtnUp = $('#btnOpenDock');
+  if (dockBtnUp) dockBtnUp.onclick = openGameDock;
   const preview = $('#nextGamePreview');
   if (preview) preview.textContent = `${next.home ? 'vs' : '@'} ${next.opp} · ${kick.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
   startCountdown(kick);
@@ -3540,6 +3692,32 @@ function bindBackupUi() {
     remDismiss.dataset.bound = '1';
     remDismiss.addEventListener('click', function () { dismissBackupReminder(); });
   }
+  const resetOff = $('#resetOfficialBookBtn');
+  if (resetOff && !resetOff.dataset.bound) {
+    resetOff.dataset.bound = '1';
+    resetOff.addEventListener('click', function () {
+      if (!confirm('Zero the official Next Play book (regular + postseason)? Preseason lab numbers stay.')) return;
+      resetOfficialNextPlayBook();
+      const msg = $('#backupActionMsg');
+      if (msg) {
+        msg.style.display = '';
+        msg.textContent = 'Official Next Play book reset. Lab (preseason) log was kept.';
+      }
+    });
+  }
+  const resetLab = $('#resetLabBookBtn');
+  if (resetLab && !resetLab.dataset.bound) {
+    resetLab.dataset.bound = '1';
+    resetLab.addEventListener('click', function () {
+      if (!confirm('Clear the preseason lab log only? Official book stays.')) return;
+      resetLabNextPlayBook();
+      const msg = $('#backupActionMsg');
+      if (msg) {
+        msg.style.display = '';
+        msg.textContent = 'Preseason lab log cleared. Official book was not touched.';
+      }
+    });
+  }
   updateBackupStatusLine();
 }
 
@@ -3837,7 +4015,12 @@ function renderStats() {
 
 /* ---------- Init ---------- */
 function init() {
-  setVersionPill();
+  if (isDockWindow()) {
+    document.body.classList.add('dock-mode');
+    document.title = 'Texans HQ · Dock';
+  }
+  setVersionPill(isDockWindow() ? APP_VERSION + ' · Dock' : APP_VERSION_LABEL);
+  bindLiveKeepAlive();
   // Hard-disable demo path every boot (anti-distortion)
   if (typeof LIVE_DEMO !== 'undefined') LIVE_DEMO.active = false;
   // Purge schema-mismatched caches
@@ -3916,6 +4099,12 @@ function init() {
 }
 
 /* Start: check password first */
+try {
+  if (isDockWindow()) {
+    document.body.classList.add('dock-mode');
+    document.title = 'Texans HQ · Dock';
+  }
+} catch (e) {}
 if (setupLock()) {
   // Already unlocked on this device
   init();
