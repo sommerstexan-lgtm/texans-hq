@@ -1,4 +1,4 @@
-/* Texans HQ PWA v13 — High-contrast light theme + TV networks
+/* Texans HQ PWA v15.17 — High-contrast light theme + TV networks
    White/off-white backgrounds, dark text, semantic color for meaning only
    Navy used for branding accents, red used sparingly for importance
 */
@@ -1537,7 +1537,7 @@ body.dock-mode .app-header {
   padding-bottom: 10px;
 }
 
-/* v15.16 — week slate, watch list, focus picker */
+/* v15.17 — week slate, watch list, focus picker */
 .sched-toggle {
   display: flex;
   gap: 0;

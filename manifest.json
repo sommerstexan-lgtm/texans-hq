@@ -1,14 +1,17 @@
 {
-  "name": "Texans HQ — Personal",
+  "name": "Texans HQ \u2014 Personal v15.17",
   "short_name": "Texans HQ",
-  "description": "Personal Houston Texans PWA — play-by-play, game center, schedule, training camp & notes. Privacy-first, offline-friendly.",
+  "description": "Personal Houston Texans PWA \u2014 play-by-play, game center, schedule, training camp & notes. Privacy-first, offline-friendly.",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#03202F",
   "theme_color": "#03202F",
   "lang": "en-US",
-  "categories": ["sports", "entertainment"],
+  "categories": [
+    "sports",
+    "entertainment"
+  ],
   "icons": [
     {
       "src": "icon-192.png",
@@ -22,5 +25,6 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "version": "15.17"
 }

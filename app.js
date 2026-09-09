@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.16
+   Texans HQ — Personal PWA  v15.17
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.16';
+const APP_VERSION = 'v15.17';
 
-const APP_VERSION_LABEL = 'v15.16 · Week 1';
+const APP_VERSION_LABEL = 'v15.17 · Week 1';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -96,11 +96,25 @@ const TEXANS = {
   red: '#A71930'
 };
 
-/** Static GitHub Pages / any host: hit ESPN and team RSS directly.
-    Avoid cache:'no-store' on those calls — it forces a CORS preflight ESPN rejects.
-    A same-origin /api/espn proxy is optional; this PWA does not require it. */
-function espnUrl(target) { return target; }
-function feedUrl(target) { return target; }
+/** Same-origin proxy in this preview; GitHub Pages hits ESPN directly (simple CORS GET). */
+function useEspnProxy() {
+  try {
+    const h = location.hostname || '';
+    if (location.protocol === 'file:') return false;
+    if (/\.github\.io$/.test(h)) return false;
+    if (h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0') return true;
+  } catch (e) {}
+  return false;
+}
+function espnUrl(target) {
+  return useEspnProxy() ? ('/api/espn?u=' + encodeURIComponent(target)) : target;
+}
+function feedUrl(target) {
+  return useEspnProxy() ? ('/api/feed?u=' + encodeURIComponent(target)) : target;
+}
+function espnFetchOpts() {
+  return useEspnProxy() ? { cache: 'no-store' } : { mode: 'cors' };
+}
 
 /* ---------- Password Lock ---------- */
 function isUnlocked() {
@@ -346,7 +360,7 @@ const LIVE_POLL_MS = 25000;
 const LIVE_POLL_MS_HIDDEN = 45000;
 
 /* ============================================================
-   LEAGUE WEEK + WATCH LIST + SCOUT MEMORY  (v15.16)
+   LEAGUE WEEK + WATCH LIST + SCOUT MEMORY  (v15.17)
    Sched = this NFL week (toggle: Texans season).
    Game Center follows ONE selected eventId.
    Live poll hits summary?event=id only — never the whole slate.
@@ -417,9 +431,12 @@ function teamId(abbr) {
 }
 
 function focusAbbr() {
-  if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.focusAbbr) return LIVE_GAME.focusAbbr;
-  const w = getCurrentWatch();
+  const w = (typeof getCurrentWatch === 'function') ? getCurrentWatch() : null;
+  if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.focusAbbr && LIVE_GAME.eventId && w && String(LIVE_GAME.eventId) === String(w.eventId)) {
+    return LIVE_GAME.focusAbbr;
+  }
   if (w && w.focusAbbr) return w.focusAbbr;
+  if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.eventId && LIVE_GAME.focusAbbr) return LIVE_GAME.focusAbbr;
   return 'HOU';
 }
 
@@ -739,7 +756,7 @@ async function loadWeekSlate(force) {
   }
   slateInflight = (async function loadSlateInner() {
     try {
-      const res = await fetch(espnUrl('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=80'), { mode: 'cors' });
+      const res = await fetch(espnUrl('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=80'), espnFetchOpts());
       if (!res.ok) throw new Error('scoreboard ' + res.status);
       const data = await res.json();
       const week = (data.week && data.week.number) || 1;
@@ -831,14 +848,31 @@ function insightForLeagueGame(g) {
 function genericDominosFor(focus, opp) {
   const fn = teamNick(focus);
   const on = teamNick(opp);
-  return [
-    { id: 'gen-protect', text: 'Protect the ' + fn + ' QB — limit free runners', category: 'offense', priority: 90, preGame: true, phase: 'full', why: 'Foundation of every win path' },
+  const fp = (typeof SCHEME_FINGERPRINTS !== 'undefined' && SCHEME_FINGERPRINTS[normAbbr(opp)]) || null;
+  const rec = (typeof scoutRecap === 'function') ? scoutRecap(opp) : null;
+  const list = [
+    { id: 'gen-protect', text: 'Protect the ' + fn + ' QB — limit free runners', category: 'offense', priority: 90, preGame: true, phase: 'full', why: 'Pocket is the foundation of the ' + fn + ' win path' },
     { id: 'gen-explosive', text: 'Prevent ' + on + ' explosive plays (≥20 yd)', category: 'defense', priority: 87, preGame: true, phase: 'full', why: 'Explosives collapse paths fast' },
-    { id: 'gen-3rd', text: 'Win the 3rd-down battle both ways', category: 'offense', priority: 85, preGame: true, phase: 'full', why: 'Sustains scoring drives' },
-    { id: 'gen-run', text: 'Establish early-down run efficiency', category: 'offense', priority: 82, preGame: true, phase: 'full', why: 'Sets up play-action later' },
-    { id: 'gen-takeaways', text: 'Create at least one takeaway', category: 'defense', priority: 80, preGame: true, phase: 'full', why: 'Short fields change scripts' },
+    { id: 'gen-3rd', text: 'Win the 3rd-down battle vs the ' + on, category: 'offense', priority: 85, preGame: true, phase: 'full', why: 'Sustains scoring drives and forces punts' },
+    { id: 'gen-run', text: 'Establish ' + fn + ' early-down run efficiency', category: 'offense', priority: 82, preGame: true, phase: 'full', why: 'Sets up play-action later' },
+    { id: 'gen-takeaways', text: 'Create at least one takeaway vs ' + on, category: 'defense', priority: 80, preGame: true, phase: 'full', why: 'Short fields change scripts' },
     { id: 'gen-st', text: 'Win the hidden-yardage / ST battle', category: 'special', priority: 70, preGame: true, phase: 'full', why: 'Field position compounds' }
   ];
+  if (fp) {
+    if (fp.shotgun >= 0.62) {
+      list.push({ id: 'gen-spread', text: 'Stay sound vs ' + on + ' shotgun / spread looks', category: 'defense', priority: 84, preGame: true, phase: 'full', why: 'Public fingerprint: shotgun-heavy offense' });
+    }
+    if (fp.playAction >= 0.16) {
+      list.push({ id: 'gen-pa', text: 'Do not over-pursue ' + on + ' play-action', category: 'defense', priority: 81, preGame: true, phase: 'full', why: 'Play-action is a real part of their diet' });
+    }
+    if (fp.family === 'shanahan-zone') {
+      list.push({ id: 'gen-zone', text: 'Set the edge vs ' + on + ' outside-zone / boot', category: 'defense', priority: 83, preGame: true, phase: 'full', why: 'Zone-family offenses win on the edge' });
+    }
+  }
+  if (rec && rec.n >= 1 && rec.expAg) {
+    list.push({ id: 'gen-scout-exp', text: 'You have seen ' + on + ' give up explosives — force one', category: 'defense', priority: 79, preGame: true, phase: 'full', why: 'From your scouting file on this club' });
+  }
+  return list.sort(function (a, b) { return b.priority - a.priority; }).slice(0, 6);
 }
 
 function seedsForMatchup(focus, opp) {
@@ -1574,7 +1608,7 @@ async function fetchTexansEvent() {
 
 async function fetchEventSummary(eventId) {
   const url = espnUrl('https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=' + eventId);
-  const res = await fetch(url, { mode: 'cors' });
+  const res = await fetch(url, espnFetchOpts());
   if (!res.ok) throw new Error('summary ' + res.status);
   return res.json();
 }
@@ -2606,7 +2640,7 @@ function evaluateDominos(state) {
   if (brokenOnes.length >= 2) {
     keyInsight = 'Multiple path breaks — next two possessions decide if the win path survives.';
   } else if (top && top.status === 'broken') {
-    keyInsight = 'Path narrowed: "' + top.text + '" went against Houston.';
+    keyInsight = 'Path narrowed: "' + top.text + '" went against the ' + (typeof teamNick === 'function' ? teamNick(focusNow) : focusNow) + '.';
   } else if (possHou && down === 3) {
     keyInsight = 'This 3rd-and-' + dist + ' is the highest-leverage snap on the field.';
   } else if (possHou && isRedZone) {
@@ -2618,7 +2652,7 @@ function evaluateDominos(state) {
   } else if (scoreDiff < 0 && isLate) {
     keyInsight = 'Trailing — every possession and every stop carries extra weight.';
   } else if (fallenOnes.length >= 2 && brokenOnes.length === 0) {
-    keyInsight = 'Path is holding — early conditions falling Houston’s way.';
+    keyInsight = 'Path is holding — early conditions falling the ' + (typeof teamNick === 'function' ? teamNick(focusNow) : focusNow) + '’s way.';
   } else if (top && top.why) {
     keyInsight = top.why;
   } else {
@@ -2676,8 +2710,10 @@ function renderDominosCard(mode, oppAbbr) {
       ? evaluateDominosForSide(state, possHou ? 'hou' : 'opp')
       : evaluateDominos(state);
     const dTitle = $('#dominosCardTitle');
+    const focusLive = state.focusAbbr || (typeof focusAbbr === 'function' ? focusAbbr() : 'HOU');
+    const focusNickLive = (typeof teamNick === 'function') ? teamNick(focusLive) : focusLive;
     if (dTitle) {
-      dTitle.textContent = possHou ? 'Dominos to Win' : 'Dominos — HOU defense';
+      dTitle.textContent = possHou ? ('Dominos to Win · ' + focusNickLive) : ('Dominos — ' + focusNickLive + ' defense');
     }
     if (pill) pill.textContent = result.statusSummary + (possHou ? '' : ' · opp ball');
     if (!result.dominos.length) {
@@ -2718,9 +2754,13 @@ function renderDominosCard(mode, oppAbbr) {
     return;
   }
 
-  // PRE-GAME
+  // PRE-GAME — always the monitored matchup (focus vs opponent), never Houston's next game by default
   const abbr = oppAbbr || 'DEFAULT';
-  const seeds = (PRE_GAME_DOMINOS[abbr] || PRE_GAME_DOMINOS.DEFAULT)
+  const focusNow = (typeof focusAbbr === 'function' ? focusAbbr() : 'HOU');
+  const seedSrc = (typeof seedsForMatchup === 'function')
+    ? seedsForMatchup(focusNow, abbr)
+    : ((PRE_GAME_DOMINOS[abbr] || PRE_GAME_DOMINOS.DEFAULT));
+  const seeds = seedSrc
     .slice()
     .sort(function (a, b) { return b.priority - a.priority; })
     .slice(0, 5)
@@ -2728,6 +2768,9 @@ function renderDominosCard(mode, oppAbbr) {
 
   card.style.display = '';
   if (pill) pill.textContent = 'Before kickoff';
+  const dTitlePre = $('#dominosCardTitle');
+  const focusNick = (typeof teamNick === 'function') ? teamNick(focusNow) : focusNow;
+  if (dTitlePre) dTitlePre.textContent = 'Dominos to Win · ' + focusNick;
 
   if (!seeds.length) {
     content.innerHTML = '<div class="empty">Matchup keys will appear closer to kickoff.</div>';
@@ -2736,11 +2779,13 @@ function renderDominosCard(mode, oppAbbr) {
 
   const starterCount = seeds.filter(function (d) { return d.phase === 'starter'; }).length;
   const depthCount = seeds.filter(function (d) { return d.phase === 'depth'; }).length;
-  let phaseNote = 'What has to go right vs ' + abbr + ' for Houston to win.';
+  const oppLabel = (typeof teamNick === 'function' && abbr !== 'DEFAULT') ? teamNick(abbr) : abbr;
+  let phaseNote = 'What has to go right vs the ' + oppLabel + ' for the ' + focusNick + ' to win.';
+  if (focusNow === 'HOU') phaseNote = 'What has to go right vs ' + abbr + ' for Houston to win.';
   if (starterCount && depthCount) {
-    phaseNote = 'Preseason path vs ' + abbr + ': starter window first, then depth evaluation. List updates live once the game starts.';
+    phaseNote = 'Preseason path vs ' + oppLabel + ': starter window first, then depth evaluation. List updates live once the game starts.';
   } else if (starterCount) {
-    phaseNote = 'Starter-window priorities vs ' + abbr + '. Updates live once the game starts.';
+    phaseNote = 'Starter-window priorities vs ' + oppLabel + '. Updates live once the game starts.';
   }
 
   let html = '<div class="dominos-list">';
@@ -3130,7 +3175,7 @@ function writeRosterCache(players) {
 }
 
 async function fetchLiveRoster() {
-  const res = await fetch(espnUrl(ROSTER_ESPN_URL), { mode: 'cors' });
+  const res = await fetch(espnUrl(ROSTER_ESPN_URL), espnFetchOpts());
   if (!res.ok) throw new Error('Roster HTTP ' + res.status);
   const data = await res.json();
   const items = [];
@@ -4115,7 +4160,7 @@ async function fetchEspnArticles() {
   let lastErr = null;
   for (const url of urls) {
     try {
-      const res = await fetch(url, { mode: 'cors' });
+      const res = await fetch(url, espnFetchOpts());
       if (!res.ok) { lastErr = 'HTTP ' + res.status; continue; }
       const data = await res.json();
       const list = data.articles || data.headlines || [];
@@ -4134,7 +4179,7 @@ async function fetchEspnArticles() {
 /** Official team RSS — usually ahead of ESPN for same-day transactions & camp posts */
 async function fetchTexansRss() {
   const url = feedUrl('https://www.houstontexans.com/rss/news');
-  const res = await fetch(url, { mode: 'cors' });
+  const res = await fetch(url, espnFetchOpts());
   if (!res.ok) throw new Error('Texans RSS HTTP ' + res.status);
   const text = await res.text();
   const doc = new DOMParser().parseFromString(text, 'application/xml');
