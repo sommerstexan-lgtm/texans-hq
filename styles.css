@@ -1536,3 +1536,125 @@ body.dock-mode .app-header {
   padding-top: 10px;
   padding-bottom: 10px;
 }
+
+/* v15.16 — week slate, watch list, focus picker */
+.sched-toggle {
+  display: flex;
+  gap: 0;
+  margin: 10px 0 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #EEF2F5;
+}
+.sched-tog {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 9px 10px;
+  min-height: 40px;
+}
+.sched-tog.active {
+  background: var(--navy);
+  color: #fff;
+}
+.watch-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 0 6px;
+  margin-bottom: 4px;
+}
+.watch-chip {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  min-height: 36px;
+}
+.watch-chip.on {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}
+.watch-chip.live {
+  border-color: var(--red);
+  color: var(--red);
+}
+.watch-chip.on.live {
+  background: var(--red);
+  color: #fff;
+}
+.star-btn {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.star-btn.on { color: #C9A227; }
+.game-row.is-hou { background: #F3F7FA; }
+.game-row.is-current { box-shadow: inset 3px 0 0 var(--navy); }
+.hou-badge {
+  background: var(--red);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 4px;
+  margin-left: 6px;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
+.sched-day-head {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 12px 0 4px;
+  border-bottom: 1px solid var(--border);
+  margin-top: 4px;
+}
+.focus-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 10px 0 4px;
+}
+.focus-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.focus-pill {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  min-height: 36px;
+}
+.focus-pill.on {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}
+.game-row .game-info { min-width: 0; }

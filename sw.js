@@ -1,8 +1,8 @@
-/* Texans HQ PWA — Service Worker v15.15
+/* Texans HQ PWA — Service Worker v15.16
    Network-first app shell (cache: no-store) so deploys are visible after one reload.
    skipWaiting on install + on message; claim clients on activate.
 */
-const CACHE_NAME = 'texans-hq-v15.15';
+const CACHE_NAME = 'texans-hq-v15.16';
 const APP_SHELL = [
   './',
   './index.html',
@@ -39,6 +39,7 @@ function isAppShell(url) {
     path.endsWith('/') ||
     path.endsWith('/index.html') ||
     path.endsWith('/app.js') ||
+    path.endsWith('/hq.css') ||
     path.endsWith('/styles.css') ||
     path.endsWith('/manifest.json') ||
     path.endsWith('/sw.js') ||
@@ -52,7 +53,6 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  // App shell: network-first, bypass HTTP cache, then store, offline → cache
   if (url.origin === self.location.origin && isAppShell(url)) {
     event.respondWith(
       fetch(req, { cache: 'no-store' })
@@ -68,7 +68,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ESPN / external
   event.respondWith(
     fetch(req, { cache: 'no-store' })
       .then((res) => {

@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
-  <!-- PASSWORD LOCK SCREEN -->
+<!-- PASSWORD LOCK SCREEN -->
   <div id="lockScreen" class="lock-screen">
     <div class="lock-card">
       <div class="lock-logo">H</div>
@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v15.15 · Week 1</div>
+      <div id="statusPill" class="status-pill">v15.16 · Week 1</div>
 
 
 
@@ -42,6 +42,7 @@
     <main class="main">
       <!-- 1. GAME CENTER -->
       <section id="sec-game" class="section active">
+        <div id="gameWatchBar" class="watch-strip"></div>
         <div class="card scoreboard">
           <div class="card-title-row">
             <div class="card-title" style="margin-bottom:0">Game Center</div>
@@ -148,7 +149,15 @@
       <!-- 3. SCHEDULE -->
       <section id="sec-schedule" class="section">
         <div class="card">
-          <div class="card-title">2026 Schedule</div>
+          <div class="card-title-row">
+            <div class="card-title" id="schedTitle" style="margin-bottom:0">This week</div>
+          </div>
+          <div class="sched-toggle" role="tablist" aria-label="Schedule view">
+            <button type="button" class="sched-tog active" id="schedViewWeek">This week</button>
+            <button type="button" class="sched-tog" id="schedViewTexans">Texans season</button>
+          </div>
+          <p class="small" id="schedHint" style="margin:8px 0 10px">NFL week slate · star games to watch · live updates only run for the game on Game Center.</p>
+          <div id="watchStrip" class="watch-strip"></div>
           <div id="scheduleList"></div>
         </div>
       </section>
@@ -276,7 +285,7 @@
             <ul class="about-list">
               <li><strong>Game</strong> — scoreboard (upcoming / live / final), dual-path Dominos, HOU or opponent tendency &amp; next-play lean by possession, injuries, opponent preview.</li>
               <li><strong>Plays</strong> — live public play-by-play when a game is on; otherwise guidance to Schedule. Always includes a <em>Back</em> control to return to game insights or the full schedule.</li>
-              <li><strong>Schedule</strong> — full 2026 slate. Tap any game for <em>favored team, line, total, matchup note, and keys to watch</em>, then jump to Plays or Game Center. Back returns to the list.</li>
+              <li><strong>Schedule</strong> — this NFL week by default (every game, same row info: time, TV, line). Toggle <em>Texans season</em> for the full Houston slate. Star games to watch; tap for line, total, keys, then Game Center or Plays.</li>
               <li><strong>Camp</strong> — training-camp updates from public team / ESPN feeds with offline cache.</li>
               <li><strong>Stats</strong> — team snapshot and player cards with expandable notes.</li>
               <li><strong>Roster</strong> — searchable camp/preseason roster (fuzzy search for misspellings). Tap a player for notes plus <em>trusted</em> external links only (ESPN, Pro Football Reference, NFL.com) — no hype mills.</li>
@@ -317,11 +326,13 @@ When the <em>opponent</em> has the ball, the same rigor flips: opponent tendency
             </ul>
 
             <p><strong>Live feed (how it stays current)</strong><br>
-            During Texans games the app pulls public ESPN scoreboard and play data (same family of endpoints used for News). Scores, clock, situation, and recent play text feed the Dominos engine so fallen / broken status is driven by what happened on the field — not by a static checklist. Polling runs in the background while you stay in the app. If the network is unavailable, the pre-game path still works offline; live rewriting resumes when the feed is reachable again.</p>
+            During the game you selected, the app pulls public ESPN play data for <em>that one event only</em> (same family of endpoints used for News). Scores, clock, situation, and recent play text feed the Dominos engine so fallen / broken status is driven by what happened on the field — not by a static checklist. Polling runs in the background while you stay in the app. If the network is unavailable, the pre-game path still works offline; live rewriting resumes when the feed is reachable again.</p>
 
             <p><strong>Post-game hierarchy</strong><br>
             When the game is final, Dominos switches to <em>Final path</em>: every tracked condition grouped under offense, defense, special teams, and player categories with its final status. That is the review mode — built for after the broadcast, when you have time to study what held and what broke.</p>
 
+            <p><strong>Scouting memory (every team you watch)</strong><br>
+            Texans official Next Play accuracy stays Houston-only. Separately, every game you actually watch deposits a scouting file for <em>both</em> teams: result, explosives, turnovers, and which Dominos fell or broke. By January, the clubs you’ve been following have a real memory — and when Houston meets them, opponent preview and Dominos priority use that file. Teams you never opened stay on generic defaults. That is your scouting, not a league-wide model.</p>
             <p><strong>Season memory (gets smarter over time)</strong><br>
             After each final, this device stores which dominos fell and which broke. Future games slightly raise the priority of conditions that kept deciding wins and ease ones that kept failing. No account and no cloud upload — memory stays on this device only. Preseason paths are useful for evaluation; regular season and postseason carry the heavier weight for long-term calibration.</p>
 
