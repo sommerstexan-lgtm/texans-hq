@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.14
+   Texans HQ — Personal PWA  v15.15
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -12,16 +12,16 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.14';
+const APP_VERSION = 'v15.15';
 
-const APP_VERSION_LABEL = 'v15.14 · Lab';
+const APP_VERSION_LABEL = 'v15.15 · Week 1';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
    Boot self-test + cache schema versions + required roster names
    ============================================================ */
 const CACHE_SCHEMA = {
-  roster: 1,
+  roster: 2,
   camp: 2,
   news: 2,
   videos: 1,
@@ -228,7 +228,7 @@ const TEAM_STATS_2025 = [
 
 const KEY_PLAYERS = [
   { name: 'C.J. Stroud', pos: 'QB', num: '7', note: 'Franchise QB · Year 4', stats: '2025: 3,700+ pass yds · 20+ TD',
-    detail: 'Year-4 starter. Camp focus: timing with Higgins/Schultz, ball security, and early-down mix. Preseason snaps will show the real plan.' , links: [
+    detail: 'Year-4 starter. Week 1 timing with Collins / Schultz / Hutchinson / Noel. Higgins is out for the season.' , links: [
     { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4432577/cj-stroud' },
     { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/S/StroCJ00.htm' },
     { label: 'NFL.com', url: 'https://www.nfl.com/players/c-j-stroud/' }
@@ -238,8 +238,8 @@ const KEY_PLAYERS = [
     { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4258179/nico-collins' },
     { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/C/CollNi00.htm' }
   ]},
-  { name: 'Jayden Higgins', pos: 'WR', num: '81', note: 'Year-2 breakout candidate', stats: 'Camp standout vs top CBs',
-    detail: 'Strong camp buzz with wins vs Stingley/Lassiter. Preseason targets + third-down usage will tell the story.' , links: [
+  { name: 'Jayden Higgins', pos: 'WR', num: '81', note: 'IR · out for 2026 (ACL)', stats: 'Torn ACL mid-August joint practice',
+    detail: 'Season-ending ACL in August joint practice. Do not treat as Week 1 WR2. Collins / Hutchinson / Noel / Dell / Boutte carry the room.' , links: [
     { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4689388/jayden-higgins' },
     { label: 'NFL.com', url: 'https://www.nfl.com/players/jayden-higgins/' }
   ]},
@@ -552,9 +552,10 @@ async function fetchTexansEvent() {
   const year = new Date().getFullYear();
   // Try preseason + regular season schedules
   const urls = [
-    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${ESPN_TEAM_ID}/schedule?season=${year}&seasontype=1`,
+    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=80&dates=` + new Date().toISOString().slice(0,10).replace(/-/g,''),
+    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=50`,
     `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${ESPN_TEAM_ID}/schedule?season=${year}&seasontype=2`,
-    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=50`
+    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${ESPN_TEAM_ID}/schedule?season=${year}&seasontype=1`
   ];
   let events = [];
   for (const url of urls) {
@@ -564,6 +565,19 @@ async function fetchTexansEvent() {
       const data = await res.json();
       if (data.events && data.events.length) {
         events = events.concat(data.events);
+        const hasLiveHou = data.events.some(function (ev) {
+          const st = (ev.status && ev.status.type && (ev.status.type.state || ev.status.type.name)) || '';
+          const live = st === 'in' || st === 'STATUS_IN_PROGRESS' || st === 'STATUS_HALFTIME';
+          if (!live) return false;
+          return (ev.competitions || []).some(function (c) {
+            return (c.competitors || []).some(function (t) {
+              const id = String((t.team && t.team.id) || t.id || '');
+              const abbr = (t.team && t.team.abbreviation) || t.abbreviation || '';
+              return id === ESPN_TEAM_ID || abbr === 'HOU';
+            });
+          });
+        });
+        if (hasLiveHou) break;
       }
     } catch (e) { /* CORS or network — continue */ }
   }
@@ -578,13 +592,37 @@ async function fetchTexansEvent() {
   });
   if (!houEvents.length) return null;
 
-  const ranked = houEvents.slice().sort((a, b) => {
-    const sa = (a.status && a.status.type && a.status.type.name) || '';
-    const sb = (b.status && b.status.type && b.status.type.name) || '';
-    const score = (s) => (s === 'STATUS_IN_PROGRESS' ? 0 : s === 'STATUS_HALFTIME' ? 1 : s === 'STATUS_FINAL' ? 2 : 3);
-    return score(sa) - score(sb);
-  });
-  return ranked[0];
+  function evState(ev) {
+    const t = (ev.status && ev.status.type) || {};
+    const name = t.name || '';
+    const state = t.state || '';
+    if (name === 'STATUS_IN_PROGRESS' || name === 'STATUS_HALFTIME' || state === 'in') return 'in';
+    if (name === 'STATUS_FINAL' || state === 'post') return 'final';
+    return 'pre';
+  }
+  function evMs(ev) {
+    const d = ev.date ? Date.parse(ev.date) : NaN;
+    return isNaN(d) ? 0 : d;
+  }
+  const now = Date.now();
+  const inPlay = houEvents.filter(function (e) { return evState(e) === 'in'; });
+  if (inPlay.length) {
+    inPlay.sort(function (a, b) { return evMs(b) - evMs(a); });
+    return inPlay[0];
+  }
+  // Upcoming scheduled HOU game (not a finished preseason leftover)
+  const upcoming = houEvents.filter(function (e) {
+    return evState(e) === 'pre' && evMs(e) >= now - 3 * 3600 * 1000;
+  }).sort(function (a, b) { return evMs(a) - evMs(b); });
+  if (upcoming.length) return upcoming[0];
+  // Final only if it is today's game (post-game window), else ignore so Week 1 preview stays
+  const todaysFinal = houEvents.filter(function (e) {
+    if (evState(e) !== 'final') return false;
+    const age = now - evMs(e);
+    return age >= 0 && age < 20 * 3600 * 1000;
+  }).sort(function (a, b) { return evMs(b) - evMs(a); });
+  if (todaysFinal.length) return todaysFinal[0];
+  return upcoming[0] || null;
 }
 
 async function fetchEventSummary(eventId) {
@@ -692,9 +730,11 @@ function stopLiveGamePoll() {
 }
 
 function livePollDelayMs() {
-  if (typeof document !== 'undefined' && document.visibilityState === 'hidden' && !isDockWindow()) {
-    return LIVE_POLL_MS_HIDDEN;
-  }
+  const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden' && !isDockWindow();
+  const live = typeof LIVE_GAME !== 'undefined' && LIVE_GAME.active;
+  if (hidden && !live) return 120000;
+  if (hidden) return LIVE_POLL_MS_HIDDEN;
+  if (!live) return 60000; // idle / upcoming — no need to hammer ESPN
   return LIVE_POLL_MS;
 }
 
@@ -892,7 +932,7 @@ function predictNextPlay(sit) {
     if (distBucket === 'short' || isGoalLine) {
       leans.push({ type: 'Pass', detail: 'Short / quick (slant, flat, TE)', pct: Math.round(passP * 0.55 * 100), reason: 'High-percentage to move the chains' });
       leans.push({ type: 'Pass', detail: 'Play-action boot / TE seam', pct: Math.round(passP * 0.25 * 100), reason: 'Sell the run then hit the soft spot' });
-      leans.push({ type: 'Pass', detail: 'Fade / corner (goal-line)', pct: Math.round(passP * 0.20 * 100), reason: 'Contested catch opportunities for Collins/Higgins' });
+      leans.push({ type: 'Pass', detail: 'Fade / corner (goal-line)', pct: Math.round(passP * 0.20 * 100), reason: 'Contested catch opportunities for Collins / Hutchinson' });
     } else if (distBucket === 'medium') {
       leans.push({ type: 'Pass', detail: 'Intermediate (cross, dig, out)', pct: Math.round(passP * 0.45 * 100), reason: 'Texans 2025 strength on 2nd & medium' });
       leans.push({ type: 'Pass', detail: 'Play-action', pct: Math.round(passP * paRate * 100), reason: 'PA rate ~23% overall; higher value here' });
@@ -900,7 +940,7 @@ function predictNextPlay(sit) {
       if (passP > 0.55) leans.push({ type: 'Pass', detail: 'Deep shot (go, post)', pct: Math.round(passP * 0.12 * 100), reason: 'Vertical threat keeps defense honest' });
     } else {
       leans.push({ type: 'Pass', detail: 'Intermediate / intermediate-deep', pct: Math.round(passP * 0.40 * 100), reason: 'Standard conversion range' });
-      leans.push({ type: 'Pass', detail: 'Deep vertical', pct: Math.round(passP * 0.28 * 100), reason: 'Collins / Higgins vertical ability' });
+      leans.push({ type: 'Pass', detail: 'Deep vertical', pct: Math.round(passP * 0.28 * 100), reason: 'Collins / Hutchinson / Noel vertical ability' });
       leans.push({ type: 'Pass', detail: 'Screen / swing', pct: Math.round(passP * screenRate * 100), reason: 'Ease pressure or create YAC' });
       leans.push({ type: 'Pass', detail: 'Play-action deep', pct: Math.round(passP * 0.18 * 100), reason: 'Sell run, attack soft coverage' });
     }
@@ -1816,10 +1856,11 @@ function renderDominosCard(mode, oppAbbr) {
 
 /* Injury / availability (camp / early preseason — public-style) */
 const INJURY_REPORT = [
-  { name: 'British Brooks', pos: 'RB', status: 'Out (hand)', note: 'Broke hand in camp, surgery; ~3-week outlook. May miss all preseason.' },
-  { name: 'Tank Dell', pos: 'WR', status: 'Returning', note: 'Working back from 2024 knee. Monitor live snaps in preseason.' },
-  { name: 'D.J. Turner', pos: 'WR', status: 'IR', note: 'On injured reserve.' },
-  { name: 'Azeez Al-Shaair', pos: 'LB', status: 'Monitor', note: 'Any camp bumps are watched closely given his leadership role.' }
+  { name: 'Jayden Higgins', pos: 'WR', status: 'IR · Out 2026', note: 'Torn ACL in Aug. 18 joint practice. Season over. Not in the Week 1 plan.' },
+  { name: 'Braden Smith', pos: 'T', status: 'IR', note: 'Plantar fascia; expected to miss at least the first four games. Right-tackle plan is depth-dependent.' },
+  { name: 'Tank Dell', pos: 'WR', status: 'Monitor', note: 'Working back from 2024 knee (missed 2025). Week 1 snaps are not assumed.' },
+  { name: 'British Brooks', pos: 'RB', status: 'Out (hand)', note: 'Camp hand injury / surgery. Depth / ST only if activated.' },
+  { name: 'D.J. Turner', pos: 'WR', status: 'IR', note: 'On injured reserve.' }
 ];
 
 /* Opponent one-pager (low-bias, public facts style) keyed by abbr */
@@ -1872,9 +1913,9 @@ const DEPTH_CHART = {
   offense: [
     { unit: 'QB', players: ['C.J. Stroud', 'Davis Mills', 'Graham Mertz'] },
     { unit: 'RB', players: ['David Montgomery', 'Woody Marks', 'Jawhar Jordan', 'British Brooks'] },
-    { unit: 'WR', players: ['Nico Collins', 'Jayden Higgins', 'Tank Dell', 'Xavier Hutchinson', 'Jaylin Noel'] },
+    { unit: 'WR', players: ['Nico Collins', 'Xavier Hutchinson', 'Jaylin Noel', 'Tank Dell', 'Justin Watson'] },
     { unit: 'TE', players: ['Dalton Schultz', 'Foster Moreau', 'Brevin Jordan', 'Cade Stover', 'Marlin Klein'] },
-    { unit: 'OL (core)', players: ['Aireontae Ersery', 'Wyatt Teller', 'Keylan Rutledge / Jake Andrews', 'Ed Ingram', 'Braden Smith'] }
+    { unit: 'OL (core)', players: ['Aireontae Ersery', 'Wyatt Teller', 'Keylan Rutledge / Jake Andrews', 'Ed Ingram', 'Blake Fisher / Trent Brown'] }
   ],
   defense: [
     { unit: 'EDGE', players: ['Will Anderson Jr.', 'Danielle Hunter', 'Jadeveon Clowney'] },
@@ -1917,7 +1958,7 @@ const FULL_ROSTER = [
     { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4258179/nico-collins' },
     { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/C/CollNi00.htm' }
   ] },
-  { name: 'Jayden Higgins', num: '81', pos: 'WR', ht: '6-4', wt: '215', exp: 2, college: 'Iowa State', status: 'Rising WR', note: 'Year-2 chemistry with Stroud is a camp storyline.', links: [
+  { name: 'Jayden Higgins', num: '81', pos: 'WR', ht: '6-4', wt: '215', exp: 2, college: 'Iowa State', status: 'IR · Out 2026 (ACL)', note: 'Season-ending ACL in August. Listed so the name still searches; not a Week 1 option.', links: [
     { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4689388/jayden-higgins' },
     { label: 'NFL.com', url: 'https://www.nfl.com/players/jayden-higgins/' }
   ] },
@@ -1925,7 +1966,8 @@ const FULL_ROSTER = [
     { label: 'ESPN', url: 'https://www.espn.com/nfl/player/_/id/4688819/tank-dell' },
     { label: 'Pro Football Reference', url: 'https://www.pro-football-reference.com/players/D/DellTa00.htm' }
   ] },
-  { name: 'Xavier Hutchinson', num: '19', pos: 'WR', ht: '6-3', wt: '210', exp: 4, college: 'Iowa State', status: 'Depth / slot flex', note: 'Reliable depth with contested-catch size.' },
+  { name: 'Xavier Hutchinson', num: '19', pos: 'WR', ht: '6-3', wt: '210', exp: 4, college: 'Iowa State', status: 'WR2 candidate', note: 'Size target opposite Collins with Higgins out for the year.' },
+  { name: 'Kayshon Boutte', num: '—', pos: 'WR', ht: '5-11', wt: '197', exp: 4, college: 'LSU', status: 'Acquired after Higgins IR', note: 'Added after the Higgins ACL. Role depends on Week 1 activation — verify live roster before kickoff.' },
   { name: 'Jaylin Noel', num: '13', pos: 'WR', ht: '5-11', wt: '190', exp: 1, college: 'Iowa State', status: 'Young depth', note: 'Speed and separation traits; fighting for snaps.' },
   { name: 'Justin Watson', num: '84', pos: 'WR', ht: '6-3', wt: '215', exp: 9, college: 'Penn', status: 'Veteran depth', note: 'Special teams + situational deep threat.' },
   { name: 'Lewis Bond', num: '82', pos: 'WR', ht: '5-11', wt: '190', exp: 'R', college: 'Boston College', status: 'Rookie', note: '2026 rookie WR. Camp/preseason evaluation for 53 or practice squad.', aliases: ['louis bond'] },
@@ -1957,7 +1999,7 @@ const FULL_ROSTER = [
     { label: 'NFL.com roster', url: 'https://www.nfl.com/players/keylan-rutledge/' }
   ] },
   { name: 'Ed Ingram', num: '69', pos: 'G', ht: '6-3', wt: '307', exp: 5, college: 'LSU', status: 'RG', note: 'Steady interior. Pairing with Teller improves the middle.' },
-  { name: 'Braden Smith', num: '71', pos: 'T', ht: '6-6', wt: '312', exp: 9, college: 'Auburn', status: 'RT starter', note: 'Veteran RT addition. Length and experience on the right.' },
+  { name: 'Braden Smith', num: '71', pos: 'T', ht: '6-6', wt: '312', exp: 9, college: 'Auburn', status: 'IR (foot)', note: 'Plantar fascia; expected out at least Weeks 1–4. Do not list as Week 1 RT starter.' },
   { name: 'Jake Andrews', num: '60', pos: 'C', ht: '6-3', wt: '308', exp: 4, college: 'Troy', status: 'Center battle', note: 'Competing with Rutledge for the starting C role.' },
   { name: 'Trent Brown', num: '77', pos: 'T', ht: '6-8', wt: '380', exp: 12, college: 'Florida', status: 'Swing tackle', note: 'Massive veteran depth at either tackle.' },
   { name: 'Blake Fisher', num: '57', pos: 'T', ht: '6-6', wt: '312', exp: 3, college: 'Notre Dame', status: 'Tackle depth', note: 'Developmental tackle with starting upside if injuries hit.' },
@@ -2045,6 +2087,18 @@ const FULL_ROSTER = [
    Source order: ESPN live → offline cache → baked FULL_ROSTER
    Integrity: warn if active list is thinner than expected phase
    ============================================================ */
+
+const OL_POS = new Set(['T','G','C','OL','OT','OG','OC','G/C','C/G','OT/G','T/G']);
+function isOffensiveLinePos(pos) {
+  const raw = String(pos || '').toUpperCase().replace(/\s+/g, '');
+  if (!raw) return false;
+  if (OL_POS.has(raw)) return true;
+  if (raw === 'LS' || raw === 'K' || raw === 'P') return false;
+  // slash combos that are still line only
+  if (/^(OT|OG|OC|T|G|C|OL)[\/\-](OT|OG|OC|T|G|C|OL)$/.test(raw)) return true;
+  return false;
+}
+
 const ROSTER_CACHE_KEY = 'texans-hq-roster-cache-v1';
 const ROSTER_ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/34/roster';
 /** Camp ~90; after final cuts expect >= 53 active-style names */
@@ -2121,7 +2175,8 @@ function mergeRosterNotes(liveList, localList) {
 function rosterIntegrityCheck(list) {
   const arr = list || [];
   const n = arr.length;
-  const min = ROSTER_MIN_CAMP;
+  const nextG = typeof getNextGame === 'function' ? getNextGame() : null;
+  const min = (nextG && nextG.type === 'reg') ? ROSTER_MIN_REGULAR : ROSTER_MIN_CAMP;
   const names = new Set(arr.map(function (p) { return p && p.name; }));
   const missing = (typeof REQUIRED_ROSTER_NAMES !== 'undefined' ? REQUIRED_ROSTER_NAMES : []).filter(function (n) {
     return !names.has(n);
@@ -2277,11 +2332,11 @@ const GAME_INSIGHTS = {
 
 /* What to watch this week */
 const WATCH_THIS_WEEK = [
-  { title: 'Stroud → Higgins chemistry', detail: 'Year-2 WR continuing camp momentum into live reps.' },
-  { title: 'Edge pressure package', detail: 'Anderson + Clowney + Hunter rotation and how often they align together.' },
-  { title: 'Run-game efficiency', detail: 'Montgomery early-down success sets up play-action later.' },
-  { title: 'TV / availability', detail: 'Check schedule card for network — Prime games need your existing subscription.' },
-  { title: 'Dell timeline', detail: 'Any live preseason snaps from Tank Dell are a major positive signal.' }
+  { title: 'Protect Stroud vs Buffalo edges', detail: 'Week 1 home vs BUF. Higgins is out for the year; RT plan is without Braden Smith (IR). Pocket and early downs decide the path.' },
+  { title: 'WR room without Higgins', detail: 'Collins is WR1. Hutchinson / Noel / Dell / Watson (and Boutte if active) share the vacated WR2 work. Do not lean on Higgins in any live call.' },
+  { title: 'Edge pressure package', detail: 'Anderson + Hunter + Clowney rotation — how often two of them are on the field on obvious passing downs.' },
+  { title: 'Run-game efficiency', detail: 'Montgomery early-down success sets up play-action. Short-yardage is a Week 1 identity tell.' },
+  { title: 'TV', detail: 'Week 1 vs BUF is CBS, Sunday Sept 13, 12:00 CT at NRG.' }
 ];
 
 /* Recent history vs opponents (public-style sample) */
@@ -3871,7 +3926,8 @@ function renderRoster() {
     const filtered = base.filter(p => {
       const posOk = rosterFilterPos === 'ALL' ||
         p.pos === rosterFilterPos ||
-        (rosterFilterPos === 'OL' && (['T', 'G', 'C', 'OL', 'G/C', 'OT'].includes(p.pos) || /G|C|T/.test(p.pos))) ||
+        (rosterFilterPos === 'OL' && isOffensiveLinePos(p.pos)) ||
+        (rosterFilterPos === 'S' && ['S', 'FS', 'SS', 'SAF'].includes(String(p.pos || '').toUpperCase())) ||
         (rosterFilterPos === 'DE' && p.pos === 'DE') ||
         (rosterFilterPos === 'DT' && p.pos === 'DT') ||
         (rosterFilterPos === 'ST' && ['K', 'P', 'LS'].includes(p.pos));
