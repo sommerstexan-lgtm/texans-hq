@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.17
+   Texans HQ — Personal PWA  v15.18
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.17';
+const APP_VERSION = 'v15.18';
 
-const APP_VERSION_LABEL = 'v15.17 · Week 1';
+const APP_VERSION_LABEL = 'v15.18 · Week 1';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -356,8 +356,8 @@ const LIVE_GAME = {
 };
 
 let livePollTimer = null;
-const LIVE_POLL_MS = 25000;
-const LIVE_POLL_MS_HIDDEN = 45000;
+const LIVE_POLL_MS = 6000;
+const LIVE_POLL_MS_HIDDEN = 15000;
 
 /* ============================================================
    LEAGUE WEEK + WATCH LIST + SCOUT MEMORY  (v15.17)
@@ -1001,12 +1001,31 @@ function applySummaryToLiveGame(summary, eventId, focus) {
   LIVE_GAME.yardSide = sit.yardSide;
   LIVE_GAME.yardline = sit.yardline || LIVE_GAME.clockDisplay;
   LIVE_GAME.possession = sit.possession;
+  LIVE_GAME.toGoal = sit.toGoal;
+  LIVE_GAME.special = sit.special || '';
+  LIVE_GAME.isRedZone = !!sit.isRedZone;
+  if (sit.lastPlayText) LIVE_GAME.lastPlayText = sit.lastPlayText;
 
   if (isIn) {
     LIVE_GAME.active = true;
     LIVE_GAME.final = false;
     LIVE_GAME.status = 'in';
     LIVE_GAME.recentPlays = playsFromEspnSummary(summary);
+    if (sit.lastPlayText) {
+      const already = (LIVE_GAME.recentPlays || []).some(function (p) {
+        return p && p.desc === sit.lastPlayText;
+      });
+      if (!already) {
+        LIVE_GAME.recentPlays = [{
+          qtr: LIVE_GAME.qtr,
+          clock: LIVE_GAME.clockDisplay,
+          team: LIVE_GAME.possession,
+          desc: sit.lastPlayText,
+          big: /touchdown|intercept|fumble|sack|field goal/i.test(sit.lastPlayText),
+          td: /touchdown/i.test(sit.lastPlayText)
+        }].concat(LIVE_GAME.recentPlays || []).slice(0, 12);
+      }
+    }
     return true;
   }
   if (isFinal) {
@@ -1560,42 +1579,209 @@ function playsFromEspnSummary(summary) {
   return plays.slice(-12).reverse();
 }
 
-function situationFromEspn(summary, competition) {
-  // Prefer competition.situation when present
-  const sit = (competition && competition.situation) || (summary && summary.situation) || null;
-  let down = 1, distance = 10, yardNum = 50, yardSide = 'own', yardline = '—', possession = 'HOU';
-  if (sit) {
-    if (sit.down) down = sit.down;
-    if (sit.distance) distance = sit.distance;
-    if (sit.possessionText) yardline = sit.possessionText;
-    if (sit.downDistanceText) {
-      // e.g. "1st & 10 at HOU 25"
-    }
-    // ESPN may return team id string, numeric id, or { id, abbreviation }
-    const poss = sit.possession;
-    const possId = poss && typeof poss === 'object'
-      ? String(poss.id || (poss.team && poss.team.id) || '')
-      : String(poss || '');
-    const possAbbr = poss && typeof poss === 'object'
-      ? String(poss.abbreviation || (poss.team && poss.team.abbreviation) || '').toUpperCase()
-      : '';
-    if (possAbbr) possession = String(possAbbr).toUpperCase();
-    else if (possId) {
-      const f = (typeof focusAbbr === 'function' ? focusAbbr() : 'HOU');
-      const fid = String((typeof LIVE_GAME !== 'undefined' && LIVE_GAME.focusId) || (typeof teamId === 'function' ? teamId(f) : ESPN_TEAM_ID));
-      if (possId === fid || (possId === String(ESPN_TEAM_ID) && f === 'HOU')) possession = f;
-      else possession = (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.oppAbbr) ? LIVE_GAME.oppAbbr : 'OPP';
-    } else if (poss) {
-      possession = (typeof focusAbbr === 'function' ? focusAbbr() : 'HOU');
-    }
-    // yardline number
-    const yl = sit.yardLine;
-    if (typeof yl === 'number') {
-      yardNum = yl > 50 ? 100 - yl : yl;
-      yardSide = yl > 50 ? 'opp' : 'own';
+function abbrFromTeamId(id) {
+  const sid = String(id || '');
+  if (!sid) return '';
+  if (sid === String((typeof LIVE_GAME !== 'undefined' && LIVE_GAME.focusId) || ESPN_TEAM_ID)) {
+    return (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.focusAbbr) || (typeof focusAbbr === 'function' ? focusAbbr() : 'HOU');
+  }
+  if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.oppAbbr && sid !== String(LIVE_GAME.focusId || '')) {
+    // only safe when we know this id is the other competitor
+    if (sid === String(LIVE_GAME.focusId)) return LIVE_GAME.focusAbbr;
+  }
+  if (typeof teamId === 'function') {
+    const f = (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.focusAbbr) || 'HOU';
+    if (sid === String(teamId(f))) return f;
+    if (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.oppAbbr && sid === String(teamId(LIVE_GAME.oppAbbr))) return LIVE_GAME.oppAbbr;
+  }
+  return '';
+}
+
+function parseSituationText(text) {
+  const out = {};
+  if (!text || typeof text !== 'string') return out;
+  const t = text.replace(/\s+/g, ' ').trim();
+  const downM = t.match(/\b(1st|2nd|3rd|4th|1|2|3|4)\s*&\s*(\d+|Goal|Inches|inch)\b/i);
+  if (downM) {
+    const raw = downM[1].toLowerCase();
+    out.down = raw.indexOf('1') === 0 ? 1 : raw.indexOf('2') === 0 ? 2 : raw.indexOf('3') === 0 ? 3 : 4;
+    const distRaw = downM[2].toLowerCase();
+    if (distRaw === 'goal') out.distance = 0;
+    else if (distRaw.indexOf('inch') === 0) out.distance = 1;
+    else out.distance = parseInt(distRaw, 10) || 10;
+  }
+  const atM = t.match(/\bat\s+([A-Z]{2,3})\s+(\d{1,2})\b/);
+  if (atM) {
+    out.spotAbbr = atM[1].toUpperCase();
+    out.yardNum = parseInt(atM[2], 10);
+  } else {
+    const possM = t.match(/\b([A-Z]{2,3})\s+(\d{1,2})\b/);
+    if (possM && !/Q[1-4]|OT/.test(possM[1])) {
+      out.spotAbbr = possM[1].toUpperCase();
+      out.yardNum = parseInt(possM[2], 10);
     }
   }
-  return { down, distance, yardNum, yardSide, yardline, possession };
+  return out;
+}
+
+function resolvePossession(sit, summary, prev) {
+  const focus = (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.focusAbbr) || (typeof focusAbbr === 'function' ? focusAbbr() : 'HOU');
+  const opp = (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.oppAbbr) || 'OPP';
+
+  function fromPossField(poss) {
+    if (poss == null || poss === '') return '';
+    if (typeof poss === 'object') {
+      const ab = String(poss.abbreviation || (poss.team && poss.team.abbreviation) || '').toUpperCase();
+      if (ab) return ab;
+      const id = String(poss.id || (poss.team && poss.team.id) || '');
+      return abbrFromTeamId(id);
+    }
+    const s = String(poss).toUpperCase();
+    if (/^[A-Z]{2,3}$/.test(s)) return s;
+    return abbrFromTeamId(s);
+  }
+
+  let p = fromPossField(sit && sit.possession);
+  if (!p && sit && sit.team) p = fromPossField(sit.team);
+  if (!p && sit && sit.lastPlay) {
+    p = fromPossField(sit.lastPlay.team) || fromPossField(sit.lastPlay.end && sit.lastPlay.end.team);
+  }
+  const cur = summary && summary.drives && summary.drives.current;
+  if (!p && cur && cur.team) p = fromPossField(cur.team);
+  if (p === 'OUR') p = focus;
+  if (p && p !== focus && p !== opp && p !== 'HOU') {
+    // map unknown abbr via id already attempted
+  }
+  if (!p && prev && prev.possession) p = prev.possession;
+  if (!p) p = focus;
+  return String(p).toUpperCase();
+}
+
+function yardsToGoalForOffense(possession, spotAbbr, yardNum) {
+  const n = Number(yardNum);
+  if (!Number.isFinite(n)) return null;
+  const spot = String(spotAbbr || '').toUpperCase();
+  const poss = String(possession || '').toUpperCase();
+  if (!spot) {
+    // treat yardNum as already yards-to-goal if 1-50 without side is unsafe
+    return null;
+  }
+  if (spot === poss) return 100 - n; // ball on own 25 → 75 to goal
+  return n; // ball on opponent 25 → 25 to goal
+}
+
+function situationFromEspn(summary, competition) {
+  const sit = (competition && competition.situation)
+    || (summary && summary.header && summary.header.competitions && summary.header.competitions[0] && summary.header.competitions[0].situation)
+    || (summary && summary.situation)
+    || null;
+  const prev = (typeof LIVE_GAME !== 'undefined') ? LIVE_GAME : null;
+
+  let down = null;
+  let distance = null;
+  let yardNum = null;
+  let yardSide = null;
+  let yardline = '—';
+  let possession = null;
+  let spotAbbr = null;
+  let lastPlayText = '';
+  let special = '';
+
+  const texts = [];
+  if (sit) {
+    if (sit.downDistanceText) texts.push(sit.downDistanceText);
+    if (sit.shortDownDistanceText) texts.push(sit.shortDownDistanceText);
+    if (sit.possessionText) texts.push(sit.possessionText);
+    if (sit.lastPlay && (sit.lastPlay.text || sit.lastPlay.description)) {
+      lastPlayText = sit.lastPlay.text || sit.lastPlay.description;
+      texts.push(lastPlayText);
+    }
+  }
+
+  texts.forEach(function (tx) {
+    const parsed = parseSituationText(tx);
+    if (parsed.down != null) down = parsed.down;
+    if (parsed.distance != null) distance = parsed.distance;
+    if (parsed.yardNum != null) yardNum = parsed.yardNum;
+    if (parsed.spotAbbr) spotAbbr = parsed.spotAbbr;
+  });
+
+  if (sit) {
+    if (sit.down != null && sit.down !== '' && Number(sit.down) > 0) down = Number(sit.down);
+    if (sit.distance != null && sit.distance !== '') {
+      const d = Number(sit.distance);
+      if (Number.isFinite(d)) distance = d;
+    }
+    if (sit.possessionText) yardline = sit.possessionText;
+    else if (sit.downDistanceText) yardline = sit.downDistanceText;
+  }
+
+  possession = resolvePossession(sit, summary, prev);
+
+  if (sit && typeof sit.yardLine === 'number') {
+    const yl = sit.yardLine;
+    if (yl >= 0 && yl <= 100 && yardNum == null) {
+      // ESPN yardLine is usually 0–100 from the HOME goal line.
+      const homeAbbr = (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.homeAbbr) || '';
+      const awayAbbr = (typeof LIVE_GAME !== 'undefined' && LIVE_GAME.awayAbbr) || '';
+      if (yl === 50) {
+        yardNum = 50;
+        spotAbbr = spotAbbr || possession;
+      } else if (yl < 50) {
+        yardNum = yl === 0 ? 0 : yl;
+        spotAbbr = spotAbbr || homeAbbr;
+      } else {
+        yardNum = 100 - yl;
+        spotAbbr = spotAbbr || awayAbbr;
+      }
+    }
+  }
+
+  if (spotAbbr && yardNum != null) {
+    yardline = spotAbbr + ' ' + yardNum;
+    yardSide = (spotAbbr === String(possession).toUpperCase()) ? 'own' : 'opp';
+  } else if (yardNum != null && possession) {
+    yardSide = yardSide || 'own';
+  }
+
+  if (sit && sit.down === 0) {
+    down = 0;
+    const lp = (lastPlayText || '').toLowerCase();
+    if (/kickoff/.test(lp)) special = 'Kickoff';
+    else if (/extra point|pat /.test(lp)) special = 'PAT';
+    else if (/two-point|2-pt/.test(lp)) special = '2-pt';
+    else if (/field goal/.test(lp)) special = 'FG play';
+    else if (/punt/.test(lp)) special = 'Punt';
+    else special = 'Between plays';
+  }
+
+  if (down == null && prev && prev.down != null) down = prev.down;
+  if (distance == null && prev && prev.distance != null) distance = prev.distance;
+  if (yardNum == null && prev && prev.yardNum != null) yardNum = prev.yardNum;
+  if (!yardSide && prev && prev.yardSide) yardSide = prev.yardSide;
+  if ((!yardline || yardline === '—') && prev && prev.yardline) yardline = prev.yardline;
+  if (!possession && prev && prev.possession) possession = prev.possession;
+
+  if (down == null) down = 1;
+  if (distance == null) distance = 10;
+  if (yardNum == null) yardNum = 50;
+  if (!yardSide) yardSide = 'own';
+  if (!possession) possession = (typeof focusAbbr === 'function' ? focusAbbr() : 'HOU');
+
+  const toGoal = yardsToGoalForOffense(possession, spotAbbr, yardNum);
+
+  return {
+    down: down,
+    distance: distance,
+    yardNum: yardNum,
+    yardSide: yardSide,
+    yardline: yardline,
+    possession: possession,
+    toGoal: toGoal,
+    special: special,
+    lastPlayText: lastPlayText,
+    isRedZone: !!(sit && sit.isRedZone) || (toGoal != null && toGoal <= 20)
+  };
 }
 
 /**
@@ -1666,7 +1852,7 @@ function startLiveGamePoll() {
     stopLiveGamePoll();
     livePollTimer = setTimeout(tick, livePollDelayMs());
   };
-  livePollTimer = setTimeout(tick, livePollDelayMs());
+  livePollTimer = setTimeout(tick, 250);
 }
 
 async function refreshLiveGameIfVisible() {
@@ -3483,14 +3669,17 @@ function formatClock(totalSec) {
   return m + ':' + s.toString().padStart(2, '0');
 }
 
-/* Special-teams range from yard line (simplified) */
-function fgRangeLabel(yardSide, yardNum) {
-  // Convert to yards from goal for the offense
-  const toGoal = yardSide === 'opp' ? yardNum : (100 - yardNum);
-  if (toGoal <= 33) return { text: 'FG range', cls: 'fg-in' };
-  if (toGoal <= 40) return { text: 'Long FG', cls: 'fg-long' };
-  if (toGoal <= 50) return { text: 'Just outside FG', cls: 'fg-out' };
-  return { text: 'Not FG range', cls: 'fg-far' };
+/* Special-teams range from yards-to-goal for the team WITH the ball.
+   Approx kick length ≈ toGoal + 17 (snap + end zone). */
+function fgRangeLabel(yardSide, yardNum, toGoalOpt) {
+  let toGoal = (typeof toGoalOpt === 'number' && Number.isFinite(toGoalOpt))
+    ? toGoalOpt
+    : (yardSide === 'opp' ? Number(yardNum) : (100 - Number(yardNum)));
+  if (!Number.isFinite(toGoal)) return { text: '', cls: 'fg-far', hide: true };
+  if (toGoal <= 20) return { text: 'RZ · FG', cls: 'fg-in' };
+  if (toGoal <= 33) return { text: 'FG range (~' + (toGoal + 17) + ' yd)', cls: 'fg-in' };
+  if (toGoal <= 40) return { text: 'Long FG (~' + (toGoal + 17) + ' yd)', cls: 'fg-long' };
+  return { text: '', cls: 'fg-far', hide: true };
 }
 
 function timeAgo(ts) {
@@ -3668,7 +3857,12 @@ function renderGameCenter() {
       modePill.classList.add('live');
     }
     const possHou = typeof isFocusPossession === 'function' ? isFocusPossession(LIVE_GAME) : LIVE_GAME.possession === 'HOU';
-    const fg = fgRangeLabel(LIVE_GAME.yardSide || 'own', LIVE_GAME.yardNum || 50);
+    const fg = fgRangeLabel(LIVE_GAME.yardSide || 'own', LIVE_GAME.yardNum || 50, LIVE_GAME.toGoal);
+    const downLabel = LIVE_GAME.special
+      ? LIVE_GAME.special
+      : (LIVE_GAME.down > 0
+          ? (ordSuffix(LIVE_GAME.down) + ' & ' + (LIVE_GAME.distance === 0 ? 'Goal' : LIVE_GAME.distance))
+          : 'Between plays');
     content.innerHTML = `
       <div class="score-row">
         <div class="team-block">
@@ -3688,9 +3882,9 @@ function renderGameCenter() {
         <div class="possession-pill ${possHou ? '' : 'away'}">${possHou ? ((typeof focusAbbr === 'function' ? focusAbbr() : 'HOU') + ' BALL') : LIVE_GAME.oppAbbr + ' BALL'}</div>
       </div>
       <div class="situation-bar">
-        <span><strong>${ordSuffix(LIVE_GAME.down)} & ${LIVE_GAME.distance}</strong></span>
+        <span><strong>${downLabel}</strong></span>
         <span>${LIVE_GAME.yardline || '—'}</span>
-        <span class="fg-pill ${fg.cls}">${fg.text}</span>
+        ${fg.hide ? '' : '<span class="fg-pill ' + fg.cls + '">' + fg.text + '</span>'}
       </div>
       <div class="live-updated" id="dataFreshness">Live feed · ${timeAgo(LIVE_GAME.lastUpdated || Date.now())}${currentScoringPhase() === 'pre' ? ' · preseason lab (official book off)' : ''}</div>
       ${isDockWindow() ? '' : '<div style="margin-top:10px"><button type="button" class="btn secondary" id="btnOpenDock">Pop out game dock</button></div>'}
