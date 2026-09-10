@@ -1,4 +1,4 @@
-/* Texans HQ PWA v15.17 — High-contrast light theme + TV networks
+/* Texans HQ PWA v15.19 — High-contrast light theme + Call Desk tiles
    White/off-white backgrounds, dark text, semantic color for meaning only
    Navy used for branding accents, red used sparingly for importance
 */
@@ -1658,3 +1658,83 @@ body.dock-mode .app-header {
   border-color: var(--navy);
 }
 .game-row .game-info { min-width: 0; }
+
+/* Call Desk — Chromebook-first large tiles */
+#sec-call.active { display: block; }
+.cd-card { max-width: 1200px; margin: 0 auto; }
+.cd-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+.cd-panel { min-width: 0; }
+.cd-row-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 10px 0 6px;
+}
+.cd-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cd-tile {
+  min-height: 52px;
+  min-width: 72px;
+  padding: 10px 16px;
+  border: 2px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.cd-tile:hover { border-color: var(--navy-mid); }
+.cd-tile.is-on {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}
+.cd-predict {
+  background: var(--navy);
+  color: #fff;
+  border-radius: 12px;
+  padding: 16px;
+}
+.cd-predict-wide { margin-top: 8px; }
+.cd-who { font-weight: 800; margin-bottom: 10px; letter-spacing: 0.02em; }
+.cd-pcts { display: flex; gap: 16px; font-size: 1.6rem; margin-bottom: 14px; }
+.cd-pass strong, .cd-run strong { font-size: 2rem; }
+.cd-go, .cd-undo, .cd-mini {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  font-size: 1rem;
+}
+.cd-go { background: var(--red); color: #fff; }
+.cd-go:disabled { opacity: 0.45; cursor: not-allowed; }
+.cd-undo { background: transparent; color: #fff; border: 2px solid rgba(255,255,255,0.35); }
+.cd-hint { margin-top: 10px; font-size: 0.85rem; opacity: 0.85; }
+.cd-xl {
+  min-height: 96px;
+  min-width: 180px;
+  font-size: 1.6rem;
+  flex: 1;
+}
+.cd-pass-btn.is-on, .cd-pass-btn { background: #fff; color: var(--danger); }
+.cd-run-btn { background: #fff; color: var(--navy); }
+.cd-logline { margin-top: 14px; font-size: 0.85rem; color: var(--muted); }
+.cd-logrow { display: flex; gap: 8px; margin-top: 8px; }
+.cd-mini { width: auto; background: #fff; border: 2px solid var(--border); color: var(--text); padding: 8px 14px; min-height: 44px; }
+@media (max-width: 900px) {
+  .cd-grid { grid-template-columns: 1fr; }
+}

@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.18
+   Texans HQ — Personal PWA  v15.19
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.18';
+const APP_VERSION = 'v15.19';
 
-const APP_VERSION_LABEL = 'v15.18 · Week 1';
+const APP_VERSION_LABEL = 'v15.19 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -3509,6 +3509,7 @@ function showSection(id) {
   if (id === 'roster') renderRoster();
   if (id === 'videos') loadVideos(false);
   if (id === 'notes' && typeof updateBackupStatusLine === 'function') updateBackupStatusLine();
+  if (id === 'call' && typeof renderCallDesk === 'function') renderCallDesk();
 }
 
 
@@ -5350,6 +5351,7 @@ function init() {
     document.title = 'Texans HQ · Dock';
   }
   setVersionPill(isDockWindow() ? APP_VERSION + ' · Dock' : APP_VERSION_LABEL);
+  if (typeof initCallDesk === 'function') initCallDesk();
   bindLiveKeepAlive();
   // Hard-disable demo path every boot (anti-distortion)
   if (typeof LIVE_DEMO !== 'undefined') LIVE_DEMO.active = false;
@@ -5447,4 +5449,361 @@ try {
 if (setupLock()) {
   // Already unlocked on this device
   init();
+}
+
+/* ============================================================
+   CALL DESK v15.19 — Chromebook tap flow
+   Situation → RUN/PASS only → matching result tiles
+   Logs HOU + opponent history locally
+   ============================================================ */
+const CALL_DESK_KEY = 'texans-hq-calldesk-v1';
+const CALL_DESK_STATE_KEY = 'texans-hq-calldesk-state-v1';
+
+const CALL_DIST = [
+  { id: 'short', label: 'Short 1–2' },
+  { id: 'med', label: 'Med 3–6' },
+  { id: 'long', label: 'Long 7–10' },
+  { id: 'xlong', label: 'XLong 11+' }
+];
+const CALL_FIELD = [
+  { id: 'own', label: 'Own 20' },
+  { id: 'mid', label: 'Mid' },
+  { id: 'opp40', label: 'Opp 40–21' },
+  { id: 'red', label: 'Red' }
+];
+const CALL_SCORE = [
+  { id: 'ahead', label: 'Ahead' },
+  { id: 'tied', label: 'Tied' },
+  { id: 'behind', label: 'Behind' }
+];
+const CALL_CLOCK = [
+  { id: 'h1', label: '1st half' },
+  { id: 'q3', label: '3rd qtr' },
+  { id: 'q4', label: '4th qtr' },
+  { id: 'm4', label: '4-min' },
+  { id: 'm2', label: '2-min' },
+  { id: 'ot', label: 'OT' }
+];
+const CALL_PASS_RESULTS = [
+  { id: 'complete', label: 'Complete' },
+  { id: 'incomplete', label: 'Incomplete' },
+  { id: 'sack', label: 'Sack' },
+  { id: 'scramble', label: 'Scramble' },
+  { id: 'int', label: 'INT' },
+  { id: 'pi', label: 'PI' },
+  { id: 'spike', label: 'Spike' }
+];
+const CALL_RUN_RESULTS = [
+  { id: 'gain', label: 'Gain' },
+  { id: 'stuff', label: 'Stuff' },
+  { id: 'fumble', label: 'Fumble' },
+  { id: 'kneel', label: 'Kneel' }
+];
+const CALL_FLAGS = [
+  { id: 'none', label: 'No flag' },
+  { id: 'holding', label: 'Holding' },
+  { id: 'falsestart', label: 'False start' },
+  { id: 'offsides', label: 'Offsides' },
+  { id: 'other', label: 'Other flag' }
+];
+
+const CALL_BASE = {
+  '1|short': 42, '1|med': 52, '1|long': 56, '1|xlong': 68,
+  '2|short': 38, '2|med': 55, '2|long': 64, '2|xlong': 74,
+  '3|short': 48, '3|med': 72, '3|long': 82, '3|xlong': 90,
+  '4|short': 44, '4|med': 62, '4|long': 78, '4|xlong': 88
+};
+
+function defaultCallState() {
+  return {
+    possession: 'HOU',
+    opponent: 'BUF',
+    down: 1,
+    distance: 'long',
+    field: 'mid',
+    score: 'tied',
+    clock: 'h1',
+    step: 'situation',
+    lastCall: null,
+    lastResult: null,
+    lastFlag: 'none'
+  };
+}
+
+function loadCallState() {
+  try {
+    const raw = localStorage.getItem(CALL_DESK_STATE_KEY);
+    if (!raw) return defaultCallState();
+    return Object.assign(defaultCallState(), JSON.parse(raw));
+  } catch (e) {
+    return defaultCallState();
+  }
+}
+
+function saveCallState(st) {
+  try { localStorage.setItem(CALL_DESK_STATE_KEY, JSON.stringify(st)); } catch (e) {}
+}
+
+function loadCallLog() {
+  try {
+    const raw = localStorage.getItem(CALL_DESK_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && Array.isArray(parsed.plays)) return parsed;
+  } catch (e) {}
+  return { version: 'v15.19', plays: [], byTeam: {} };
+}
+
+function saveCallLog(log) {
+  try { localStorage.setItem(CALL_DESK_KEY, JSON.stringify(log)); } catch (e) {}
+}
+
+function teamResidual(team, bucket) {
+  const log = loadCallLog();
+  const rec = (log.byTeam && log.byTeam[team]) || [];
+  const same = rec.filter((p) => p.bucket === bucket);
+  if (same.length < 4) {
+    if (team === 'HOU') return 2;
+    if (team === 'BUF') return 3;
+    return 0;
+  }
+  const passN = same.filter((p) => p.call === 'PASS').length;
+  const actual = Math.round((passN / same.length) * 100);
+  const base = CALL_BASE[bucket.split('|').slice(0, 2).join('|')] || 55;
+  return Math.max(-12, Math.min(12, actual - base));
+}
+
+function predictCallDesk(st) {
+  const team = st.possession === 'HOU' ? 'HOU' : (st.opponent || 'OPP');
+  const bucket = st.down + '|' + st.distance;
+  let p = CALL_BASE[bucket] || 55;
+  if (st.field === 'own') p -= 3;
+  if (st.field === 'red') p += 2;
+  if (st.score === 'ahead' && (st.clock === 'm4' || st.clock === 'm2')) p -= 18;
+  if (st.score === 'behind' && (st.clock === 'm4' || st.clock === 'm2')) p += 16;
+  if (st.score === 'behind' && st.clock === 'q4') p += 6;
+  if (st.score === 'ahead' && st.clock === 'q4') p -= 6;
+  if (st.clock === 'ot') p += 2;
+  p += teamResidual(team, bucket + '|' + st.field + '|' + st.score + '|' + st.clock);
+  p = Math.max(18, Math.min(92, Math.round(p)));
+  return { passP: p, runP: 100 - p, team: team };
+}
+
+function callSituationReady(st) {
+  return !!(st.down && st.distance && st.field && st.score && st.clock && st.possession);
+}
+
+function tilesHtml(list, selected, dataKey) {
+  return list.map((item) => {
+    const on = selected === item.id ? ' is-on' : '';
+    return '<button type="button" class="cd-tile' + on + '" data-cd="' + dataKey + '" data-id="' + item.id + '">' + item.label + '</button>';
+  }).join('');
+}
+
+function renderCallDesk() {
+  const root = document.getElementById('callDeskRoot');
+  if (!root) return;
+  const st = loadCallState();
+  const pred = predictCallDesk(st);
+  const who = st.possession === 'HOU' ? 'TEXANS' : (st.opponent || 'OPP');
+  const ready = callSituationReady(st);
+
+  let body = '';
+  if (st.step === 'situation') {
+    body += '<div class="cd-grid">';
+    body += '<div class="cd-panel">';
+    body += '<div class="cd-row-label">Whose ball</div><div class="cd-row">' +
+      '<button type="button" class="cd-tile' + (st.possession === 'HOU' ? ' is-on' : '') + '" data-cd="possession" data-id="HOU">TEXANS</button>' +
+      '<button type="button" class="cd-tile' + (st.possession === 'OPP' ? ' is-on' : '') + '" data-cd="possession" data-id="OPP">OPPONENT ' + (st.opponent || '') + '</button></div>';
+    body += '<div class="cd-row-label">Down</div><div class="cd-row">' +
+      [1,2,3,4].map((d) => '<button type="button" class="cd-tile' + (st.down === d ? ' is-on' : '') + '" data-cd="down" data-id="' + d + '">' + d + '</button>').join('') + '</div>';
+    body += '<div class="cd-row-label">Distance</div><div class="cd-row">' + tilesHtml(CALL_DIST, st.distance, 'distance') + '</div>';
+    body += '<div class="cd-row-label">Field</div><div class="cd-row">' + tilesHtml(CALL_FIELD, st.field, 'field') + '</div>';
+    body += '<div class="cd-row-label">Score</div><div class="cd-row">' + tilesHtml(CALL_SCORE, st.score, 'score') + '</div>';
+    body += '<div class="cd-row-label">Clock</div><div class="cd-row">' + tilesHtml(CALL_CLOCK, st.clock, 'clock') + '</div>';
+    body += '</div>';
+    body += '<div class="cd-predict">';
+    body += '<div class="cd-who">' + who + ' ball</div>';
+    body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
+    body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap — choose RUN or PASS</button>';
+    body += '<p class="cd-hint">Confirm the four rows. Do not tap RUN/PASS until the whistle is about to go or just after.</p>';
+    body += '</div></div>';
+  } else if (st.step === 'call') {
+    body += '<div class="cd-predict cd-predict-wide">';
+    body += '<div class="cd-who">' + who + ' · ' + st.down + ' &amp; ' + st.distance + ' · ' + st.field + ' · ' + st.score + ' · ' + st.clock + '</div>';
+    body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
+    body += '<div class="cd-row cd-row-xl">';
+    body += '<button type="button" class="cd-tile cd-xl cd-pass-btn" data-cd="call" data-id="PASS">PASS</button>';
+    body += '<button type="button" class="cd-tile cd-xl cd-run-btn" data-cd="call" data-id="RUN">RUN</button>';
+    body += '</div>';
+    body += '<button type="button" class="cd-undo" data-cd="undo">UNDO — back to situation</button>';
+    body += '</div>';
+  } else if (st.step === 'result') {
+    const results = st.lastCall === 'PASS' ? CALL_PASS_RESULTS : CALL_RUN_RESULTS;
+    body += '<div class="cd-predict cd-predict-wide">';
+    body += '<div class="cd-who">Logged call: <strong>' + st.lastCall + '</strong> · tap the result only</div>';
+    body += '<div class="cd-row-label">Result</div><div class="cd-row">' + tilesHtml(results, st.lastResult, 'result') + '</div>';
+    body += '<div class="cd-row-label">Flag (optional)</div><div class="cd-row">' + tilesHtml(CALL_FLAGS, st.lastFlag || 'none', 'flag') + '</div>';
+    body += '<button type="button" class="cd-go" id="cdSavePlay"' + (st.lastResult ? '' : ' disabled') + '>Save play &amp; next situation</button>';
+    body += '<button type="button" class="cd-undo" data-cd="undo">UNDO</button>';
+    body += '</div>';
+  }
+
+  const log = loadCallLog();
+  const houN = ((log.byTeam && log.byTeam.HOU) || []).length;
+  const oppN = ((log.byTeam && log.byTeam[st.opponent]) || []).length;
+  body += '<div class="cd-logline">Saved this device: Texans ' + houN + ' snaps · ' + (st.opponent || 'OPP') + ' ' + oppN + ' snaps · total ' + (log.plays || []).length + '</div>';
+  body += '<div class="cd-logrow"><button type="button" class="cd-mini" id="cdExport">Export log</button><button type="button" class="cd-mini" id="cdClearAsk">Clear log</button></div>';
+
+  root.innerHTML = body;
+  bindCallDesk();
+}
+
+function bindCallDesk() {
+  const root = document.getElementById('callDeskRoot');
+  if (!root || root.dataset.bound === '1') {
+    // rebinding each render: use event delegation on parent once
+  }
+  const wrap = document.getElementById('sec-call');
+  if (wrap && !wrap.dataset.cdBound) {
+    wrap.dataset.cdBound = '1';
+    wrap.addEventListener('click', onCallDeskClick);
+  }
+}
+
+function onCallDeskClick(ev) {
+  const t = ev.target.closest('[data-cd], #cdGoCall, #cdSavePlay, #cdExport, #cdClearAsk');
+  if (!t) return;
+  const st = loadCallState();
+  if (t.id === 'cdGoCall') {
+    if (!callSituationReady(st)) return;
+    st.step = 'call';
+    saveCallState(st);
+    renderCallDesk();
+    return;
+  }
+  if (t.id === 'cdSavePlay') {
+    if (!st.lastCall || !st.lastResult) return;
+    commitCallPlay(st);
+    return;
+  }
+  if (t.id === 'cdExport') {
+    exportCallLog();
+    return;
+  }
+  if (t.id === 'cdClearAsk') {
+    if (confirm('Clear Call Desk history on this device?')) {
+      saveCallLog({ version: 'v15.19', plays: [], byTeam: {} });
+      renderCallDesk();
+    }
+    return;
+  }
+  const key = t.getAttribute('data-cd');
+  const id = t.getAttribute('data-id');
+  if (key === 'undo') {
+    st.step = 'situation';
+    st.lastCall = null;
+    st.lastResult = null;
+    st.lastFlag = 'none';
+    saveCallState(st);
+    renderCallDesk();
+    return;
+  }
+  if (key === 'possession') st.possession = id;
+  if (key === 'down') st.down = Number(id);
+  if (key === 'distance') st.distance = id;
+  if (key === 'field') st.field = id;
+  if (key === 'score') st.score = id;
+  if (key === 'clock') st.clock = id;
+  if (key === 'call') {
+    st.lastCall = id;
+    st.step = 'result';
+    st.lastResult = null;
+    st.lastFlag = 'none';
+  }
+  if (key === 'result') st.lastResult = id;
+  if (key === 'flag') st.lastFlag = id;
+  saveCallState(st);
+  renderCallDesk();
+}
+
+function commitCallPlay(st) {
+  const pred = predictCallDesk(st);
+  const team = st.possession === 'HOU' ? 'HOU' : (st.opponent || 'OPP');
+  const bucket = st.down + '|' + st.distance + '|' + st.field + '|' + st.score + '|' + st.clock;
+  const play = {
+    ts: Date.now(),
+    opponent: st.opponent || 'OPP',
+    team: team,
+    possession: st.possession,
+    down: st.down,
+    distance: st.distance,
+    field: st.field,
+    score: st.score,
+    clock: st.clock,
+    call: st.lastCall,
+    result: st.lastResult,
+    flag: st.lastFlag || 'none',
+    predPass: pred.passP,
+    correct: (st.lastCall === 'PASS' && pred.passP >= 50) || (st.lastCall === 'RUN' && pred.runP > 50),
+    bucket: bucket
+  };
+  const log = loadCallLog();
+  log.plays.unshift(play);
+  if (!log.byTeam[team]) log.byTeam[team] = [];
+  log.byTeam[team].unshift(play);
+  saveCallLog(log);
+  advanceAfterPlay(st);
+  saveCallState(st);
+  renderCallDesk();
+}
+
+function advanceAfterPlay(st) {
+  const res = st.lastResult;
+  const call = st.lastCall;
+  st.lastCall = null;
+  st.lastResult = null;
+  st.lastFlag = 'none';
+  st.step = 'situation';
+  if (res === 'int' || res === 'fumble') {
+    st.possession = st.possession === 'HOU' ? 'OPP' : 'HOU';
+    st.down = 1;
+    st.distance = 'long';
+    st.field = 'mid';
+    return;
+  }
+  if (res === 'pi') {
+    st.down = 1;
+    st.distance = 'long';
+    if (st.field === 'own') st.field = 'mid';
+    else if (st.field === 'mid') st.field = 'opp40';
+    else if (st.field === 'opp40') st.field = 'red';
+    return;
+  }
+  if (res === 'kneel' || res === 'spike' || res === 'incomplete' || res === 'sack' || res === 'stuff') {
+    st.down = Math.min(4, (st.down || 1) + 1);
+    if (res === 'sack' || res === 'stuff') {
+      if (st.distance === 'short') st.distance = 'med';
+      else if (st.distance === 'med') st.distance = 'long';
+      else st.distance = 'xlong';
+    }
+    return;
+  }
+  if (res === 'complete' || res === 'gain' || res === 'scramble') {
+    st.down = Math.min(4, (st.down || 1) + 1);
+    return;
+  }
+}
+
+function exportCallLog() {
+  const log = loadCallLog();
+  const blob = new Blob([JSON.stringify(log, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'texans-calldesk-log.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
+}
+
+function initCallDesk() {
+  renderCallDesk();
 }

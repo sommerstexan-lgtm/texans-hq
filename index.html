@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Texans HQ" />
-  <meta name="description" content="Personal Houston Texans PWA v15.18 — play-by-play, game center, schedule, training camp, notes. Offline-friendly." />
-  <title>Texans HQ v15.18</title>
+  <meta name="description" content="Personal Houston Texans PWA v15.19 — Call Desk run/pass logger, play-by-play, game center. Offline-friendly." />
+  <title>Texans HQ v15.19</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="apple-touch-icon" href="icon-192.png" />
@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v15.18 · Week 1</div>
+      <div id="statusPill" class="status-pill">v15.19 · Week 1</div>
 
 
 
@@ -133,6 +133,18 @@
           <div class="card-title">Next Up</div>
           <div id="nextGamePreview" class="text-center small">—</div>
           <div id="countdown" class="countdown"></div>
+        </div>
+      </section>
+
+      <!-- 1b. CALL DESK (Chromebook tap flow) -->
+      <section id="sec-call" class="section">
+        <div class="card cd-card">
+          <div class="card-title-row">
+            <div class="card-title" style="margin-bottom:0">Call Desk</div>
+            <span class="mode-pill">v1 run/pass · Chromebook</span>
+          </div>
+          <p class="small" style="margin:6px 0 10px">Set situation tiles → only RUN or PASS → only matching results. History saves for Texans and the opponent on this device.</p>
+          <div id="callDeskRoot"></div>
         </div>
       </section>
 
@@ -381,6 +393,10 @@ When the <em>opponent</em> has the ball, the same rigor flips: opponent tendency
       <button class="nav-btn active" data-sec="game" aria-label="Game">
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
         Game
+      </button>
+      <button class="nav-btn" data-sec="call" aria-label="Call">
+        <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+        Call
       </button>
       <button class="nav-btn" data-sec="pbp" aria-label="Plays">
         <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
