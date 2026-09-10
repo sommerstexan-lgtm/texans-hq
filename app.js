@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.20
+   Texans HQ — Personal PWA  v15.21
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.20';
+const APP_VERSION = 'v15.21';
 
-const APP_VERSION_LABEL = 'v15.20 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.21 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -3504,6 +3504,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 /* ---------- Navigation ---------- */
 function showSection(id) {
   currentSection = id;
+  document.body.classList.toggle('call-mode', id === 'call');
   $$('.section').forEach((s) => s.classList.remove('active'));
   $(`#sec-${id}`).classList.add('active');
   $$('.nav-btn').forEach((b) => {
@@ -5619,24 +5620,22 @@ function renderCallDesk() {
 
   let body = '';
   if (st.step === 'situation') {
-    body += '<div class="cd-grid">';
-    body += '<div class="cd-panel">';
-    body += '<div class="cd-row-label">Whose ball</div><div class="cd-row">' +
-      '<button type="button" class="cd-tile' + (st.possession === 'HOU' ? ' is-on' : '') + '" data-cd="possession" data-id="HOU">TEXANS</button>' +
-      '<button type="button" class="cd-tile' + (st.possession === 'OPP' ? ' is-on' : '') + '" data-cd="possession" data-id="OPP">OPPONENT ' + (st.opponent || '') + '</button></div>';
-    body += '<div class="cd-row-label">Down</div><div class="cd-row">' +
-      [1,2,3,4].map((d) => '<button type="button" class="cd-tile' + (st.down === d ? ' is-on' : '') + '" data-cd="down" data-id="' + d + '">' + d + '</button>').join('') + '</div>';
-    body += '<div class="cd-row-label">Distance</div><div class="cd-row">' + tilesHtml(CALL_DIST, st.distance, 'distance') + '</div>';
-    body += '<div class="cd-row-label">Field</div><div class="cd-row">' + tilesHtml(CALL_FIELD, st.field, 'field') + '</div>';
-    body += '<div class="cd-row-label">Score</div><div class="cd-row">' + tilesHtml(CALL_SCORE, st.score, 'score') + '</div>';
-    body += '<div class="cd-row-label">Clock</div><div class="cd-row">' + tilesHtml(CALL_CLOCK, st.clock, 'clock') + '</div>';
-    body += '</div>';
-    body += '<div class="cd-predict">';
+    body += '<div class="cd-top">';
     body += '<div class="cd-who">' + who + ' ball</div>';
     body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
-    body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap — choose RUN or PASS</button>';
-    body += '<p class="cd-hint">Confirm the four rows. Do not tap RUN/PASS until the whistle is about to go or just after.</p>';
-    body += '</div></div>';
+    body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap — RUN or PASS</button>';
+    body += '</div>';
+    body += '<div class="cd-board">';
+    body += '<div class="cd-line"><span class="cd-row-label">Ball</span><div class="cd-row">' +
+      '<button type="button" class="cd-tile' + (st.possession === 'HOU' ? ' is-on' : '') + '" data-cd="possession" data-id="HOU">TEXANS</button>' +
+      '<button type="button" class="cd-tile' + (st.possession === 'OPP' ? ' is-on' : '') + '" data-cd="possession" data-id="OPP">OPP ' + (st.opponent || '') + '</button></div></div>';
+    body += '<div class="cd-line"><span class="cd-row-label">Down</span><div class="cd-row">' +
+      [1,2,3,4].map((d) => '<button type="button" class="cd-tile' + (st.down === d ? ' is-on' : '') + '" data-cd="down" data-id="' + d + '">' + d + '</button>').join('') + '</div></div>';
+    body += '<div class="cd-line"><span class="cd-row-label">Distance</span><div class="cd-row">' + tilesHtml(CALL_DIST, st.distance, 'distance') + '</div></div>';
+    body += '<div class="cd-line"><span class="cd-row-label">Field</span><div class="cd-row">' + tilesHtml(CALL_FIELD, st.field, 'field') + '</div></div>';
+    body += '<div class="cd-line"><span class="cd-row-label">Score</span><div class="cd-row">' + tilesHtml(CALL_SCORE, st.score, 'score') + '</div></div>';
+    body += '<div class="cd-line"><span class="cd-row-label">Clock</span><div class="cd-row">' + tilesHtml(CALL_CLOCK, st.clock, 'clock') + '</div></div>';
+    body += '</div>';
   } else if (st.step === 'call') {
     body += '<div class="cd-predict cd-predict-wide">';
     body += '<div class="cd-who">' + who + ' · ' + st.down + ' &amp; ' + st.distance + ' · ' + st.field + ' · ' + st.score + ' · ' + st.clock + '</div>';
