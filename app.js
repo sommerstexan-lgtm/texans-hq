@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.19
+   Texans HQ — Personal PWA  v15.20
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.19';
+const APP_VERSION = 'v15.20';
 
-const APP_VERSION_LABEL = 'v15.19 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.20 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -1205,8 +1205,15 @@ function renderWeekSchedule() {
   list.innerHTML = '';
   const games = WEEK_SLATE.games || [];
   if (!games.length) {
+    const baked = (typeof SCHEDULE_2026 !== 'undefined' ? SCHEDULE_2026 : []).filter(function (g) { return g.week === 1; });
+    if (baked.length) {
+      list.innerHTML = baked.map(function (g) {
+        const loc = g.home ? 'vs' : '@';
+        return '<div class="card" style="margin:0 0 10px;padding:12px"><strong>Week ' + g.week + '</strong> · ' + loc + ' ' + g.opp + '<br><span class="small">' + g.date + ' · ' + (g.time || '') + ' CT · ' + (g.tv || '') + '</span></div>';
+      }).join('') + '<p class="small">Showing Texans baked Week 1 while the league slate loads.</p>';
+    }
     if (slateInflight) {
-      list.innerHTML = '<div class="empty">Loading this week’s NFL slate…</div>';
+      if (!baked.length) list.innerHTML = '<div class="empty">Loading this week’s NFL slate…</div>';
       return;
     }
     if (slateFailAt) {
@@ -3647,7 +3654,9 @@ function formatTime(t) {
 /* ---------- Game Center + Countdown ---------- */
 function getNextGame() {
   const now = new Date();
-  return SCHEDULE_2026.find((g) => g.date && new Date(g.date + 'T' + (g.time || '12:00') + ':00') > now);
+  const upcoming = SCHEDULE_2026.find((g) => g.date && new Date(g.date + 'T' + (g.time || '12:00') + ':00') > now);
+  if (upcoming) return upcoming;
+  return SCHEDULE_2026.find((g) => g.week === 1 && g.type === 'reg') || SCHEDULE_2026[0] || null;
 }
 
 
@@ -5351,7 +5360,7 @@ function init() {
     document.title = 'Texans HQ · Dock';
   }
   setVersionPill(isDockWindow() ? APP_VERSION + ' · Dock' : APP_VERSION_LABEL);
-  if (typeof initCallDesk === 'function') initCallDesk();
+  try { if (typeof initCallDesk === 'function') initCallDesk(); } catch (e) { console.warn('Call Desk init', e); }
   bindLiveKeepAlive();
   // Hard-disable demo path every boot (anti-distortion)
   if (typeof LIVE_DEMO !== 'undefined') LIVE_DEMO.active = false;
@@ -5600,6 +5609,7 @@ function tilesHtml(list, selected, dataKey) {
 }
 
 function renderCallDesk() {
+  try {
   const root = document.getElementById('callDeskRoot');
   if (!root) return;
   const st = loadCallState();
@@ -5656,6 +5666,9 @@ function renderCallDesk() {
 
   root.innerHTML = body;
   bindCallDesk();
+  } catch (e) {
+    console.warn('renderCallDesk', e);
+  }
 }
 
 function bindCallDesk() {
@@ -5805,5 +5818,10 @@ function exportCallLog() {
 }
 
 function initCallDesk() {
+  const wrap = document.getElementById('sec-call');
+  if (wrap && !wrap.dataset.cdBound) {
+    wrap.dataset.cdBound = '1';
+    wrap.addEventListener('click', onCallDeskClick);
+  }
   renderCallDesk();
 }

@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Texans HQ" />
-  <meta name="description" content="Personal Houston Texans PWA v15.19 — Call Desk run/pass logger, play-by-play, game center. Offline-friendly." />
-  <title>Texans HQ v15.19</title>
+  <meta name="description" content="Personal Houston Texans PWA v15.20 — Call Desk run/pass logger, play-by-play, game center. Offline-friendly." />
+  <title>Texans HQ v15.20</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="apple-touch-icon" href="icon-192.png" />
@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v15.19 · Week 1</div>
+      <div id="statusPill" class="status-pill">v15.20 · Week 1</div>
 
 
 
@@ -49,7 +49,7 @@
             <span id="gameModePill" class="mode-pill">Upcoming</span>
           </div>
           <div id="gameCenterContent">
-            <div class="empty">Loading schedule…</div>
+            <div class="empty">Week 1 · Sun Sep 13 · vs BUF · 12:00 CT · CBS</div>
           </div>
         </div>
         <div class="card" id="backupReminder" style="display:none">
@@ -144,7 +144,59 @@
             <span class="mode-pill">v1 run/pass · Chromebook</span>
           </div>
           <p class="small" style="margin:6px 0 10px">Set situation tiles → only RUN or PASS → only matching results. History saves for Texans and the opponent on this device.</p>
-          <div id="callDeskRoot"></div>
+          <div id="callDeskRoot">
+            <div class="cd-grid">
+              <div class="cd-panel">
+                <div class="cd-row-label">Whose ball</div>
+                <div class="cd-row">
+                  <button type="button" class="cd-tile is-on" data-cd="possession" data-id="HOU">TEXANS</button>
+                  <button type="button" class="cd-tile" data-cd="possession" data-id="OPP">OPPONENT BUF</button>
+                </div>
+                <div class="cd-row-label">Down</div>
+                <div class="cd-row">
+                  <button type="button" class="cd-tile is-on" data-cd="down" data-id="1">1</button>
+                  <button type="button" class="cd-tile" data-cd="down" data-id="2">2</button>
+                  <button type="button" class="cd-tile" data-cd="down" data-id="3">3</button>
+                  <button type="button" class="cd-tile" data-cd="down" data-id="4">4</button>
+                </div>
+                <div class="cd-row-label">Distance</div>
+                <div class="cd-row">
+                  <button type="button" class="cd-tile" data-cd="distance" data-id="short">Short 1–2</button>
+                  <button type="button" class="cd-tile" data-cd="distance" data-id="med">Med 3–6</button>
+                  <button type="button" class="cd-tile is-on" data-cd="distance" data-id="long">Long 7–10</button>
+                  <button type="button" class="cd-tile" data-cd="distance" data-id="xlong">XLong 11+</button>
+                </div>
+                <div class="cd-row-label">Field</div>
+                <div class="cd-row">
+                  <button type="button" class="cd-tile" data-cd="field" data-id="own">Own 20</button>
+                  <button type="button" class="cd-tile is-on" data-cd="field" data-id="mid">Mid</button>
+                  <button type="button" class="cd-tile" data-cd="field" data-id="opp40">Opp 40–21</button>
+                  <button type="button" class="cd-tile" data-cd="field" data-id="red">Red</button>
+                </div>
+                <div class="cd-row-label">Score</div>
+                <div class="cd-row">
+                  <button type="button" class="cd-tile" data-cd="score" data-id="ahead">Ahead</button>
+                  <button type="button" class="cd-tile is-on" data-cd="score" data-id="tied">Tied</button>
+                  <button type="button" class="cd-tile" data-cd="score" data-id="behind">Behind</button>
+                </div>
+                <div class="cd-row-label">Clock</div>
+                <div class="cd-row">
+                  <button type="button" class="cd-tile is-on" data-cd="clock" data-id="h1">1st half</button>
+                  <button type="button" class="cd-tile" data-cd="clock" data-id="q3">3rd qtr</button>
+                  <button type="button" class="cd-tile" data-cd="clock" data-id="q4">4th qtr</button>
+                  <button type="button" class="cd-tile" data-cd="clock" data-id="m4">4-min</button>
+                  <button type="button" class="cd-tile" data-cd="clock" data-id="m2">2-min</button>
+                  <button type="button" class="cd-tile" data-cd="clock" data-id="ot">OT</button>
+                </div>
+              </div>
+              <div class="cd-predict">
+                <div class="cd-who">TEXANS ball</div>
+                <div class="cd-pcts"><div class="cd-pass">PASS <strong>56%</strong></div><div class="cd-run">RUN <strong>44%</strong></div></div>
+                <button type="button" class="cd-go" id="cdGoCall">Snap — choose RUN or PASS</button>
+                <p class="cd-hint">Tiles are on the page even if live data is down. Tap to set the situation.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
