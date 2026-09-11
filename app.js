@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.25';
+const APP_VERSION = 'v15.26';
 
-const APP_VERSION_LABEL = 'v15.25 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.26 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5486,10 +5486,11 @@ const CALL_DIST = [
   { id: 'xlong', label: 'XLong 11+' }
 ];
 const CALL_FIELD = [
-  { id: 'own', label: 'Own 20' },
-  { id: 'mid', label: 'Mid' },
-  { id: 'opp40', label: 'Opp 40–21' },
-  { id: 'red', label: 'Red' }
+  { id: 'backed', label: 'Own 1–19' },
+  { id: 'own40', label: 'Own 20–39' },
+  { id: 'mid', label: 'Own 40–Opp 40' },
+  { id: 'plus', label: 'Opp 39–21' },
+  { id: 'red', label: 'Red 20–GL' }
 ];
 const CALL_SCORE = [
   { id: 'ahead', label: 'Ahead' },
@@ -5650,8 +5651,10 @@ function predictCallDesk(st, match) {
   const team = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
   const bucket = st.down + '|' + st.distance;
   let p = CALL_BASE[bucket] || 55;
-  if (st.field === 'own') p -= 3;
-  if (st.field === 'red') p += 2;
+  if (st.field === 'backed') p -= 4;
+  if (st.field === 'own40') p -= 1;
+  if (st.field === 'plus') p += 2;
+  if (st.field === 'red') p += 3;
   if (st.score === 'ahead' && (st.clock === 'm4' || st.clock === 'm2')) p -= 18;
   if (st.score === 'behind' && (st.clock === 'm4' || st.clock === 'm2')) p += 16;
   if (st.score === 'behind' && st.clock === 'q4') p += 6;
