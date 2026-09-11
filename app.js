@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.40';
+const APP_VERSION = 'v15.42';
 
-const APP_VERSION_LABEL = 'v15.40 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.42 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5984,7 +5984,7 @@ function renderCallDesk() {
     body += '<div class="cd-row cd-row-xl cd-row-special">';
     body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'FG' ? ' cd-hot' : '') + '" data-cd="call" data-id="FG">FG</button>';
     body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'PUNT' ? ' cd-hot' : '') + '" data-cd="call" data-id="PUNT">PUNT</button>';
-    body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'KO' ? ' cd-hot' : '') + '" data-cd="call" data-id="KO">KO</button>';
+    body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'KO' ? ' cd-hot' : '') + '" data-cd="call" data-id="KO">KICKOFF</button>';
     body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'KNEEL' ? ' cd-hot' : '') + '" data-cd="call" data-id="KNEEL">KNEEL</button>';
     body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'SPIKE' ? ' cd-hot' : '') + '" data-cd="call" data-id="SPIKE">SPIKE</button>';
     body += '</div>';
@@ -6120,6 +6120,18 @@ function onCallDeskClick(ev) {
     st.lastResult = null;
     st.lastFlag = 'none';
     st.lastPat = null;
+    if (id === 'KNEEL') {
+      st.lastResult = 'kneel';
+      saveCallState(st);
+      commitCallPlay(st);
+      return;
+    }
+    if (id === 'SPIKE') {
+      st.lastResult = 'spike';
+      saveCallState(st);
+      commitCallPlay(st);
+      return;
+    }
   }
   if (key === 'result') {
     st.lastResult = id;
