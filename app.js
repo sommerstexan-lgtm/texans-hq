@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.36';
+const APP_VERSION = 'v15.37';
 
-const APP_VERSION_LABEL = 'v15.36 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.37 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5493,9 +5493,9 @@ const CALL_FIELD = [
   { id: 'red', label: 'Red 20–GL' }
 ];
 const CALL_SCORE = [
-  { id: 'ahead', label: 'Ahead' },
+  { id: 'away', label: 'Away lead' },
   { id: 'tied', label: 'Tied' },
-  { id: 'behind', label: 'Behind' }
+  { id: 'home', label: 'Home lead' }
 ];
 const CALL_CLOCK = [
   { id: 'h1', label: '1st half' },
@@ -5515,9 +5515,7 @@ const CALL_PASS_RESULTS = [
   { id: 'pick6', label: 'Pick-6' },
   { id: 'safety', label: 'Safety' },
   { id: 'pi', label: 'PI' },
-  { id: 'spike', label: 'Spike' },
-  { id: 'krtd', label: 'Kickoff TD' },
-  { id: 'prtd', label: 'Punt TD' }
+  { id: 'spike', label: 'Spike' }
 ];
 const CALL_RUN_RESULTS = [
   { id: 'gain', label: 'Gain' },
@@ -5528,9 +5526,7 @@ const CALL_RUN_RESULTS = [
   { id: 'safety', label: 'Safety' },
   { id: 'fg', label: 'FG good' },
   { id: 'fgmiss', label: 'FG miss' },
-  { id: 'kneel', label: 'Kneel' },
-  { id: 'krtd', label: 'Kickoff TD' },
-  { id: 'prtd', label: 'Punt TD' }
+  { id: 'kneel', label: 'Kneel' }
 ];
 const CALL_PAT = [
   { id: 'none', label: 'No PAT' },
@@ -5608,7 +5604,8 @@ function defaultCallState() {
     lastPat: null,
     practice: false,
     awayScore: 0,
-    homeScore: 0
+    homeScore: 0,
+    scoreManual: false
   };
 }
 
@@ -5616,14 +5613,25 @@ function isTdResult(res) {
   return res === 'td' || res === 'pick6' || res === 'fum6' || res === 'krtd' || res === 'prtd' || res === 'blktd';
 }
 
+function migrateScoreSit(score, possession) {
+  if (score === 'away' || score === 'home' || score === 'tied') return score;
+  if (score === 'ahead') return possession === 'away' ? 'away' : 'home';
+  if (score === 'behind') return possession === 'away' ? 'home' : 'away';
+  return 'tied';
+}
+
 function syncScoreSit(st) {
   const a = Number(st.awayScore || 0);
   const h = Number(st.homeScore || 0);
-  const mine = st.possession === 'away' ? a : h;
-  const theirs = st.possession === 'away' ? h : a;
-  if (mine > theirs) st.score = 'ahead';
-  else if (mine < theirs) st.score = 'behind';
+  if (a > h) st.score = 'away';
+  else if (h > a) st.score = 'home';
   else st.score = 'tied';
+}
+
+function ballScoreView(st) {
+  if (st.score === 'tied') return 'tied';
+  if (st.possession === 'away') return st.score === 'away' ? 'ahead' : 'behind';
+  return st.score === 'home' ? 'ahead' : 'behind';
 }
 
 function applyScoring(st, res, pat) {
@@ -5792,10 +5800,11 @@ function predictCallDesk(st, match) {
   if (st.field === 'own40') p -= 1;
   if (st.field === 'plus') p += 2;
   if (st.field === 'red') p += 3;
-  if (st.score === 'ahead' && (st.clock === 'm4' || st.clock === 'm2')) p -= 18;
-  if (st.score === 'behind' && (st.clock === 'm4' || st.clock === 'm2')) p += 16;
-  if (st.score === 'behind' && st.clock === 'q4') p += 6;
-  if (st.score === 'ahead' && st.clock === 'q4') p -= 6;
+  const ballSit = ballScoreView(st);
+  if (ballSit === 'ahead' && (st.clock === 'm4' || st.clock === 'm2')) p -= 18;
+  if (ballSit === 'behind' && (st.clock === 'm4' || st.clock === 'm2')) p += 16;
+  if (ballSit === 'behind' && st.clock === 'q4') p += 6;
+  if (ballSit === 'ahead' && st.clock === 'q4') p -= 6;
   if (st.clock === 'ot') p += 2;
   p += teamResidual(team, bucket + '|' + st.field + '|' + st.score + '|' + st.clock);
   p = Math.max(18, Math.min(92, Math.round(p)));
@@ -5817,14 +5826,25 @@ function boardScores(st, match, log) {
   if (st.practice) {
     return { away: Number(st.pracAway || 0), home: Number(st.pracHome || 0) };
   }
+  if (st.scoreManual) {
+    return { away: Number(st.awayScore || 0), home: Number(st.homeScore || 0) };
+  }
   const game = (log && log.byEvent && match.eventId && log.byEvent[match.eventId]) || [];
+  let away = 0;
+  let home = 0;
   for (let i = 0; i < game.length; i++) {
     const p = game[i];
-    if (p && p.awayScoreAfter != null && p.homeScoreAfter != null) {
-      return { away: Number(p.awayScoreAfter), home: Number(p.homeScoreAfter) };
+    if (!p || !p.points) continue;
+    const offAway = p.possession === 'away';
+    if (p.scoreSide === 'defense') {
+      if (offAway) home += Number(p.points);
+      else away += Number(p.points);
+    } else if (p.scoreSide === 'offense' || p.scoreSide === 'return') {
+      if (offAway) away += Number(p.points);
+      else home += Number(p.points);
     }
   }
-  return { away: 0, home: 0 };
+  return { away: away, home: home };
 }
 
 function renderCallDesk() {
@@ -5835,10 +5855,12 @@ function renderCallDesk() {
   const match = callActiveMatchup();
   st.possession = normalizeCallPossession(st.possession, match);
   st.opponent = match.awayAbbr === 'HOU' ? match.homeAbbr : match.awayAbbr;
+  st.score = migrateScoreSit(st.score, st.possession);
   const bookLog = loadCallLog(st);
   const board = boardScores(st, match, bookLog);
   st.awayScore = board.away;
   st.homeScore = board.home;
+  if (!st.scoreManual) syncScoreSit(st);
   const pred = predictCallDesk(st, match);
   const tend = callTendency(st, match);
   const ballAbbr = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
@@ -5849,7 +5871,14 @@ function renderCallDesk() {
   if (st.step === 'situation') {
     body += '<div class="cd-top">';
     body += '<div class="cd-who">' + who + ' ball</div>';
-    body += '<div class="cd-scoreboard">' + match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> – ' + match.homeAbbr + ' <strong>' + Number(st.homeScore || 0) + '</strong></div>';
+    body += '<div class="cd-scoreboard">' +
+      '<button type="button" class="cd-mini" data-cd="scoreadj" data-id="away-">−</button> ' +
+      match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> ' +
+      '<button type="button" class="cd-mini" data-cd="scoreadj" data-id="away+">+</button>' +
+      ' – ' +
+      '<button type="button" class="cd-mini" data-cd="scoreadj" data-id="home-">−</button> ' +
+      match.homeAbbr + ' <strong>' + Number(st.homeScore || 0) + '</strong> ' +
+      '<button type="button" class="cd-mini" data-cd="scoreadj" data-id="home+">+</button></div>';
 
     body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
     body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap — RUN, PASS or PUNT</button>';
@@ -5865,7 +5894,10 @@ function renderCallDesk() {
       [1,2,3,4].map((d) => '<button type="button" class="cd-tile' + (st.down === d ? ' is-on' : '') + '" data-cd="down" data-id="' + d + '">' + d + '</button>').join('') + '</div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Distance</span><div class="cd-row">' + tilesHtml(CALL_DIST, st.distance, 'distance') + '</div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Field</span><div class="cd-row">' + tilesHtml(CALL_FIELD, st.field, 'field') + '</div></div>';
-    body += '<div class="cd-line"><span class="cd-row-label">Score</span><div class="cd-row">' + tilesHtml(CALL_SCORE, st.score, 'score') + '</div></div>';
+    body += '<div class="cd-line"><span class="cd-row-label">Score</span><div class="cd-row">' +
+      '<button type="button" class="cd-tile' + (st.score === 'away' ? ' is-on' : '') + '" data-cd="score" data-id="away">' + match.awayAbbr + ' lead</button>' +
+      '<button type="button" class="cd-tile' + (st.score === 'tied' ? ' is-on' : '') + '" data-cd="score" data-id="tied">Tied</button>' +
+      '<button type="button" class="cd-tile' + (st.score === 'home' ? ' is-on' : '') + '" data-cd="score" data-id="home">' + match.homeAbbr + ' lead</button></div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Clock</span><div class="cd-row">' + tilesHtml(CALL_CLOCK, st.clock, 'clock') + '</div></div>';
     body += '</div>';
   } else if (st.step === 'call') {
@@ -5986,7 +6018,22 @@ function onCallDeskClick(ev) {
   if (key === 'down') st.down = Number(id);
   if (key === 'distance') st.distance = id;
   if (key === 'field') st.field = id;
-  if (key === 'score') st.score = id;
+  if (key === 'score') {
+    st.score = id;
+    st.scoreManual = true;
+  }
+  if (key === 'scoreadj') {
+    st.scoreManual = true;
+    if (id === 'away+') st.awayScore = Number(st.awayScore || 0) + 1;
+    if (id === 'away-') st.awayScore = Math.max(0, Number(st.awayScore || 0) - 1);
+    if (id === 'home+') st.homeScore = Number(st.homeScore || 0) + 1;
+    if (id === 'home-') st.homeScore = Math.max(0, Number(st.homeScore || 0) - 1);
+    if (st.practice) {
+      st.pracAway = st.awayScore;
+      st.pracHome = st.homeScore;
+    }
+    syncScoreSit(st);
+  }
   if (key === 'clock') st.clock = id;
   if (key === 'call') {
     st.lastCall = id;
@@ -6029,6 +6076,7 @@ function commitCallPlay(st) {
   const awayBefore = Number(st.awayScore || 0);
   const homeBefore = Number(st.homeScore || 0);
   const scored = applyScoring(st, st.lastResult, st.lastPat);
+  if (scored.pts) st.scoreManual = false;
   syncScoreSit(st);
   const bucket = st.down + '|' + st.distance + '|' + st.field + '|' + st.score + '|' + st.clock;
   const play = {
