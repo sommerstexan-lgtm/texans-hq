@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.38';
+const APP_VERSION = 'v15.39';
 
-const APP_VERSION_LABEL = 'v15.38 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.39 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5524,9 +5524,13 @@ const CALL_RUN_RESULTS = [
   { id: 'fumble', label: 'Fumble' },
   { id: 'fum6', label: 'Fumble TD' },
   { id: 'safety', label: 'Safety' },
+  { id: 'kneel', label: 'Kneel' }
+];
+const CALL_FG_RESULTS = [
   { id: 'fg', label: 'FG good' },
   { id: 'fgmiss', label: 'FG miss' },
-  { id: 'kneel', label: 'Kneel' }
+  { id: 'blocked', label: 'Blocked' },
+  { id: 'blktd', label: 'Block TD' }
 ];
 const CALL_PAT = [
   { id: 'none', label: 'No PAT' },
@@ -5772,7 +5776,12 @@ function boxPlays(log, team, st, eventId, label) {
 
 function summarizeCalls(arr) {
   if (!arr || !arr.length) return { n: 0, pass: 0, run: 0, passPct: null };
-  const live = arr.filter(function (p) { return p && p.result !== 'penalty' && p.flag !== 'falsestart' && p.flag !== 'offsides'; });
+  const live = arr.filter(function (p) {
+    if (!p) return false;
+    if (p.result === 'penalty' || p.flag === 'falsestart' || p.flag === 'offsides') return false;
+    if (p.call === 'FG' || p.call === 'PUNT') return false;
+    return true;
+  });
   if (!live.length) return { n: 0, pass: 0, run: 0, passPct: null };
   const pass = live.filter(function (p) { return p.call === 'PASS'; }).length;
   return { n: live.length, pass: pass, run: live.length - pass, passPct: Math.round((pass / live.length) * 100) };
@@ -5886,7 +5895,7 @@ function renderCallDesk() {
       '<button type="button" class="cd-mini" data-cd="scoreadj" data-id="home+">+</button></div>';
 
     body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
-    body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap — RUN, PASS or PUNT</button>';
+    body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap — RUN, PASS, FG or PUNT</button>';
     body += '<button type="button" class="cd-mini cd-prac' + (st.practice ? ' is-on' : '') + '" data-cd="practice" data-id="' + (st.practice ? 'off' : 'on') + '">' + (st.practice ? 'PRACTICE ON' : 'Practice') + '</button>';
     body += '</div>';
     if (st.practice) body += '<div class="cd-prac-banner">PRACTICE — taps are not written to official game history</div>';
@@ -5913,12 +5922,13 @@ function renderCallDesk() {
     body += '<div class="cd-row cd-row-xl">';
     body += '<button type="button" class="cd-tile cd-xl cd-pass-btn" data-cd="call" data-id="PASS">PASS</button>';
     body += '<button type="button" class="cd-tile cd-xl cd-run-btn" data-cd="call" data-id="RUN">RUN</button>';
+    body += '<button type="button" class="cd-tile cd-xl" data-cd="call" data-id="FG">FG</button>';
     body += '<button type="button" class="cd-tile cd-xl" data-cd="call" data-id="PUNT">PUNT</button>';
     body += '</div>';
     body += '<button type="button" class="cd-undo" data-cd="undo">UNDO — back to situation</button>';
     body += '</div>';
   } else if (st.step === 'result') {
-    const results = st.lastCall === 'PASS' ? CALL_PASS_RESULTS : (st.lastCall === 'PUNT' ? CALL_PUNT_RESULTS : CALL_RUN_RESULTS);
+    const results = st.lastCall === 'PASS' ? CALL_PASS_RESULTS : (st.lastCall === 'PUNT' ? CALL_PUNT_RESULTS : (st.lastCall === 'FG' ? CALL_FG_RESULTS : CALL_RUN_RESULTS));
     body += '<div class="cd-predict cd-predict-wide">';
     body += '<div class="cd-scoreboard">' + match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> – ' + match.homeAbbr + ' <strong>' + Number(st.homeScore || 0) + '</strong></div>';
     body += '<div class="cd-who">Logged call: <strong>' + st.lastCall + '</strong> · tap the result</div>';
