@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.37';
+const APP_VERSION = 'v15.38';
 
-const APP_VERSION_LABEL = 'v15.37 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.38 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5679,10 +5679,16 @@ function callActiveMatchup() {
 }
 
 function normalizeCallPossession(pos, match) {
-  if (pos === 'away' || pos === 'home') return pos;
-  if (pos === 'HOU' || pos === 'TEXANS') return (match.homeAbbr === 'HOU' ? 'home' : 'away');
-  if (pos === 'OPP') return (match.homeAbbr === 'HOU' ? 'away' : 'home');
-  return 'home';
+  const p = String(pos || '').toUpperCase();
+  if (pos === 'away' || p === 'AWAY') return 'away';
+  if (pos === 'home' || p === 'HOME') return 'home';
+  if (match) {
+    if (p === String(match.awayAbbr || '').toUpperCase()) return 'away';
+    if (p === String(match.homeAbbr || '').toUpperCase()) return 'home';
+  }
+  if (p === 'HOU' || p === 'TEXANS') return (match && match.homeAbbr === 'HOU' ? 'home' : 'away');
+  if (p === 'OPP') return (match && match.homeAbbr === 'HOU' ? 'away' : 'home');
+  return 'away';
 }
 
 function loadCallState() {
@@ -5864,13 +5870,12 @@ function renderCallDesk() {
   const pred = predictCallDesk(st, match);
   const tend = callTendency(st, match);
   const ballAbbr = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
-  const who = ballAbbr + ' · ' + match.label;
   const ready = callSituationReady(st);
 
   let body = '';
   if (st.step === 'situation') {
     body += '<div class="cd-top">';
-    body += '<div class="cd-who">' + who + ' ball</div>';
+    body += '<div class="cd-who"><strong>' + ballAbbr + ' BALL</strong> · ' + match.label + '</div>';
     body += '<div class="cd-scoreboard">' +
       '<button type="button" class="cd-mini" data-cd="scoreadj" data-id="away-">−</button> ' +
       match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> ' +
@@ -5888,8 +5893,8 @@ function renderCallDesk() {
     body += '<div class="cd-tend">' + tend.line + '</div>';
     body += '<div class="cd-board">';
     body += '<div class="cd-line"><span class="cd-row-label">Ball</span><div class="cd-row">' +
-      '<button type="button" class="cd-tile' + (st.possession === 'away' ? ' is-on' : '') + '" data-cd="possession" data-id="away">' + match.awayAbbr + (match.focusAbbr === match.awayAbbr ? ' ★' : '') + '</button>' +
-      '<button type="button" class="cd-tile' + (st.possession === 'home' ? ' is-on' : '') + '" data-cd="possession" data-id="home">' + match.homeAbbr + (match.focusAbbr === match.homeAbbr ? ' ★' : '') + '</button></div></div>';
+      '<button type="button" class="cd-tile' + (st.possession === 'away' ? ' is-on' : '') + '" data-cd="possession" data-id="away">' + match.awayAbbr + (st.possession === 'away' ? ' BALL' : '') + '</button>' +
+      '<button type="button" class="cd-tile' + (st.possession === 'home' ? ' is-on' : '') + '" data-cd="possession" data-id="home">' + match.homeAbbr + (st.possession === 'home' ? ' BALL' : '') + '</button></div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Down</span><div class="cd-row">' +
       [1,2,3,4].map((d) => '<button type="button" class="cd-tile' + (st.down === d ? ' is-on' : '') + '" data-cd="down" data-id="' + d + '">' + d + '</button>').join('') + '</div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Distance</span><div class="cd-row">' + tilesHtml(CALL_DIST, st.distance, 'distance') + '</div></div>';
@@ -5902,7 +5907,7 @@ function renderCallDesk() {
     body += '</div>';
   } else if (st.step === 'call') {
     body += '<div class="cd-predict cd-predict-wide">';
-    body += '<div class="cd-who">' + who + ' · ' + st.down + ' &amp; ' + st.distance + ' · ' + st.field + ' · ' + st.score + ' · ' + st.clock + '</div>';
+    body += '<div class="cd-who"><strong>' + ballAbbr + ' BALL</strong> · ' + match.label + ' · ' + st.down + ' &amp; ' + st.distance + ' · ' + st.field + ' · ' + st.clock + '</div>';
     body += '<div class="cd-tend">' + tend.line + '</div>';
     body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
     body += '<div class="cd-row cd-row-xl">';
