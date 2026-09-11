@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.23';
+const APP_VERSION = 'v15.24';
 
-const APP_VERSION_LABEL = 'v15.23 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.24 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -4833,7 +4833,9 @@ function collectBackupPayload() {
       dominosMemory: dominos,
       watchList: (typeof loadWatchList === 'function' ? loadWatchList() : []),
       currentWatch: (typeof getCurrentWatch === 'function' ? getCurrentWatch() : null),
-      scoutMemory: (typeof loadScoutMemory === 'function' ? loadScoutMemory() : { teams: {} })
+      scoutMemory: (typeof loadScoutMemory === 'function' ? loadScoutMemory() : { teams: {} }),
+      callDeskOfficial: (function () { try { return JSON.parse(localStorage.getItem('texans-hq-calldesk-v1') || 'null'); } catch (e) { return null; } })(),
+      callDeskPractice: (function () { try { return JSON.parse(localStorage.getItem('texans-hq-calldesk-practice-v1') || 'null'); } catch (e) { return null; } })()
     }
   };
 }
@@ -4900,6 +4902,12 @@ function applyImportPayload(obj) {
     if (Array.isArray(data.watchList) && typeof saveWatchList === 'function') saveWatchList(data.watchList);
     if (data.currentWatch && typeof saveCurrentWatch === 'function') saveCurrentWatch(data.currentWatch);
     if (data.scoutMemory && typeof saveScoutMemory === 'function') saveScoutMemory(data.scoutMemory);
+    if (data.callDeskOfficial && typeof data.callDeskOfficial === 'object') {
+      localStorage.setItem('texans-hq-calldesk-v1', JSON.stringify(data.callDeskOfficial));
+    }
+    if (data.callDeskPractice && typeof data.callDeskPractice === 'object') {
+      localStorage.setItem('texans-hq-calldesk-practice-v1', JSON.stringify(data.callDeskPractice));
+    }
   } catch (e) {}
   // Refresh UI
   loadNotes();
@@ -4930,7 +4938,8 @@ function importAppDataFromFile(file) {
         'Import will REPLACE all of the following on this device:\n\n' +
         '• Personal notes\n' +
         '• Next Play Lean accuracy log\n' +
-        '• Dominos season memory\n\n' +
+        '• Dominos season memory\n' +
+        '• Call Desk official and practice books\n\n' +
         'Backup file: ' + when + '\n' +
         'Notes length: ' + notesLen + ' chars · Dominos games stored: ' + games + '\n\n' +
         'This cannot be undone unless you already exported a backup of the current device.\n\n' +
@@ -5585,9 +5594,36 @@ function loadCallLog(st) {
   try {
     const raw = localStorage.getItem(callLogKey(st || loadCallState()));
     const parsed = raw ? JSON.parse(raw) : null;
-    if (parsed && Array.isArray(parsed.plays)) return parsed;
+    if (parsed && Array.isArray(parsed.plays)) return indexCallLog(parsed);
   } catch (e) {}
-  return { version: 'v15.22', plays: [], byTeam: {} };
+  return { version: 'v15.24', plays: [], byTeam: {}, byMatchup: {}, byEvent: {} };
+}
+
+function matchupKey(away, home) {
+  return String(away || 'AWY').toUpperCase() + '@' + String(home || 'HOM').toUpperCase();
+}
+
+function indexCallLog(log) {
+  log.byTeam = {};
+  log.byMatchup = {};
+  log.byEvent = {};
+  (log.plays || []).forEach(function (p) {
+    if (!p) return;
+    if (p.team) {
+      if (!log.byTeam[p.team]) log.byTeam[p.team] = [];
+      log.byTeam[p.team].push(p);
+    }
+    const mk = p.label || matchupKey(p.awayAbbr, p.homeAbbr);
+    if (mk) {
+      if (!log.byMatchup[mk]) log.byMatchup[mk] = [];
+      log.byMatchup[mk].push(p);
+    }
+    if (p.eventId) {
+      if (!log.byEvent[p.eventId]) log.byEvent[p.eventId] = [];
+      log.byEvent[p.eventId].push(p);
+    }
+  });
+  return log;
 }
 
 function saveCallLog(log, st) {
@@ -5691,11 +5727,13 @@ function renderCallDesk() {
     body += '</div>';
   }
 
-  const log = loadCallLog();
-  const houN = ((log.byTeam && log.byTeam.HOU) || []).length;
-  const oppN = ((log.byTeam && log.byTeam[st.opponent]) || []).length;
+  const log = loadCallLog(st);
+  const mk = match.label;
+  const gameN = ((log.byEvent && log.byEvent[match.eventId]) || (log.byMatchup && log.byMatchup[mk]) || []).length;
+  const awayN = ((log.byTeam && log.byTeam[match.awayAbbr]) || []).length;
+  const homeN = ((log.byTeam && log.byTeam[match.homeAbbr]) || []).length;
   const book = st.practice ? 'Practice book' : 'Official book';
-  body += '<div class="cd-logline">' + book + ': Texans ' + houN + ' snaps · ' + (st.opponent || 'OPP') + ' ' + oppN + ' · total ' + (log.plays || []).length + '</div>';
+  body += '<div class="cd-logline">' + book + ' · ' + mk + ' this game ' + gameN + ' · ' + match.awayAbbr + ' all ' + awayN + ' · ' + match.homeAbbr + ' all ' + homeN + ' · total ' + (log.plays || []).length + '</div>';
   body += '<div class="cd-logrow"><button type="button" class="cd-mini" id="cdExport">Export this book</button>';
   if (st.practice) body += '<button type="button" class="cd-mini" id="cdClearAsk">Clear practice only</button>';
   body += '</div>';
@@ -5811,10 +5849,20 @@ function commitCallPlay(st) {
     bucket: bucket
   };
   const log = loadCallLog();
+  if (!log.byTeam) log.byTeam = {};
+  if (!log.byMatchup) log.byMatchup = {};
+  if (!log.byEvent) log.byEvent = {};
   log.plays.unshift(play);
   if (!log.byTeam[team]) log.byTeam[team] = [];
   log.byTeam[team].unshift(play);
-  saveCallLog(log);
+  const mk = play.label || matchupKey(play.awayAbbr, play.homeAbbr);
+  if (!log.byMatchup[mk]) log.byMatchup[mk] = [];
+  log.byMatchup[mk].unshift(play);
+  if (play.eventId) {
+    if (!log.byEvent[play.eventId]) log.byEvent[play.eventId] = [];
+    log.byEvent[play.eventId].unshift(play);
+  }
+  saveCallLog(log, st);
   advanceAfterPlay(st);
   saveCallState(st);
   renderCallDesk();
