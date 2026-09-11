@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.35';
+const APP_VERSION = 'v15.36';
 
-const APP_VERSION_LABEL = 'v15.35 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.36 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5545,25 +5545,44 @@ const CALL_PUNT_RESULTS = [
   { id: 'blocked', label: 'Blocked' },
   { id: 'blktd', label: 'Block TD' }
 ];
-const CALL_FLAGS = [
+const CALL_OFF_FLAGS = [
   { id: 'none', label: 'No flag' },
-  { id: 'holding', label: 'Holding' },
   { id: 'falsestart', label: 'False start' },
-  { id: 'offsides', label: 'Offsides' },
-  { id: 'other', label: 'Other flag' }
+  { id: 'holding', label: 'Off hold' },
+  { id: 'offother', label: 'Off other' }
 ];
+const CALL_DEF_FLAGS = [
+  { id: 'offsides', label: 'Offsides' },
+  { id: 'defhold', label: 'Def hold' },
+  { id: 'dpi', label: 'DPI' },
+  { id: 'persfoul', label: 'Pers. foul' },
+  { id: 'roughing', label: 'Roughing' },
+  { id: 'facemask', label: 'Face mask' },
+  { id: 'defother', label: 'Def other' }
+];
+const CALL_FLAGS = CALL_OFF_FLAGS.concat(CALL_DEF_FLAGS.filter(function (f) { return f.id !== 'none'; }));
 
 const CALL_DEAD_BALL_FLAGS = { falsestart: true, offsides: true };
+const CALL_DEF_FLAGS_SET = { offsides: true, defhold: true, dpi: true, persfoul: true, roughing: true, facemask: true, defother: true };
+const CALL_AUTO_FIRST_FLAGS = { defhold: true, dpi: true, persfoul: true, roughing: true, facemask: true, defother: true };
 
 function isDeadBallFlag(flag) {
   return !!(flag && CALL_DEAD_BALL_FLAGS[flag]);
 }
+function isDefFlag(flag) {
+  return !!(flag && CALL_DEF_FLAGS_SET[flag]);
+}
+function isAutoFirstFlag(flag) {
+  return !!(flag && CALL_AUTO_FIRST_FLAGS[flag]);
+}
+function isSaveableFlag(flag) {
+  return !!(flag && flag !== 'none');
+}
 
 function callCanSave(st) {
   if (!st || !st.lastCall) return false;
-  if (st.lastResult && st.lastResult !== 'penalty') return true;
-  if (st.lastResult === 'penalty' && isDeadBallFlag(st.lastFlag)) return true;
-  return isDeadBallFlag(st.lastFlag);
+  if (st.lastResult) return true;
+  return isSaveableFlag(st.lastFlag);
 }
 
 const CALL_BASE = {
@@ -5867,7 +5886,8 @@ function renderCallDesk() {
     body += '<div class="cd-scoreboard">' + match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> – ' + match.homeAbbr + ' <strong>' + Number(st.homeScore || 0) + '</strong></div>';
     body += '<div class="cd-who">Logged call: <strong>' + st.lastCall + '</strong> · tap the result</div>';
     body += '<div class="cd-row-label">Result</div><div class="cd-row">' + tilesHtml(results, st.lastResult, 'result') + '</div>';
-    body += '<div class="cd-row-label">Flag (optional — False start / Offsides can save without a result)</div><div class="cd-row">' + tilesHtml(CALL_FLAGS, st.lastFlag || 'none', 'flag') + '</div>';
+    body += '<div class="cd-row-label">Offense flag</div><div class="cd-row">' + tilesHtml(CALL_OFF_FLAGS, st.lastFlag || 'none', 'flag') + '</div>';
+    body += '<div class="cd-row-label">Defense flag</div><div class="cd-row">' + tilesHtml(CALL_DEF_FLAGS, st.lastFlag, 'flag') + '</div>';
     body += '<button type="button" class="cd-go" id="cdSavePlay"' + (callCanSave(st) ? '' : ' disabled') + '>Save play &amp; next situation</button>';
     body += '<button type="button" class="cd-undo" data-cd="undo">UNDO</button>';
     body += '</div>';
@@ -5928,7 +5948,7 @@ function onCallDeskClick(ev) {
   }
   if (t.id === 'cdSavePlay') {
     if (!callCanSave(st)) return;
-    if (!st.lastResult && isDeadBallFlag(st.lastFlag)) st.lastResult = 'penalty';
+    if (!st.lastResult && isSaveableFlag(st.lastFlag)) st.lastResult = 'penalty';
     saveCallState(st);
     commitCallPlay(st);
     return;
@@ -5987,7 +6007,7 @@ function onCallDeskClick(ev) {
   }
   if (key === 'flag') {
     st.lastFlag = id;
-    if (isDeadBallFlag(id) && !st.lastResult) st.lastResult = 'penalty';
+    if (isSaveableFlag(id) && !st.lastResult) st.lastResult = 'penalty';
     if (id === 'none' && st.lastResult === 'penalty') st.lastResult = null;
   }
   if (key === 'pat') {
@@ -6079,8 +6099,17 @@ function advanceAfterPlay(st) {
   st.lastFlag = 'none';
   st.lastPat = 'none';
   st.step = 'situation';
+  if (isAutoFirstFlag(flag)) {
+    st.down = 1;
+    st.distance = 'long';
+    if (st.field === 'backed') st.field = 'own40';
+    else if (st.field === 'own40') st.field = 'mid';
+    else if (st.field === 'mid') st.field = 'plus';
+    else if (st.field === 'plus') st.field = 'red';
+    return;
+  }
   if (res === 'penalty' || isDeadBallFlag(flag)) {
-    // Replay the down (false start / offsides). Distance stays; user can retap field if needed.
+    // Replay the down (false start / offsides).
     return;
   }
   if (res === 'td' || res === 'fg' || res === 'fgmiss' || res === 'pick6' || res === 'fum6' || res === 'safety' || res === 'krtd' || res === 'prtd' || res === 'punt' || res === 'blocked' || res === 'blktd') {
