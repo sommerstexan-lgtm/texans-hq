@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.27';
+const APP_VERSION = 'v15.29';
 
-const APP_VERSION_LABEL = 'v15.27 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.29 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5507,18 +5507,33 @@ const CALL_CLOCK = [
 ];
 const CALL_PASS_RESULTS = [
   { id: 'complete', label: 'Complete' },
+  { id: 'td', label: 'TD' },
   { id: 'incomplete', label: 'Incomplete' },
   { id: 'sack', label: 'Sack' },
   { id: 'scramble', label: 'Scramble' },
   { id: 'int', label: 'INT' },
+  { id: 'pick6', label: 'Pick-6' },
+  { id: 'safety', label: 'Safety' },
   { id: 'pi', label: 'PI' },
   { id: 'spike', label: 'Spike' }
 ];
 const CALL_RUN_RESULTS = [
   { id: 'gain', label: 'Gain' },
+  { id: 'td', label: 'TD' },
   { id: 'stuff', label: 'Stuff' },
   { id: 'fumble', label: 'Fumble' },
+  { id: 'fum6', label: 'Fumble TD' },
+  { id: 'safety', label: 'Safety' },
+  { id: 'fg', label: 'FG good' },
+  { id: 'fgmiss', label: 'FG miss' },
   { id: 'kneel', label: 'Kneel' }
+];
+const CALL_PAT = [
+  { id: 'none', label: 'No PAT' },
+  { id: 'xp', label: 'XP good' },
+  { id: 'xpmiss', label: 'XP miss' },
+  { id: 'two', label: '2-pt' },
+  { id: 'twomiss', label: '2-pt fail' }
 ];
 const CALL_FLAGS = [
   { id: 'none', label: 'No flag' },
@@ -5548,6 +5563,7 @@ function defaultCallState() {
     lastCall: null,
     lastResult: null,
     lastFlag: 'none',
+    lastPat: 'none',
     practice: false
   };
 }
@@ -5758,6 +5774,9 @@ function renderCallDesk() {
     body += '<div class="cd-predict cd-predict-wide">';
     body += '<div class="cd-who">Logged call: <strong>' + st.lastCall + '</strong> · tap the result only</div>';
     body += '<div class="cd-row-label">Result</div><div class="cd-row">' + tilesHtml(results, st.lastResult, 'result') + '</div>';
+    if (st.lastResult === 'td' || st.lastResult === 'pick6' || st.lastResult === 'fum6') {
+      body += '<div class="cd-row-label">After TD</div><div class="cd-row">' + tilesHtml(CALL_PAT, st.lastPat || 'none', 'pat') + '</div>';
+    }
     body += '<div class="cd-row-label">Flag (optional)</div><div class="cd-row">' + tilesHtml(CALL_FLAGS, st.lastFlag || 'none', 'flag') + '</div>';
     body += '<button type="button" class="cd-go" id="cdSavePlay"' + (st.lastResult ? '' : ' disabled') + '>Save play &amp; next situation</button>';
     body += '<button type="button" class="cd-undo" data-cd="undo">UNDO</button>';
@@ -5858,6 +5877,7 @@ function onCallDeskClick(ev) {
   }
   if (key === 'result') st.lastResult = id;
   if (key === 'flag') st.lastFlag = id;
+  if (key === 'pat') st.lastPat = id;
   saveCallState(st);
   renderCallDesk();
 }
@@ -5887,6 +5907,9 @@ function commitCallPlay(st) {
     call: st.lastCall,
     result: st.lastResult,
     flag: st.lastFlag || 'none',
+    pat: (st.lastResult === 'td' || st.lastResult === 'pick6' || st.lastResult === 'fum6') ? (st.lastPat || 'none') : 'none',
+    scored: (st.lastResult === 'td' || st.lastResult === 'pick6' || st.lastResult === 'fum6' || st.lastResult === 'safety' || st.lastResult === 'fg'),
+    scoreSide: (st.lastResult === 'td' || st.lastResult === 'fg') ? 'offense' : ((st.lastResult === 'pick6' || st.lastResult === 'fum6' || st.lastResult === 'safety') ? 'defense' : 'none'),
     predPass: pred.passP,
     correct: (st.lastCall === 'PASS' && pred.passP >= 50) || (st.lastCall === 'RUN' && pred.runP > 50),
     bucket: bucket,
@@ -5916,15 +5939,27 @@ function commitCallPlay(st) {
   renderCallDesk();
 }
 
+function flipPoss(st) {
+  st.possession = st.possession === 'away' ? 'home' : 'away';
+}
+
 function advanceAfterPlay(st) {
   const res = st.lastResult;
   const call = st.lastCall;
   st.lastCall = null;
   st.lastResult = null;
   st.lastFlag = 'none';
+  st.lastPat = 'none';
   st.step = 'situation';
+  if (res === 'td' || res === 'fg' || res === 'fgmiss' || res === 'pick6' || res === 'fum6' || res === 'safety') {
+    flipPoss(st);
+    st.down = 1;
+    st.distance = 'long';
+    st.field = 'mid';
+    return;
+  }
   if (res === 'int' || res === 'fumble') {
-    st.possession = st.possession === 'HOU' ? 'OPP' : 'HOU';
+    flipPoss(st);
     st.down = 1;
     st.distance = 'long';
     st.field = 'mid';
@@ -5933,9 +5968,9 @@ function advanceAfterPlay(st) {
   if (res === 'pi') {
     st.down = 1;
     st.distance = 'long';
-    if (st.field === 'own') st.field = 'mid';
-    else if (st.field === 'mid') st.field = 'opp40';
-    else if (st.field === 'opp40') st.field = 'red';
+    if (st.field === 'backed' || st.field === 'own40') st.field = 'mid';
+    else if (st.field === 'mid') st.field = 'plus';
+    else if (st.field === 'plus') st.field = 'red';
     return;
   }
   if (res === 'kneel' || res === 'spike' || res === 'incomplete' || res === 'sack' || res === 'stuff') {
