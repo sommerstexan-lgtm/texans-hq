@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.24';
+const APP_VERSION = 'v15.25';
 
-const APP_VERSION_LABEL = 'v15.24 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.25 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5729,11 +5729,16 @@ function renderCallDesk() {
 
   const log = loadCallLog(st);
   const mk = match.label;
-  const gameN = ((log.byEvent && log.byEvent[match.eventId]) || (log.byMatchup && log.byMatchup[mk]) || []).length;
-  const awayN = ((log.byTeam && log.byTeam[match.awayAbbr]) || []).length;
-  const homeN = ((log.byTeam && log.byTeam[match.homeAbbr]) || []).length;
-  const book = st.practice ? 'Practice book' : 'Official book';
-  body += '<div class="cd-logline">' + book + ' · ' + mk + ' this game ' + gameN + ' · ' + match.awayAbbr + ' all ' + awayN + ' · ' + match.homeAbbr + ' all ' + homeN + ' · total ' + (log.plays || []).length + '</div>';
+  let gamePlays = (log.byEvent && match.eventId && log.byEvent[match.eventId]) || [];
+  if (!gamePlays.length) gamePlays = (log.byMatchup && log.byMatchup[mk]) || [];
+  const awayBall = gamePlays.filter(function (p) { return p.team === match.awayAbbr || p.possession === 'away'; }).length;
+  const homeBall = gamePlays.filter(function (p) { return p.team === match.homeAbbr || p.possession === 'home'; }).length;
+  const awayAll = ((log.byTeam && log.byTeam[match.awayAbbr]) || []).length;
+  const homeAll = ((log.byTeam && log.byTeam[match.homeAbbr]) || []).length;
+  const book = st.practice ? 'Practice' : 'Official';
+  body += '<div class="cd-logline">' + book + ' · ' + mk + ' this game ' + gamePlays.length +
+    ' (ball: ' + match.awayAbbr + ' ' + awayBall + ' / ' + match.homeAbbr + ' ' + homeBall + ')' +
+    ' · career ball ' + match.awayAbbr + ' ' + awayAll + ' / ' + match.homeAbbr + ' ' + homeAll + '</div>';
   body += '<div class="cd-logrow"><button type="button" class="cd-mini" id="cdExport">Export this book</button>';
   if (st.practice) body += '<button type="button" class="cd-mini" id="cdClearAsk">Clear practice only</button>';
   body += '</div>';

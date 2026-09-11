@@ -1,8 +1,8 @@
-# Texans HQ — v15.24
+# Texans HQ — v15.25
 
 Complete PWA package. Drop the contents of this folder onto GitHub Pages (replace the previous files).
 
-- Version pill: v15.24 · Week 1 · Call Desk
+- Version pill: v15.25 · Week 1 · Call Desk
 - New Call tab: Chromebook situation tiles → RUN/PASS → matching results
 - Local history for Texans and opponent
 - Dominos follow the game on Game Center (unchanged)
