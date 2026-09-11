@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.34';
+const APP_VERSION = 'v15.35';
 
-const APP_VERSION_LABEL = 'v15.34 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.35 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5553,6 +5553,19 @@ const CALL_FLAGS = [
   { id: 'other', label: 'Other flag' }
 ];
 
+const CALL_DEAD_BALL_FLAGS = { falsestart: true, offsides: true };
+
+function isDeadBallFlag(flag) {
+  return !!(flag && CALL_DEAD_BALL_FLAGS[flag]);
+}
+
+function callCanSave(st) {
+  if (!st || !st.lastCall) return false;
+  if (st.lastResult && st.lastResult !== 'penalty') return true;
+  if (st.lastResult === 'penalty' && isDeadBallFlag(st.lastFlag)) return true;
+  return isDeadBallFlag(st.lastFlag);
+}
+
 const CALL_BASE = {
   '1|short': 42, '1|med': 52, '1|long': 56, '1|xlong': 68,
   '2|short': 38, '2|med': 55, '2|long': 64, '2|xlong': 74,
@@ -5726,8 +5739,10 @@ function boxPlays(log, team, st, eventId, label) {
 
 function summarizeCalls(arr) {
   if (!arr || !arr.length) return { n: 0, pass: 0, run: 0, passPct: null };
-  const pass = arr.filter(function (p) { return p.call === 'PASS'; }).length;
-  return { n: arr.length, pass: pass, run: arr.length - pass, passPct: Math.round((pass / arr.length) * 100) };
+  const live = arr.filter(function (p) { return p && p.result !== 'penalty' && p.flag !== 'falsestart' && p.flag !== 'offsides'; });
+  if (!live.length) return { n: 0, pass: 0, run: 0, passPct: null };
+  const pass = live.filter(function (p) { return p.call === 'PASS'; }).length;
+  return { n: live.length, pass: pass, run: live.length - pass, passPct: Math.round((pass / live.length) * 100) };
 }
 
 function callTendency(st, match) {
@@ -5852,8 +5867,8 @@ function renderCallDesk() {
     body += '<div class="cd-scoreboard">' + match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> – ' + match.homeAbbr + ' <strong>' + Number(st.homeScore || 0) + '</strong></div>';
     body += '<div class="cd-who">Logged call: <strong>' + st.lastCall + '</strong> · tap the result</div>';
     body += '<div class="cd-row-label">Result</div><div class="cd-row">' + tilesHtml(results, st.lastResult, 'result') + '</div>';
-    body += '<div class="cd-row-label">Flag (optional)</div><div class="cd-row">' + tilesHtml(CALL_FLAGS, st.lastFlag || 'none', 'flag') + '</div>';
-    body += '<button type="button" class="cd-go" id="cdSavePlay"' + (st.lastResult ? '' : ' disabled') + '>Save play &amp; next situation</button>';
+    body += '<div class="cd-row-label">Flag (optional — False start / Offsides can save without a result)</div><div class="cd-row">' + tilesHtml(CALL_FLAGS, st.lastFlag || 'none', 'flag') + '</div>';
+    body += '<button type="button" class="cd-go" id="cdSavePlay"' + (callCanSave(st) ? '' : ' disabled') + '>Save play &amp; next situation</button>';
     body += '<button type="button" class="cd-undo" data-cd="undo">UNDO</button>';
     body += '</div>';
   } else if (st.step === 'pat') {
@@ -5912,7 +5927,9 @@ function onCallDeskClick(ev) {
     return;
   }
   if (t.id === 'cdSavePlay') {
-    if (!st.lastCall || !st.lastResult) return;
+    if (!callCanSave(st)) return;
+    if (!st.lastResult && isDeadBallFlag(st.lastFlag)) st.lastResult = 'penalty';
+    saveCallState(st);
     commitCallPlay(st);
     return;
   }
@@ -5968,7 +5985,11 @@ function onCallDeskClick(ev) {
       return;
     }
   }
-  if (key === 'flag') st.lastFlag = id;
+  if (key === 'flag') {
+    st.lastFlag = id;
+    if (isDeadBallFlag(id) && !st.lastResult) st.lastResult = 'penalty';
+    if (id === 'none' && st.lastResult === 'penalty') st.lastResult = null;
+  }
   if (key === 'pat') {
     st.lastPat = id;
     saveCallState(st);
@@ -6051,12 +6072,17 @@ function flipPoss(st) {
 
 function advanceAfterPlay(st) {
   const res = st.lastResult;
+  const flag = st.lastFlag;
   const call = st.lastCall;
   st.lastCall = null;
   st.lastResult = null;
   st.lastFlag = 'none';
   st.lastPat = 'none';
   st.step = 'situation';
+  if (res === 'penalty' || isDeadBallFlag(flag)) {
+    // Replay the down (false start / offsides). Distance stays; user can retap field if needed.
+    return;
+  }
   if (res === 'td' || res === 'fg' || res === 'fgmiss' || res === 'pick6' || res === 'fum6' || res === 'safety' || res === 'krtd' || res === 'prtd' || res === 'punt' || res === 'blocked' || res === 'blktd') {
     flipPoss(st);
     st.down = 1;
