@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.22';
+const APP_VERSION = 'v15.23';
 
-const APP_VERSION_LABEL = 'v15.22 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.23 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5527,7 +5527,7 @@ const CALL_BASE = {
 
 function defaultCallState() {
   return {
-    possession: 'HOU',
+    possession: 'home',
     opponent: 'BUF',
     down: 1,
     distance: 'long',
@@ -5540,6 +5540,27 @@ function defaultCallState() {
     lastFlag: 'none',
     practice: false
   };
+}
+
+function callActiveMatchup() {
+  const w = (typeof getCurrentWatch === 'function') ? getCurrentWatch() : null;
+  const away = (w && w.awayAbbr) ? String(w.awayAbbr).toUpperCase() : 'BUF';
+  const home = (w && w.homeAbbr) ? String(w.homeAbbr).toUpperCase() : 'HOU';
+  const focus = (w && w.focusAbbr) ? String(w.focusAbbr).toUpperCase() : home;
+  return {
+    eventId: w && w.eventId ? String(w.eventId) : 'buf-hou-week1',
+    awayAbbr: away,
+    homeAbbr: home,
+    focusAbbr: focus,
+    label: away + ' @ ' + home
+  };
+}
+
+function normalizeCallPossession(pos, match) {
+  if (pos === 'away' || pos === 'home') return pos;
+  if (pos === 'HOU' || pos === 'TEXANS') return (match.homeAbbr === 'HOU' ? 'home' : 'away');
+  if (pos === 'OPP') return (match.homeAbbr === 'HOU' ? 'away' : 'home');
+  return 'home';
 }
 
 function loadCallState() {
@@ -5588,8 +5609,9 @@ function teamResidual(team, bucket) {
   return Math.max(-12, Math.min(12, actual - base));
 }
 
-function predictCallDesk(st) {
-  const team = st.possession === 'HOU' ? 'HOU' : (st.opponent || 'OPP');
+function predictCallDesk(st, match) {
+  match = match || callActiveMatchup();
+  const team = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
   const bucket = st.down + '|' + st.distance;
   let p = CALL_BASE[bucket] || 55;
   if (st.field === 'own') p -= 3;
@@ -5620,8 +5642,12 @@ function renderCallDesk() {
   const root = document.getElementById('callDeskRoot');
   if (!root) return;
   const st = loadCallState();
-  const pred = predictCallDesk(st);
-  const who = st.possession === 'HOU' ? 'TEXANS' : (st.opponent || 'OPP');
+  const match = callActiveMatchup();
+  st.possession = normalizeCallPossession(st.possession, match);
+  st.opponent = match.awayAbbr === 'HOU' ? match.homeAbbr : match.awayAbbr;
+  const pred = predictCallDesk(st, match);
+  const ballAbbr = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
+  const who = ballAbbr + ' · ' + match.label;
   const ready = callSituationReady(st);
 
   let body = '';
@@ -5635,8 +5661,8 @@ function renderCallDesk() {
     if (st.practice) body += '<div class="cd-prac-banner">PRACTICE — taps are not written to official game history</div>';
     body += '<div class="cd-board">';
     body += '<div class="cd-line"><span class="cd-row-label">Ball</span><div class="cd-row">' +
-      '<button type="button" class="cd-tile' + (st.possession === 'HOU' ? ' is-on' : '') + '" data-cd="possession" data-id="HOU">TEXANS</button>' +
-      '<button type="button" class="cd-tile' + (st.possession === 'OPP' ? ' is-on' : '') + '" data-cd="possession" data-id="OPP">OPP ' + (st.opponent || '') + '</button></div></div>';
+      '<button type="button" class="cd-tile' + (st.possession === 'away' ? ' is-on' : '') + '" data-cd="possession" data-id="away">' + match.awayAbbr + (match.focusAbbr === match.awayAbbr ? ' ★' : '') + '</button>' +
+      '<button type="button" class="cd-tile' + (st.possession === 'home' ? ' is-on' : '') + '" data-cd="possession" data-id="home">' + match.homeAbbr + (match.focusAbbr === match.homeAbbr ? ' ★' : '') + '</button></div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Down</span><div class="cd-row">' +
       [1,2,3,4].map((d) => '<button type="button" class="cd-tile' + (st.down === d ? ' is-on' : '') + '" data-cd="down" data-id="' + d + '">' + d + '</button>').join('') + '</div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Distance</span><div class="cd-row">' + tilesHtml(CALL_DIST, st.distance, 'distance') + '</div></div>';
@@ -5738,7 +5764,7 @@ function onCallDeskClick(ev) {
     renderCallDesk();
     return;
   }
-  if (key === 'possession') st.possession = id;
+  if (key === 'possession') st.possession = (id === 'away' || id === 'home') ? id : normalizeCallPossession(id, callActiveMatchup());
   if (key === 'down') st.down = Number(id);
   if (key === 'distance') st.distance = id;
   if (key === 'field') st.field = id;
@@ -5757,12 +5783,19 @@ function onCallDeskClick(ev) {
 }
 
 function commitCallPlay(st) {
-  const pred = predictCallDesk(st);
-  const team = st.possession === 'HOU' ? 'HOU' : (st.opponent || 'OPP');
+  const match = callActiveMatchup();
+  st.possession = normalizeCallPossession(st.possession, match);
+  const pred = predictCallDesk(st, match);
+  const team = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
   const bucket = st.down + '|' + st.distance + '|' + st.field + '|' + st.score + '|' + st.clock;
   const play = {
     ts: Date.now(),
-    opponent: st.opponent || 'OPP',
+    eventId: match.eventId,
+    label: match.label,
+    awayAbbr: match.awayAbbr,
+    homeAbbr: match.homeAbbr,
+    focusAbbr: match.focusAbbr,
+    opponent: team === match.homeAbbr ? match.awayAbbr : match.homeAbbr,
     team: team,
     possession: st.possession,
     down: st.down,
