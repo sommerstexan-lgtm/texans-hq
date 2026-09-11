@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.29';
+const APP_VERSION = 'v15.33';
 
-const APP_VERSION_LABEL = 'v15.29 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.33 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5515,7 +5515,9 @@ const CALL_PASS_RESULTS = [
   { id: 'pick6', label: 'Pick-6' },
   { id: 'safety', label: 'Safety' },
   { id: 'pi', label: 'PI' },
-  { id: 'spike', label: 'Spike' }
+  { id: 'spike', label: 'Spike' },
+  { id: 'krtd', label: 'Kickoff TD' },
+  { id: 'prtd', label: 'Punt TD' }
 ];
 const CALL_RUN_RESULTS = [
   { id: 'gain', label: 'Gain' },
@@ -5526,7 +5528,9 @@ const CALL_RUN_RESULTS = [
   { id: 'safety', label: 'Safety' },
   { id: 'fg', label: 'FG good' },
   { id: 'fgmiss', label: 'FG miss' },
-  { id: 'kneel', label: 'Kneel' }
+  { id: 'kneel', label: 'Kneel' },
+  { id: 'krtd', label: 'Kickoff TD' },
+  { id: 'prtd', label: 'Punt TD' }
 ];
 const CALL_PAT = [
   { id: 'none', label: 'No PAT' },
@@ -5534,6 +5538,12 @@ const CALL_PAT = [
   { id: 'xpmiss', label: 'XP miss' },
   { id: 'two', label: '2-pt' },
   { id: 'twomiss', label: '2-pt fail' }
+];
+const CALL_PUNT_RESULTS = [
+  { id: 'punt', label: 'Punt' },
+  { id: 'prtd', label: 'Punt TD' },
+  { id: 'blocked', label: 'Blocked' },
+  { id: 'blktd', label: 'Block TD' }
 ];
 const CALL_FLAGS = [
   { id: 'none', label: 'No flag' },
@@ -5563,10 +5573,56 @@ function defaultCallState() {
     lastCall: null,
     lastResult: null,
     lastFlag: 'none',
-    lastPat: 'none',
-    practice: false
+    lastPat: null,
+    practice: false,
+    awayScore: 0,
+    homeScore: 0
   };
 }
+
+function isTdResult(res) {
+  return res === 'td' || res === 'pick6' || res === 'fum6' || res === 'krtd' || res === 'prtd' || res === 'blktd';
+}
+
+function syncScoreSit(st) {
+  const a = Number(st.awayScore || 0);
+  const h = Number(st.homeScore || 0);
+  const mine = st.possession === 'away' ? a : h;
+  const theirs = st.possession === 'away' ? h : a;
+  if (mine > theirs) st.score = 'ahead';
+  else if (mine < theirs) st.score = 'behind';
+  else st.score = 'tied';
+}
+
+function applyScoring(st, res, pat) {
+  const off = st.possession === 'away' ? 'awayScore' : 'homeScore';
+  const def = st.possession === 'away' ? 'homeScore' : 'awayScore';
+  let side = 'none';
+  let pts = 0;
+  if (res === 'td' || res === 'krtd' || res === 'prtd') {
+    pts = 6;
+    if (pat === 'xp') pts = 7;
+    if (pat === 'two') pts = 8;
+    st[off] = Number(st[off] || 0) + pts;
+    side = (res === 'td') ? 'offense' : 'return';
+  } else if (res === 'pick6' || res === 'fum6' || res === 'blktd') {
+    pts = 6;
+    if (pat === 'xp') pts = 7;
+    if (pat === 'two') pts = 8;
+    st[def] = Number(st[def] || 0) + pts;
+    side = 'defense';
+  } else if (res === 'safety') {
+    pts = 2;
+    st[def] = Number(st[def] || 0) + 2;
+    side = 'defense';
+  } else if (res === 'fg') {
+    pts = 3;
+    st[off] = Number(st[off] || 0) + 3;
+    side = 'offense';
+  }
+  return { pts: pts, side: side };
+}
+
 
 function callActiveMatchup() {
   const w = (typeof getCurrentWatch === 'function') ? getCurrentWatch() : null;
@@ -5741,8 +5797,10 @@ function renderCallDesk() {
   if (st.step === 'situation') {
     body += '<div class="cd-top">';
     body += '<div class="cd-who">' + who + ' ball</div>';
+    body += '<div class="cd-scoreboard">' + match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> – ' + match.homeAbbr + ' <strong>' + Number(st.homeScore || 0) + '</strong></div>';
+
     body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
-    body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap — RUN or PASS</button>';
+    body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap — RUN, PASS or PUNT</button>';
     body += '<button type="button" class="cd-mini cd-prac' + (st.practice ? ' is-on' : '') + '" data-cd="practice" data-id="' + (st.practice ? 'off' : 'on') + '">' + (st.practice ? 'PRACTICE ON' : 'Practice') + '</button>';
     body += '</div>';
     if (st.practice) body += '<div class="cd-prac-banner">PRACTICE — taps are not written to official game history</div>';
@@ -5766,19 +5824,25 @@ function renderCallDesk() {
     body += '<div class="cd-row cd-row-xl">';
     body += '<button type="button" class="cd-tile cd-xl cd-pass-btn" data-cd="call" data-id="PASS">PASS</button>';
     body += '<button type="button" class="cd-tile cd-xl cd-run-btn" data-cd="call" data-id="RUN">RUN</button>';
+    body += '<button type="button" class="cd-tile cd-xl" data-cd="call" data-id="PUNT">PUNT</button>';
     body += '</div>';
     body += '<button type="button" class="cd-undo" data-cd="undo">UNDO — back to situation</button>';
     body += '</div>';
   } else if (st.step === 'result') {
-    const results = st.lastCall === 'PASS' ? CALL_PASS_RESULTS : CALL_RUN_RESULTS;
+    const results = st.lastCall === 'PASS' ? CALL_PASS_RESULTS : (st.lastCall === 'PUNT' ? CALL_PUNT_RESULTS : CALL_RUN_RESULTS);
     body += '<div class="cd-predict cd-predict-wide">';
-    body += '<div class="cd-who">Logged call: <strong>' + st.lastCall + '</strong> · tap the result only</div>';
+    body += '<div class="cd-scoreboard">' + match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> – ' + match.homeAbbr + ' <strong>' + Number(st.homeScore || 0) + '</strong></div>';
+    body += '<div class="cd-who">Logged call: <strong>' + st.lastCall + '</strong> · tap the result</div>';
     body += '<div class="cd-row-label">Result</div><div class="cd-row">' + tilesHtml(results, st.lastResult, 'result') + '</div>';
-    if (st.lastResult === 'td' || st.lastResult === 'pick6' || st.lastResult === 'fum6') {
-      body += '<div class="cd-row-label">After TD</div><div class="cd-row">' + tilesHtml(CALL_PAT, st.lastPat || 'none', 'pat') + '</div>';
-    }
     body += '<div class="cd-row-label">Flag (optional)</div><div class="cd-row">' + tilesHtml(CALL_FLAGS, st.lastFlag || 'none', 'flag') + '</div>';
     body += '<button type="button" class="cd-go" id="cdSavePlay"' + (st.lastResult ? '' : ' disabled') + '>Save play &amp; next situation</button>';
+    body += '<button type="button" class="cd-undo" data-cd="undo">UNDO</button>';
+    body += '</div>';
+  } else if (st.step === 'pat') {
+    body += '<div class="cd-predict cd-predict-wide">';
+    body += '<div class="cd-scoreboard">' + match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> – ' + match.homeAbbr + ' <strong>' + Number(st.homeScore || 0) + '</strong></div>';
+    body += '<div class="cd-who">TOUCHDOWN · tap the PAT</div>';
+    body += '<div class="cd-row cd-row-xl">' + tilesHtml(CALL_PAT, st.lastPat, 'pat') + '</div>';
     body += '<button type="button" class="cd-undo" data-cd="undo">UNDO</button>';
     body += '</div>';
   }
@@ -5874,10 +5938,25 @@ function onCallDeskClick(ev) {
     st.step = 'result';
     st.lastResult = null;
     st.lastFlag = 'none';
+    st.lastPat = null;
   }
-  if (key === 'result') st.lastResult = id;
+  if (key === 'result') {
+    st.lastResult = id;
+    if (isTdResult(id)) {
+      st.lastPat = null;
+      st.step = 'pat';
+      saveCallState(st);
+      renderCallDesk();
+      return;
+    }
+  }
   if (key === 'flag') st.lastFlag = id;
-  if (key === 'pat') st.lastPat = id;
+  if (key === 'pat') {
+    st.lastPat = id;
+    saveCallState(st);
+    commitCallPlay(st);
+    return;
+  }
   saveCallState(st);
   renderCallDesk();
 }
@@ -5888,6 +5967,10 @@ function commitCallPlay(st) {
   const pred = predictCallDesk(st, match);
   const tend = callTendency(st, match);
   const team = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
+  const awayBefore = Number(st.awayScore || 0);
+  const homeBefore = Number(st.homeScore || 0);
+  const scored = applyScoring(st, st.lastResult, st.lastPat);
+  syncScoreSit(st);
   const bucket = st.down + '|' + st.distance + '|' + st.field + '|' + st.score + '|' + st.clock;
   const play = {
     ts: Date.now(),
@@ -5907,9 +5990,14 @@ function commitCallPlay(st) {
     call: st.lastCall,
     result: st.lastResult,
     flag: st.lastFlag || 'none',
-    pat: (st.lastResult === 'td' || st.lastResult === 'pick6' || st.lastResult === 'fum6') ? (st.lastPat || 'none') : 'none',
-    scored: (st.lastResult === 'td' || st.lastResult === 'pick6' || st.lastResult === 'fum6' || st.lastResult === 'safety' || st.lastResult === 'fg'),
-    scoreSide: (st.lastResult === 'td' || st.lastResult === 'fg') ? 'offense' : ((st.lastResult === 'pick6' || st.lastResult === 'fum6' || st.lastResult === 'safety') ? 'defense' : 'none'),
+    pat: isTdResult(st.lastResult) ? (st.lastPat || 'none') : 'none',
+    scored: !!scored.pts,
+    scoreSide: scored.side,
+    points: scored.pts,
+    awayScoreBefore: awayBefore,
+    homeScoreBefore: homeBefore,
+    awayScoreAfter: Number(st.awayScore || 0),
+    homeScoreAfter: Number(st.homeScore || 0),
     predPass: pred.passP,
     correct: (st.lastCall === 'PASS' && pred.passP >= 50) || (st.lastCall === 'RUN' && pred.runP > 50),
     bucket: bucket,
@@ -5951,7 +6039,7 @@ function advanceAfterPlay(st) {
   st.lastFlag = 'none';
   st.lastPat = 'none';
   st.step = 'situation';
-  if (res === 'td' || res === 'fg' || res === 'fgmiss' || res === 'pick6' || res === 'fum6' || res === 'safety') {
+  if (res === 'td' || res === 'fg' || res === 'fgmiss' || res === 'pick6' || res === 'fum6' || res === 'safety' || res === 'krtd' || res === 'prtd' || res === 'punt' || res === 'blocked' || res === 'blktd') {
     flipPoss(st);
     st.down = 1;
     st.distance = 'long';

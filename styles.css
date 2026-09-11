@@ -1776,3 +1776,6 @@ body.dock-mode .app-header {
 }
 
 .cd-tend{font-size:0.9rem;font-weight:700;color:var(--navy);padding:4px 2px 8px;}
+
+.cd-scoreboard{font-size:1.15rem;font-weight:800;letter-spacing:0.02em;white-space:nowrap;}
+.cd-scoreboard strong{font-size:1.35rem;}
