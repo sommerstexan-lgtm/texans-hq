@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.33';
+const APP_VERSION = 'v15.34';
 
-const APP_VERSION_LABEL = 'v15.33 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.34 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5779,6 +5779,20 @@ function tilesHtml(list, selected, dataKey) {
   }).join('');
 }
 
+function boardScores(st, match, log) {
+  if (st.practice) {
+    return { away: Number(st.pracAway || 0), home: Number(st.pracHome || 0) };
+  }
+  const game = (log && log.byEvent && match.eventId && log.byEvent[match.eventId]) || [];
+  for (let i = 0; i < game.length; i++) {
+    const p = game[i];
+    if (p && p.awayScoreAfter != null && p.homeScoreAfter != null) {
+      return { away: Number(p.awayScoreAfter), home: Number(p.homeScoreAfter) };
+    }
+  }
+  return { away: 0, home: 0 };
+}
+
 function renderCallDesk() {
   try {
   const root = document.getElementById('callDeskRoot');
@@ -5787,6 +5801,10 @@ function renderCallDesk() {
   const match = callActiveMatchup();
   st.possession = normalizeCallPossession(st.possession, match);
   st.opponent = match.awayAbbr === 'HOU' ? match.homeAbbr : match.awayAbbr;
+  const bookLog = loadCallLog(st);
+  const board = boardScores(st, match, bookLog);
+  st.awayScore = board.away;
+  st.homeScore = board.home;
   const pred = predictCallDesk(st, match);
   const tend = callTendency(st, match);
   const ballAbbr = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
