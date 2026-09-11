@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.21
+   Texans HQ — Personal PWA  v15.22
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.21';
+const APP_VERSION = 'v15.22';
 
-const APP_VERSION_LABEL = 'v15.21 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.22 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5467,6 +5467,7 @@ if (setupLock()) {
    Logs HOU + opponent history locally
    ============================================================ */
 const CALL_DESK_KEY = 'texans-hq-calldesk-v1';
+const CALL_DESK_PRACTICE_KEY = 'texans-hq-calldesk-practice-v1';
 const CALL_DESK_STATE_KEY = 'texans-hq-calldesk-state-v1';
 
 const CALL_DIST = [
@@ -5536,7 +5537,8 @@ function defaultCallState() {
     step: 'situation',
     lastCall: null,
     lastResult: null,
-    lastFlag: 'none'
+    lastFlag: 'none',
+    practice: false
   };
 }
 
@@ -5554,21 +5556,25 @@ function saveCallState(st) {
   try { localStorage.setItem(CALL_DESK_STATE_KEY, JSON.stringify(st)); } catch (e) {}
 }
 
-function loadCallLog() {
+function callLogKey(st) {
+  return (st && st.practice) ? CALL_DESK_PRACTICE_KEY : CALL_DESK_KEY;
+}
+
+function loadCallLog(st) {
   try {
-    const raw = localStorage.getItem(CALL_DESK_KEY);
+    const raw = localStorage.getItem(callLogKey(st || loadCallState()));
     const parsed = raw ? JSON.parse(raw) : null;
     if (parsed && Array.isArray(parsed.plays)) return parsed;
   } catch (e) {}
-  return { version: 'v15.19', plays: [], byTeam: {} };
+  return { version: 'v15.22', plays: [], byTeam: {} };
 }
 
-function saveCallLog(log) {
-  try { localStorage.setItem(CALL_DESK_KEY, JSON.stringify(log)); } catch (e) {}
+function saveCallLog(log, st) {
+  try { localStorage.setItem(callLogKey(st || loadCallState()), JSON.stringify(log)); } catch (e) {}
 }
 
 function teamResidual(team, bucket) {
-  const log = loadCallLog();
+  const log = loadCallLog({ practice: false });
   const rec = (log.byTeam && log.byTeam[team]) || [];
   const same = rec.filter((p) => p.bucket === bucket);
   if (same.length < 4) {
@@ -5624,7 +5630,9 @@ function renderCallDesk() {
     body += '<div class="cd-who">' + who + ' ball</div>';
     body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
     body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap — RUN or PASS</button>';
+    body += '<button type="button" class="cd-mini cd-prac' + (st.practice ? ' is-on' : '') + '" data-cd="practice" data-id="' + (st.practice ? 'off' : 'on') + '">' + (st.practice ? 'PRACTICE ON' : 'Practice') + '</button>';
     body += '</div>';
+    if (st.practice) body += '<div class="cd-prac-banner">PRACTICE — taps are not written to official game history</div>';
     body += '<div class="cd-board">';
     body += '<div class="cd-line"><span class="cd-row-label">Ball</span><div class="cd-row">' +
       '<button type="button" class="cd-tile' + (st.possession === 'HOU' ? ' is-on' : '') + '" data-cd="possession" data-id="HOU">TEXANS</button>' +
@@ -5660,8 +5668,11 @@ function renderCallDesk() {
   const log = loadCallLog();
   const houN = ((log.byTeam && log.byTeam.HOU) || []).length;
   const oppN = ((log.byTeam && log.byTeam[st.opponent]) || []).length;
-  body += '<div class="cd-logline">Saved this device: Texans ' + houN + ' snaps · ' + (st.opponent || 'OPP') + ' ' + oppN + ' snaps · total ' + (log.plays || []).length + '</div>';
-  body += '<div class="cd-logrow"><button type="button" class="cd-mini" id="cdExport">Export log</button><button type="button" class="cd-mini" id="cdClearAsk">Clear log</button></div>';
+  const book = st.practice ? 'Practice book' : 'Official book';
+  body += '<div class="cd-logline">' + book + ': Texans ' + houN + ' snaps · ' + (st.opponent || 'OPP') + ' ' + oppN + ' · total ' + (log.plays || []).length + '</div>';
+  body += '<div class="cd-logrow"><button type="button" class="cd-mini" id="cdExport">Export this book</button>';
+  if (st.practice) body += '<button type="button" class="cd-mini" id="cdClearAsk">Clear practice only</button>';
+  body += '</div>';
 
   root.innerHTML = body;
   bindCallDesk();
@@ -5703,8 +5714,9 @@ function onCallDeskClick(ev) {
     return;
   }
   if (t.id === 'cdClearAsk') {
-    if (confirm('Clear Call Desk history on this device?')) {
-      saveCallLog({ version: 'v15.19', plays: [], byTeam: {} });
+    if (!st.practice) return;
+    if (confirm('Clear PRACTICE snaps only? Official game history stays.')) {
+      saveCallLog({ version: 'v15.22', plays: [], byTeam: {} }, st);
       renderCallDesk();
     }
     return;
@@ -5716,6 +5728,12 @@ function onCallDeskClick(ev) {
     st.lastCall = null;
     st.lastResult = null;
     st.lastFlag = 'none';
+    saveCallState(st);
+    renderCallDesk();
+    return;
+  }
+  if (key === 'practice') {
+    st.practice = (id === 'on');
     saveCallState(st);
     renderCallDesk();
     return;
