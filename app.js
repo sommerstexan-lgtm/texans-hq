@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.39';
+const APP_VERSION = 'v15.40';
 
-const APP_VERSION_LABEL = 'v15.39 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.40 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5545,11 +5545,25 @@ const CALL_PUNT_RESULTS = [
   { id: 'blocked', label: 'Blocked' },
   { id: 'blktd', label: 'Block TD' }
 ];
+const CALL_KO_RESULTS = [
+  { id: 'tb', label: 'Touchback' },
+  { id: 'ret', label: 'Return' },
+  { id: 'krtd', label: 'KO TD' },
+  { id: 'onside', label: 'Onside rec' },
+  { id: 'osfail', label: 'Onside fail' }
+];
+const CALL_KNEEL_RESULTS = [
+  { id: 'kneel', label: 'Kneel' }
+];
+const CALL_SPIKE_RESULTS = [
+  { id: 'spike', label: 'Spike' }
+];
 const CALL_OFF_FLAGS = [
   { id: 'none', label: 'No flag' },
   { id: 'falsestart', label: 'False start' },
   { id: 'holding', label: 'Off hold' },
-  { id: 'offother', label: 'Off other' }
+  { id: 'offother', label: 'Off other' },
+  { id: 'delay', label: 'Delay' }
 ];
 const CALL_DEF_FLAGS = [
   { id: 'offsides', label: 'Offsides' },
@@ -5562,7 +5576,7 @@ const CALL_DEF_FLAGS = [
 ];
 const CALL_FLAGS = CALL_OFF_FLAGS.concat(CALL_DEF_FLAGS.filter(function (f) { return f.id !== 'none'; }));
 
-const CALL_DEAD_BALL_FLAGS = { falsestart: true, offsides: true };
+const CALL_DEAD_BALL_FLAGS = { falsestart: true, offsides: true, delay: true };
 const CALL_DEF_FLAGS_SET = { offsides: true, defhold: true, dpi: true, persfoul: true, roughing: true, facemask: true, defother: true };
 const CALL_AUTO_FIRST_FLAGS = { defhold: true, dpi: true, persfoul: true, roughing: true, facemask: true, defother: true };
 
@@ -5609,7 +5623,8 @@ function defaultCallState() {
     practice: false,
     awayScore: 0,
     homeScore: 0,
-    scoreManual: false
+    scoreManual: false,
+    expectKo: false
   };
 }
 
@@ -5830,11 +5845,53 @@ function callSituationReady(st) {
   return !!(st.down && st.distance && st.field && st.score && st.clock && st.possession);
 }
 
-function tilesHtml(list, selected, dataKey) {
+function tilesHtml(list, selected, dataKey, likelyIds) {
+  const hot = likelyIds || [];
   return list.map((item) => {
     const on = selected === item.id ? ' is-on' : '';
-    return '<button type="button" class="cd-tile' + on + '" data-cd="' + dataKey + '" data-id="' + item.id + '">' + item.label + '</button>';
+    const likely = hot.indexOf(item.id) !== -1 ? ' cd-likely' : '';
+    return '<button type="button" class="cd-tile' + on + likely + '" data-cd="' + dataKey + '" data-id="' + item.id + '">' + item.label + '</button>';
   }).join('');
+}
+
+function resultsForCall(call) {
+  if (call === 'PASS') return CALL_PASS_RESULTS;
+  if (call === 'PUNT') return CALL_PUNT_RESULTS;
+  if (call === 'FG') return CALL_FG_RESULTS;
+  if (call === 'KO') return CALL_KO_RESULTS;
+  if (call === 'KNEEL') return CALL_KNEEL_RESULTS;
+  if (call === 'SPIKE') return CALL_SPIKE_RESULTS;
+  return CALL_RUN_RESULTS;
+}
+
+function likelyResultIds(st) {
+  const call = st.lastCall;
+  if (call === 'FG') return ['fg', 'fgmiss'];
+  if (call === 'PUNT') return ['punt'];
+  if (call === 'KO') return ['tb', 'ret'];
+  if (call === 'KNEEL') return ['kneel'];
+  if (call === 'SPIKE') return ['spike'];
+  if (call === 'RUN') {
+    if (st.field === 'red' || st.distance === 'short') return ['gain', 'td', 'stuff'];
+    return ['gain', 'stuff'];
+  }
+  if (call === 'PASS') {
+    if (st.field === 'red') return ['complete', 'td', 'incomplete'];
+    if (Number(st.down) >= 3 && (st.distance === 'long' || st.distance === 'xlong')) return ['incomplete', 'complete', 'sack'];
+    return ['complete', 'incomplete'];
+  }
+  return [];
+}
+
+function likelyCallId(st, pred) {
+  if (st.expectKo) return 'KO';
+  if (st.clock === 'm2' && st.score === (st.possession === 'away' ? 'away' : 'home') && Number(st.down) >= 2) return 'KNEEL';
+  if (st.clock === 'm2' && Number(st.down) >= 3 && (st.distance === 'long' || st.distance === 'xlong')) return 'SPIKE';
+  if (Number(st.down) === 4) {
+    if (st.field === 'plus' || st.field === 'red') return 'FG';
+    return 'PUNT';
+  }
+  return (pred && pred.passP >= 50) ? 'PASS' : 'RUN';
 }
 
 function boardScores(st, match, log) {
@@ -5895,7 +5952,7 @@ function renderCallDesk() {
       '<button type="button" class="cd-mini" data-cd="scoreadj" data-id="home+">+</button></div>';
 
     body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
-    body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap — RUN, PASS, FG or PUNT</button>';
+    body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap</button>';
     body += '<button type="button" class="cd-mini cd-prac' + (st.practice ? ' is-on' : '') + '" data-cd="practice" data-id="' + (st.practice ? 'off' : 'on') + '">' + (st.practice ? 'PRACTICE ON' : 'Practice') + '</button>';
     body += '</div>';
     if (st.practice) body += '<div class="cd-prac-banner">PRACTICE — taps are not written to official game history</div>';
@@ -5919,20 +5976,27 @@ function renderCallDesk() {
     body += '<div class="cd-who"><strong>' + ballAbbr + ' BALL</strong> · ' + match.label + ' · ' + st.down + ' &amp; ' + st.distance + ' · ' + st.field + ' · ' + st.clock + '</div>';
     body += '<div class="cd-tend">' + tend.line + '</div>';
     body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
+    const hotCall = likelyCallId(st, pred);
     body += '<div class="cd-row cd-row-xl">';
-    body += '<button type="button" class="cd-tile cd-xl cd-pass-btn" data-cd="call" data-id="PASS">PASS</button>';
-    body += '<button type="button" class="cd-tile cd-xl cd-run-btn" data-cd="call" data-id="RUN">RUN</button>';
-    body += '<button type="button" class="cd-tile cd-xl" data-cd="call" data-id="FG">FG</button>';
-    body += '<button type="button" class="cd-tile cd-xl" data-cd="call" data-id="PUNT">PUNT</button>';
+    body += '<button type="button" class="cd-tile cd-xl cd-pass-btn' + (hotCall === 'PASS' ? ' cd-hot' : '') + '" data-cd="call" data-id="PASS">PASS</button>';
+    body += '<button type="button" class="cd-tile cd-xl cd-run-btn' + (hotCall === 'RUN' ? ' cd-hot' : '') + '" data-cd="call" data-id="RUN">RUN</button>';
+    body += '</div>';
+    body += '<div class="cd-row cd-row-xl cd-row-special">';
+    body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'FG' ? ' cd-hot' : '') + '" data-cd="call" data-id="FG">FG</button>';
+    body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'PUNT' ? ' cd-hot' : '') + '" data-cd="call" data-id="PUNT">PUNT</button>';
+    body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'KO' ? ' cd-hot' : '') + '" data-cd="call" data-id="KO">KO</button>';
+    body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'KNEEL' ? ' cd-hot' : '') + '" data-cd="call" data-id="KNEEL">KNEEL</button>';
+    body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'SPIKE' ? ' cd-hot' : '') + '" data-cd="call" data-id="SPIKE">SPIKE</button>';
     body += '</div>';
     body += '<button type="button" class="cd-undo" data-cd="undo">UNDO — back to situation</button>';
     body += '</div>';
   } else if (st.step === 'result') {
-    const results = st.lastCall === 'PASS' ? CALL_PASS_RESULTS : (st.lastCall === 'PUNT' ? CALL_PUNT_RESULTS : (st.lastCall === 'FG' ? CALL_FG_RESULTS : CALL_RUN_RESULTS));
+    const results = resultsForCall(st.lastCall);
+    const likely = likelyResultIds(st);
     body += '<div class="cd-predict cd-predict-wide">';
     body += '<div class="cd-scoreboard">' + match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> – ' + match.homeAbbr + ' <strong>' + Number(st.homeScore || 0) + '</strong></div>';
     body += '<div class="cd-who">Logged call: <strong>' + st.lastCall + '</strong> · tap the result</div>';
-    body += '<div class="cd-row-label">Result</div><div class="cd-row">' + tilesHtml(results, st.lastResult, 'result') + '</div>';
+    body += '<div class="cd-row-label">Likely result (gold) — tap fast</div><div class="cd-row">' + tilesHtml(results, st.lastResult, 'result', likely) + '</div>';
     body += '<div class="cd-row-label">Offense flag</div><div class="cd-row">' + tilesHtml(CALL_OFF_FLAGS, st.lastFlag || 'none', 'flag') + '</div>';
     body += '<div class="cd-row-label">Defense flag</div><div class="cd-row">' + tilesHtml(CALL_DEF_FLAGS, st.lastFlag, 'flag') + '</div>';
     body += '<button type="button" class="cd-go" id="cdSavePlay"' + (callCanSave(st) ? '' : ' disabled') + '>Save play &amp; next situation</button>';
@@ -6162,6 +6226,26 @@ function advanceAfterPlay(st) {
   st.lastFlag = 'none';
   st.lastPat = 'none';
   st.step = 'situation';
+  if (call === 'KO') {
+    st.expectKo = false;
+    if (res === 'onside') {
+      st.down = 1;
+      st.distance = 'short';
+      st.field = 'mid';
+      return;
+    }
+    flipPoss(st);
+    st.down = 1;
+    st.distance = 'long';
+    st.field = (res === 'tb') ? 'own40' : 'backed';
+    if (res === 'krtd') st.field = 'mid';
+    return;
+  }
+  if (res === 'td' || res === 'fg' || res === 'safety' || res === 'pick6' || res === 'fum6' || res === 'krtd' || res === 'prtd' || res === 'blktd') {
+    st.expectKo = true;
+  } else if (res !== 'penalty') {
+    st.expectKo = false;
+  }
   if (isAutoFirstFlag(flag)) {
     st.down = 1;
     st.distance = 'long';
