@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.42';
+const APP_VERSION = 'v15.43';
 
-const APP_VERSION_LABEL = 'v15.42 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.43 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -371,6 +371,112 @@ const CURRENT_WATCH_KEY = 'texans-hq-current-watch-v1';
 const SCOUT_MEMORY_KEY = 'texans-hq-scout-v1';
 const SCHED_VIEW_KEY = 'texans-hq-sched-view-v1';
 const WEEK_SLATE_KEY = 'texans-hq-week-slate-v1';
+
+const CALL_PLAN_APPLIED_KEY = 'texans-hq-callplan-applied-v1';
+
+/* Star plan: Houston every week they play + one scout of next opponent
+   the last week that opponent plays before HOU. Byes checked (FOX Sports 2026 byes).
+   HOU bye W8. CIN bye W6. JAX/LAC/BUF/WAS bye W7. TEN/PIT bye W9.
+   IND/BAL bye W13. PHI bye W10. GB bye W11. DAL bye W14. CLE bye W11. NYG bye W8. */
+const CALL_PLAN_2026 = {
+  1: [
+    { away: 'BUF', home: 'HOU', why: 'HOU Week 1' },
+    { away: 'TB', home: 'CIN', why: 'Scout CIN before HOU Week 2' },
+    { away: 'BAL', home: 'IND', why: 'Scout IND before HOU Week 3' }
+  ],
+  2: [
+    { away: 'CIN', home: 'HOU', why: 'HOU Week 2' },
+    { away: 'IND', home: 'KC', why: 'Scout IND (they play HOU Week 3)' },
+    { away: 'PHI', home: 'TEN', why: 'Scout TEN before HOU Week 5' }
+  ],
+  3: [
+    { away: 'HOU', home: 'IND', why: 'HOU Week 3' },
+    { away: 'TEN', home: 'NYG', why: 'Scout TEN before HOU Week 5' }
+  ],
+  4: [
+    { away: 'DAL', home: 'HOU', why: 'HOU Week 4' }
+  ],
+  5: [
+    { away: 'HOU', home: 'TEN', why: 'HOU Week 5' }
+  ],
+  6: [
+    { away: 'HOU', home: 'JAX', why: 'HOU Week 6 London — confirm home/away on slate' },
+    { away: 'JAX', home: 'HOU', why: 'HOU Week 6 London alt listing' }
+  ],
+  7: [
+    { away: 'NYG', home: 'HOU', why: 'HOU Week 7' }
+  ],
+  8: [
+    /* HOU bye — no Houston game. LAC bye was Week 7, so star LAC this week when slate lists them. */
+  ],
+  9: [
+    { away: 'HOU', home: 'LAC', why: 'HOU Week 9' }
+  ],
+  10: [
+    { away: 'HOU', home: 'CLE', why: 'HOU Week 10' }
+  ],
+  11: [
+    { away: 'IND', home: 'HOU', why: 'HOU Week 11 TNF' }
+  ],
+  12: [
+    { away: 'BAL', home: 'HOU', why: 'HOU Week 12' }
+  ],
+  13: [
+    { away: 'HOU', home: 'PIT', why: 'HOU Week 13' }
+  ],
+  14: [
+    { away: 'HOU', home: 'WAS', why: 'HOU Week 14' }
+  ],
+  15: [
+    { away: 'JAX', home: 'HOU', why: 'HOU Week 15' },
+    { away: 'HOU', home: 'JAX', why: 'HOU Week 15 alt listing' }
+  ],
+  16: [
+    { away: 'HOU', home: 'PHI', why: 'HOU Week 16 Christmas Eve' }
+  ],
+  17: [
+    { away: 'HOU', home: 'GB', why: 'HOU Week 17' },
+    { away: 'HOU', home: 'GNB', why: 'HOU Week 17 alt abbr' }
+  ],
+  18: [
+    { away: 'TEN', home: 'HOU', why: 'HOU Week 18' }
+  ]
+};
+
+function matchPlanRow(g, row) {
+  return String(g.awayAbbr || '') === row.away && String(g.homeAbbr || '') === row.home;
+}
+
+function applyCallPlanStars(slate) {
+  if (!slate || !Array.isArray(slate.games)) return;
+  const week = Number(slate.week || 0);
+  const rows = CALL_PLAN_2026[week] || [];
+  const mark = week + ':' + (slate.games || []).map(function (g) { return g.eventId; }).join(',');
+  try {
+    if (localStorage.getItem(CALL_PLAN_APPLIED_KEY) === mark) return;
+  } catch (e) {}
+  rows.forEach(function (row) {
+    const g = (slate.games || []).find(function (x) { return matchPlanRow(x, row); });
+    if (g && !isWatched(g.eventId)) {
+      const focus = (g.homeAbbr === 'HOU' || g.awayAbbr === 'HOU') ? 'HOU' : (g.awayAbbr === row.away ? g.awayAbbr : g.homeAbbr);
+      upsertWatch(g, focus);
+    }
+  });
+  /* Always star Houston on this slate even if plan row missed home/away flip */
+  (slate.games || []).forEach(function (g) {
+    if (g.hasHou && !isWatched(g.eventId)) upsertWatch(g, 'HOU');
+  });
+  try { localStorage.setItem(CALL_PLAN_APPLIED_KEY, mark); } catch (e) {}
+}
+
+function callPlanHint(week) {
+  const rows = CALL_PLAN_2026[Number(week)] || [];
+  if (Number(week) === 8) return 'Week 8 is Houston’s bye. No HOU star. Star LAC if they appear — you play them Week 9.';
+  if (!rows.length) return 'Star Houston this week.';
+  return 'Star plan: ' + rows.filter(function (r, i, a) {
+    return a.findIndex(function (x) { return x.away === r.away && x.home === r.home; }) === i;
+  }).map(function (r) { return r.away + '@' + r.home; }).join(', ') + '.';
+}
 
 const NFL_TEAMS = {
   ARI: { id: '22', name: 'Arizona Cardinals', nick: 'Cardinals' },
@@ -750,6 +856,7 @@ async function loadWeekSlate(force) {
       const cached = JSON.parse(localStorage.getItem(WEEK_SLATE_KEY) || 'null');
       if (cached && Array.isArray(cached.games) && cached.games.length && (now - (cached.fetchedAt || 0)) < 10 * 60 * 1000) {
         WEEK_SLATE = cached;
+        applyCallPlanStars(WEEK_SLATE);
         if (now - (cached.fetchedAt || 0) < 55000) return WEEK_SLATE;
       }
     } catch (e) {}
@@ -771,6 +878,7 @@ async function loadWeekSlate(force) {
       };
       slateFailAt = 0;
       try { localStorage.setItem(WEEK_SLATE_KEY, JSON.stringify(WEEK_SLATE)); } catch (e) {}
+      applyCallPlanStars(WEEK_SLATE);
       return WEEK_SLATE;
     } catch (e) {
       slateFailAt = Date.now();
@@ -1124,7 +1232,7 @@ function bindSchedToggle() {
   if (hint) {
     hint.textContent = schedView === 'texans'
       ? 'Houston’s full slate · tap a game for line, keys, Game Center.'
-      : 'NFL week slate · star games to watch · live updates only run for the game on Game Center.';
+      : callPlanHint(WEEK_SLATE.week) + ' Live updates only run for the game on Game Center.';
   }
 }
 
@@ -5954,6 +6062,7 @@ function renderCallDesk() {
     body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
     body += '<button type="button" class="cd-go" id="cdGoCall"' + (ready ? '' : ' disabled') + '>Snap</button>';
     body += '<button type="button" class="cd-mini cd-prac' + (st.practice ? ' is-on' : '') + '" data-cd="practice" data-id="' + (st.practice ? 'off' : 'on') + '">' + (st.practice ? 'PRACTICE ON' : 'Practice') + '</button>';
+    body += '<button type="button" class="cd-mini" data-cd="scorezero" data-id="zero">0–0</button>';
     body += '</div>';
     if (st.practice) body += '<div class="cd-prac-banner">PRACTICE — taps are not written to official game history</div>';
     body += '<div class="cd-tend">' + tend.line + '</div>';
@@ -6100,6 +6209,15 @@ function onCallDeskClick(ev) {
   if (key === 'score') {
     st.score = id;
     st.scoreManual = true;
+  }
+  if (key === 'scorezero') {
+    st.scoreManual = true;
+    st.awayScore = 0;
+    st.homeScore = 0;
+    st.pracAway = 0;
+    st.pracHome = 0;
+    st.expectKo = true;
+    syncScoreSit(st);
   }
   if (key === 'scoreadj') {
     st.scoreManual = true;
