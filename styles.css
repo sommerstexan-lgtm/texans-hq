@@ -1774,3 +1774,5 @@ body.dock-mode .app-header {
   margin: 0 0 8px;
   letter-spacing: 0.04em;
 }
+
+.cd-tend{font-size:0.9rem;font-weight:700;color:var(--navy);padding:4px 2px 8px;}

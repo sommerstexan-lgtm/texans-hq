@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.26';
+const APP_VERSION = 'v15.27';
 
-const APP_VERSION_LABEL = 'v15.26 · Week 1 · Call Desk';
+const APP_VERSION_LABEL = 'v15.27 · Week 1 · Call Desk';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5646,6 +5646,37 @@ function teamResidual(team, bucket) {
   return Math.max(-12, Math.min(12, actual - base));
 }
 
+function boxPlays(log, team, st, eventId, label) {
+  return (log.plays || []).filter(function (p) {
+    return p && p.team === team && Number(p.down) === Number(st.down) && p.distance === st.distance && p.field === st.field;
+  });
+}
+
+function summarizeCalls(arr) {
+  if (!arr || !arr.length) return { n: 0, pass: 0, run: 0, passPct: null };
+  const pass = arr.filter(function (p) { return p.call === 'PASS'; }).length;
+  return { n: arr.length, pass: pass, run: arr.length - pass, passPct: Math.round((pass / arr.length) * 100) };
+}
+
+function callTendency(st, match) {
+  match = match || callActiveMatchup();
+  const team = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
+  const log = loadCallLog(st);
+  const same = boxPlays(log, team, st);
+  const game = same.filter(function (p) {
+    return (p.eventId && match.eventId && String(p.eventId) === String(match.eventId)) || (p.label && p.label === match.label);
+  });
+  const g = summarizeCalls(game);
+  const c = summarizeCalls(same);
+  let line = team + ' · this box · not enough snaps yet';
+  if (g.n >= 3) {
+    line = team + ' this game · this box · ' + g.pass + ' of ' + g.n + ' PASS (' + g.passPct + '%)';
+  } else if (c.n >= 4) {
+    line = team + ' career · this box · ' + c.pass + ' of ' + c.n + ' PASS (' + c.passPct + '%)';
+  }
+  return { team: team, game: g, career: c, line: line };
+}
+
 function predictCallDesk(st, match) {
   match = match || callActiveMatchup();
   const team = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
@@ -5685,6 +5716,7 @@ function renderCallDesk() {
   st.possession = normalizeCallPossession(st.possession, match);
   st.opponent = match.awayAbbr === 'HOU' ? match.homeAbbr : match.awayAbbr;
   const pred = predictCallDesk(st, match);
+  const tend = callTendency(st, match);
   const ballAbbr = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
   const who = ballAbbr + ' · ' + match.label;
   const ready = callSituationReady(st);
@@ -5698,6 +5730,7 @@ function renderCallDesk() {
     body += '<button type="button" class="cd-mini cd-prac' + (st.practice ? ' is-on' : '') + '" data-cd="practice" data-id="' + (st.practice ? 'off' : 'on') + '">' + (st.practice ? 'PRACTICE ON' : 'Practice') + '</button>';
     body += '</div>';
     if (st.practice) body += '<div class="cd-prac-banner">PRACTICE — taps are not written to official game history</div>';
+    body += '<div class="cd-tend">' + tend.line + '</div>';
     body += '<div class="cd-board">';
     body += '<div class="cd-line"><span class="cd-row-label">Ball</span><div class="cd-row">' +
       '<button type="button" class="cd-tile' + (st.possession === 'away' ? ' is-on' : '') + '" data-cd="possession" data-id="away">' + match.awayAbbr + (match.focusAbbr === match.awayAbbr ? ' ★' : '') + '</button>' +
@@ -5712,6 +5745,7 @@ function renderCallDesk() {
   } else if (st.step === 'call') {
     body += '<div class="cd-predict cd-predict-wide">';
     body += '<div class="cd-who">' + who + ' · ' + st.down + ' &amp; ' + st.distance + ' · ' + st.field + ' · ' + st.score + ' · ' + st.clock + '</div>';
+    body += '<div class="cd-tend">' + tend.line + '</div>';
     body += '<div class="cd-pcts"><div class="cd-pass">PASS <strong>' + pred.passP + '%</strong></div><div class="cd-run">RUN <strong>' + pred.runP + '%</strong></div></div>';
     body += '<div class="cd-row cd-row-xl">';
     body += '<button type="button" class="cd-tile cd-xl cd-pass-btn" data-cd="call" data-id="PASS">PASS</button>';
@@ -5832,6 +5866,7 @@ function commitCallPlay(st) {
   const match = callActiveMatchup();
   st.possession = normalizeCallPossession(st.possession, match);
   const pred = predictCallDesk(st, match);
+  const tend = callTendency(st, match);
   const team = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
   const bucket = st.down + '|' + st.distance + '|' + st.field + '|' + st.score + '|' + st.clock;
   const play = {
@@ -5854,7 +5889,12 @@ function commitCallPlay(st) {
     flag: st.lastFlag || 'none',
     predPass: pred.passP,
     correct: (st.lastCall === 'PASS' && pred.passP >= 50) || (st.lastCall === 'RUN' && pred.runP > 50),
-    bucket: bucket
+    bucket: bucket,
+    tendLine: tend.line,
+    tendGameN: tend.game.n,
+    tendGamePass: tend.game.pass,
+    tendCareerN: tend.career.n,
+    tendCareerPass: tend.career.pass
   };
   const log = loadCallLog();
   if (!log.byTeam) log.byTeam = {};
