@@ -1857,3 +1857,35 @@ body.dock-mode .app-header {
   letter-spacing: 0.3px;
 }
 .gbu-empty { color: var(--muted); }
+.gbu-line.is-good strong, .gbu-tag-good { color: #0B6E4F; }
+.gbu-line.is-bad strong, .gbu-tag-bad { color: #B86E00; }
+.gbu-line.is-ugly strong, .gbu-tag-ugly { color: #9B1B30; }
+.gbu-line.is-good { background: #E7F6EF; border-left: 3px solid #0B6E4F; padding: 3px 6px; }
+.gbu-line.is-bad { background: #FFF4E0; border-left: 3px solid #B86E00; padding: 3px 6px; }
+.gbu-line.is-ugly { background: #F8E6EA; border-left: 3px solid #9B1B30; padding: 3px 6px; }
+.gbu-why {
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--navy);
+  background: #f3f5f7;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 6px 0 10px;
+}
+.gbu-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.gbu-chip {
+  font-size: 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  color: var(--navy);
+  background: #fff;
+}
+.gbu-chip.is-plus { background: #E8F1FA; border-color: #7BA3C9; }
+.gbu-chip.is-red { background: #F8E6EA; border-color: #C45B6A; }
+.gbu-chip.is-backed { background: #EEE; }
+.gbu-chip.is-late { background: #FFF4E0; border-color: #D4A017; }
+.gbu-rate-hi { background: #E7F6EF; }
+.gbu-rate-mid { background: #FFF8E8; }
+.gbu-rate-lo { background: #F8E6EA; }
