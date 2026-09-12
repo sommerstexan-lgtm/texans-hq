@@ -1799,3 +1799,61 @@ body.dock-mode .app-header {
 
 .cd-scoreboard{font-size:1.15rem;font-weight:800;letter-spacing:0.02em;white-space:nowrap;}
 .cd-scoreboard strong{font-size:1.35rem;}
+
+/* Situational GBU — same chrome as other cards */
+.gbu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .gbu-grid { grid-template-columns: 1fr; }
+}
+.gbu-col-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.gbu-win {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 8px 0 4px;
+}
+.gbu-line {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin: 0 0 3px;
+  color: var(--navy);
+}
+.gbu-line strong { font-weight: 800; }
+.gbu-note {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 4px 0;
+}
+.gbu-table-wrap { overflow-x: auto; margin-top: 6px; }
+.gbu-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+.gbu-table th, .gbu-table td {
+  border: 1px solid var(--border);
+  padding: 4px 5px;
+  text-align: left;
+  vertical-align: top;
+  color: var(--navy);
+}
+.gbu-table th {
+  background: #f3f5f7;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.gbu-empty { color: var(--muted); }
