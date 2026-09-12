@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.45';
+const APP_VERSION = 'v15.46';
 
-const APP_VERSION_LABEL = 'v15.45 · Week 1 · Situational GBU';
+const APP_VERSION_LABEL = 'v15.46 · Week 1 · GBU tab';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -1422,6 +1422,7 @@ function renderLeagueDetail(g) {
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">' +
         '<button type="button" class="btn" id="schedOpenPlays">Open Plays</button>' +
         '<button type="button" class="btn secondary" id="schedOpenGame">Game Center</button>' +
+        '<button type="button" class="btn secondary" id="schedOpenGbu">GBU</button>' +
         '<button type="button" class="btn secondary" id="schedStarBtn">' + (isWatched(g.eventId) ? '★ Watching' : '☆ Watch') + '</button>' +
       '</div>' +
       '<p class="tend-note" style="margin-top:10px">Lines are public consensus for discussion only — not betting advice. Live play-by-play runs only for the game on Game Center, so the feed stays fast.</p>' +
@@ -1446,6 +1447,12 @@ function renderLeagueDetail(g) {
     open();
     showSection('game');
     refreshLiveGame().then(function () { renderGameCenter(); });
+  });
+  const gbuBtn = document.getElementById('schedOpenGbu');
+  if (gbuBtn) gbuBtn.addEventListener('click', function () {
+    open();
+    if (typeof setGbuFocusGame === 'function') setGbuFocusGame(g);
+    showSection('gbu');
   });
   const star = document.getElementById('schedStarBtn');
   if (star) star.addEventListener('click', function () {
@@ -3626,6 +3633,7 @@ function showSection(id) {
   if (id === 'videos') loadVideos(false);
   if (id === 'notes' && typeof updateBackupStatusLine === 'function') updateBackupStatusLine();
   if (id === 'call' && typeof renderCallDesk === 'function') renderCallDesk();
+  if (id === 'gbu' && typeof renderSituationalGbu === 'function') renderSituationalGbu();
 }
 
 
@@ -3736,6 +3744,7 @@ function renderScheduleDetail(g) {
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <button type="button" class="btn" id="schedOpenPlays">Open Plays</button>
         <button type="button" class="btn secondary" id="schedOpenGame">Game Center</button>
+        <button type="button" class="btn secondary" id="schedOpenGbu">GBU</button>
       </div>
       <p class="tend-note" style="margin-top:10px">Lines are public consensus for discussion only — not betting advice. Preseason lines move and often mean less than evaluation snaps.</p>
     </div>
@@ -3749,6 +3758,11 @@ function renderScheduleDetail(g) {
     if (g && g.eventId && typeof setCurrentGame === 'function') setCurrentGame(g, g.hasHou ? 'HOU' : (typeof defaultFocusForGame === 'function' ? defaultFocusForGame(g) : 'HOU'));
     showSection('game');
     refreshLiveGame().then(function () { renderGameCenter(); });
+  });
+  const gbuBtn = $('#schedOpenGbu');
+  if (gbuBtn) gbuBtn.addEventListener('click', () => {
+    if (typeof setGbuFocusGame === 'function') setGbuFocusGame(g);
+    showSection('gbu');
   });
 }
 
@@ -6429,7 +6443,7 @@ function advanceAfterPlay(st) {
 }
 
 /* ============================================================
-   Situational GBU — official Call Desk book only (v15.45)
+   Situational GBU — official Call Desk book only (v15.46)
    Schema (confirmed on commitCallPlay):
    ts, eventId, label, awayAbbr, homeAbbr, focusAbbr, opponent, team,
    possession, down, distance, field, score, clock, call, result,
@@ -6755,6 +6769,28 @@ function gbuScoreLine(g) {
   return away + ' ' + a + ' – ' + home + ' ' + h + ' · ' + why;
 }
 
+let GBU_FOCUS = null;
+
+function setGbuFocusGame(g) {
+  if (!g) { GBU_FOCUS = null; return; }
+  GBU_FOCUS = {
+    eventId: g.eventId ? String(g.eventId) : '',
+    label: g.label || ((g.awayAbbr && g.homeAbbr) ? (g.awayAbbr + ' @ ' + g.homeAbbr) : ''),
+    awayAbbr: String(g.awayAbbr || '').toUpperCase(),
+    homeAbbr: String(g.homeAbbr || '').toUpperCase()
+  };
+}
+
+function gbuGameMatchesFocus(g, focus) {
+  if (!g || !focus) return false;
+  if (focus.eventId && g.eventId && String(g.eventId) === String(focus.eventId)) return true;
+  if (focus.label && g.label && String(g.label) === String(focus.label)) return true;
+  const a = String(g.awayAbbr || '').toUpperCase();
+  const h = String(g.homeAbbr || '').toUpperCase();
+  if (focus.awayAbbr && focus.homeAbbr && a === focus.awayAbbr && h === focus.homeAbbr) return true;
+  return false;
+}
+
 function renderSituationalGbu() {
   const root = document.getElementById('situationalGbuContent');
   const title = document.getElementById('situationalGbuTitle');
@@ -6795,9 +6831,10 @@ function renderSituationalGbu() {
 
   const match = (typeof callActiveMatchup === 'function') ? callActiveMatchup() : null;
   let focusIdx = games.length - 1;
-  if (match && match.eventId) {
+  const focus = GBU_FOCUS || match;
+  if (focus) {
     for (let i = 0; i < games.length; i++) {
-      if (String(games[i].eventId) === String(match.eventId)) { focusIdx = i; break; }
+      if (gbuGameMatchesFocus(games[i], focus)) { focusIdx = i; break; }
     }
   }
 
@@ -6806,7 +6843,7 @@ function renderSituationalGbu() {
   for (let gi = games.length - 1; gi >= 0; gi--) {
     const g = games[gi];
     const teams = gbuGameTeams(g);
-    const tag = (gi === focusIdx) ? ' · this watch' : '';
+    const tag = (gi === focusIdx) ? ' · opened' : '';
     html += '<div class="gbu-win">' + (g.label || g.key) + tag + ' · ' + g.plays.length + ' snaps</div>';
     html += '<p class="gbu-line">' + gbuScoreLine(g) + '</p>';
     html += '<div class="gbu-grid">';

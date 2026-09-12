@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Texans HQ" />
-  <meta name="description" content="Personal Houston Texans PWA v15.45 — Call Desk run/pass logger, situational GBU, game center. Offline-friendly." />
-  <title>Texans HQ v15.45</title>
+  <meta name="description" content="Personal Houston Texans PWA v15.46 — Call Desk, GBU tab, game center. Offline-friendly." />
+  <title>Texans HQ v15.46</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="apple-touch-icon" href="icon-192.png" />
@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v15.45 · Week 1</div>
+      <div id="statusPill" class="status-pill">v15.46 · Week 1</div>
 
 
 
@@ -73,15 +73,6 @@
           </div>
           <div id="dominosContent">
             <div class="empty">Pre-game path loads with the next matchup.</div>
-          </div>
-        </div>
-        <div class="card" id="situationalGbuCard">
-          <div class="card-title-row">
-            <div class="card-title" style="margin-bottom:0" id="situationalGbuTitle">Situational GBU</div>
-            <span class="mode-pill" id="situationalGbuPill">Official only</span>
-          </div>
-          <div id="situationalGbuContent">
-            <div class="empty">Official Call book loads GBU from recorded snaps.</div>
           </div>
         </div>
         <div class="card" id="nextPlayCard" style="display:none">
@@ -145,7 +136,21 @@
         </div>
       </section>
 
-      <!-- 1b. CALL DESK (Chromebook tap flow) -->
+      <!-- 1b. SITUATIONAL GBU (own tab — not mixed into Game Center) -->
+      <section id="sec-gbu" class="section">
+        <div class="card" id="situationalGbuCard">
+          <div class="card-title-row">
+            <div class="card-title" style="margin-bottom:0" id="situationalGbuTitle">Situational GBU</div>
+            <span class="mode-pill" id="situationalGbuPill">Official only</span>
+          </div>
+          <p class="small" style="margin:6px 0 10px">Post-game board from the official Call book. Open a game from Schedule → GBU, or browse every logged official game here.</p>
+          <div id="situationalGbuContent">
+            <div class="empty">Official Call book loads GBU from recorded snaps.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 1c. CALL DESK (Chromebook tap flow) -->
       <section id="sec-call" class="section">
         <div class="card cd-card">
           <div class="card-title-row">
@@ -446,6 +451,10 @@ When the <em>opponent</em> has the ball, the same rigor flips: opponent tendency
       <button class="nav-btn active" data-sec="game" aria-label="Game">
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
         Game
+      </button>
+      <button class="nav-btn" data-sec="gbu" aria-label="GBU">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l6.59-6.59L20 9l-8 8z"/></svg>
+        GBU
       </button>
       <button class="nav-btn" data-sec="call" aria-label="Call">
         <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
