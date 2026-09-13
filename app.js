@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.47';
+const APP_VERSION = 'v15.48';
 
-const APP_VERSION_LABEL = 'v15.47 · Week 1 · GBU tab';
+const APP_VERSION_LABEL = 'v15.48 · Week 1 · GBU flow';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -6443,7 +6443,7 @@ function advanceAfterPlay(st) {
 }
 
 /* ============================================================
-   Situational GBU — official Call Desk book only (v15.47)
+   Situational GBU — official Call Desk book only (v15.48)
    Schema (confirmed on commitCallPlay):
    ts, eventId, label, awayAbbr, homeAbbr, focusAbbr, opponent, team,
    possession, down, distance, field, score, clock, call, result,
@@ -6669,6 +6669,48 @@ function gbuLinesFor(plays) {
   return out.slice(0, 3);
 }
 
+function gbuSnapKind(p) {
+  const call = String((p && p.call) || '').toUpperCase();
+  const res = String((p && p.result) || '').toLowerCase();
+  const flag = String((p && p.flag) || 'none');
+  if (res === 'penalty' || (flag && flag !== 'none')) {
+    const side = (typeof isDefFlag === 'function' && isDefFlag(flag)) ? 'def' : 'off';
+    return { kind: 'penalty', side: side, flag: flag };
+  }
+  if (call === 'RUN') return { kind: 'run' };
+  if (call === 'PASS') return { kind: 'pass' };
+  if (call === 'PUNT') return { kind: 'punt' };
+  if (call === 'FG') return { kind: 'fg' };
+  if (call === 'KO') return { kind: 'ko' };
+  if (call === 'KNEEL') return { kind: 'kneel' };
+  if (call === 'SPIKE' || res === 'spike') return { kind: 'spike' };
+  return { kind: 'other' };
+}
+
+function gbuMixHuman(plays) {
+  const n = { run: 0, pass: 0, punt: 0, fg: 0, ko: 0, kneel: 0, spike: 0, penOff: 0, penDef: 0, other: 0 };
+  (plays || []).forEach(function (p) {
+    const k = gbuSnapKind(p);
+    if (k.kind === 'penalty') {
+      if (k.side === 'def') n.penDef += 1;
+      else n.penOff += 1;
+    } else if (n[k.kind] != null) n[k.kind] += 1;
+    else n.other += 1;
+  });
+  const bits = [];
+  if (n.run) bits.push(n.run + ' run');
+  if (n.pass) bits.push(n.pass + ' pass');
+  if (n.punt) bits.push(n.punt + ' punt');
+  if (n.fg) bits.push(n.fg + ' FG');
+  if (n.ko) bits.push(n.ko + ' KO');
+  if (n.kneel) bits.push(n.kneel + ' kneel');
+  if (n.spike) bits.push(n.spike + ' spike');
+  if (n.penOff) bits.push(n.penOff + ' off penalty');
+  if (n.penDef) bits.push(n.penDef + ' def penalty');
+  if (n.other) bits.push(n.other + ' other');
+  return bits.length ? bits.join(' · ') : 'no snaps';
+}
+
 function gbuTableHtml(plays) {
   let html = '<div class="gbu-table-wrap"><table class="gbu-table"><thead><tr><th>Down</th>';
   GBU_DIST_ORDER.forEach(function (d) {
@@ -6687,8 +6729,8 @@ function gbuTableHtml(plays) {
       }
       const mix = gbuMixCounts(cell);
       const bits = [];
-      bits.push(mix.run + ' run / ' + mix.pass + ' pass / ' + mix.other + ' oth');
-      if (mix.graded) bits.push(mix.ok + '/' + mix.graded + ' ok');
+      bits.push(gbuMixHuman(cell));
+      if (mix.graded) bits.push(mix.ok + '/' + mix.graded + ' on schedule');
       let cls = '';
       if (mix.graded >= 2) {
         const r = mix.ok / mix.graded;
@@ -6704,26 +6746,8 @@ function gbuTableHtml(plays) {
   return html;
 }
 
-function gbuAxisChips(plays, order, labels, axis, hotIds) {
-  let html = '<div class="gbu-chips">';
-  order.forEach(function (id) {
-    const cell = (plays || []).filter(function (p) { return String(p[axis] || '') === id; });
-    const mix = gbuMixCounts(cell);
-    const hot = (hotIds || []).indexOf(id) !== -1;
-    let extra = '';
-    if (id === 'plus') extra = ' is-plus';
-    if (id === 'red') extra = ' is-red';
-    if (id === 'backed') extra = ' is-backed';
-    if (id === 'm4' || id === 'm2') extra = ' is-late';
-    const rate = mix.graded ? (mix.ok + '/' + mix.graded) : '—';
-    html += '<span class="gbu-chip' + extra + (hot ? ' ' : '') + '">' + (labels[id] || id) + ': ' + mix.n + ' snaps · ' + rate + '</span>';
-  });
-  html += '</div>';
-  return html;
-}
-
 function gbuFieldTable(plays) {
-  let html = '<div class="gbu-table-wrap"><table class="gbu-table"><thead><tr><th>Field</th><th>Snaps</th><th>Run/Pass/Oth</th><th>Ok</th></tr></thead><tbody>';
+  let html = '<div class="gbu-table-wrap"><table class="gbu-table"><thead><tr><th>Field</th><th>Snaps</th><th>Mix</th><th>On sch.</th></tr></thead><tbody>';
   GBU_FIELD_ORDER.forEach(function (id) {
     const cell = (plays || []).filter(function (p) { return String(p.field || '') === id; });
     const mix = gbuMixCounts(cell);
@@ -6731,36 +6755,68 @@ function gbuFieldTable(plays) {
       html += '<tr><th>' + (GBU_FIELD_LABEL[id] || id) + '</th><td class="gbu-empty">—</td><td class="gbu-empty">—</td><td class="gbu-empty">—</td></tr>';
       return;
     }
-    let cls = '';
-    if (mix.graded >= 2) {
-      const r = mix.ok / mix.graded;
-      if (r >= 0.7) cls = ' gbu-rate-hi';
-      else if (r <= 0.4) cls = ' gbu-rate-lo';
-      else cls = ' gbu-rate-mid';
-    }
-    html += '<tr class="' + cls.trim() + '"><th>' + (GBU_FIELD_LABEL[id] || id) + '</th><td>' + mix.n + '</td><td>' + mix.run + '/' + mix.pass + '/' + mix.other + '</td><td>' + (mix.graded ? (mix.ok + '/' + mix.graded) : '—') + '</td></tr>';
+    html += '<tr><th>' + (GBU_FIELD_LABEL[id] || id) + '</th><td>' + mix.n + '</td><td>' + gbuMixHuman(cell) + '</td><td>' + (mix.graded ? (mix.ok + '/' + mix.graded) : '—') + '</td></tr>';
   });
   html += '</tbody></table></div>';
   return html;
 }
 
-function gbuClockTable(plays) {
-  let html = '<div class="gbu-table-wrap"><table class="gbu-table"><thead><tr><th>Clock</th><th>Snaps</th><th>Run/Pass/Oth</th><th>Ok</th></tr></thead><tbody>';
-  GBU_CLOCK_ORDER.forEach(function (id) {
-    const cell = (plays || []).filter(function (p) { return String(p.clock || '') === id; });
-    const mix = gbuMixCounts(cell);
+function gbuPeriodList() {
+  return [
+    { id: 'h1', label: '1st half', clocks: ['h1'] },
+    { id: 'q3', label: '3rd quarter', clocks: ['q3'] },
+    { id: 'q4', label: '4th quarter', clocks: ['q4', 'm4', 'm2'] },
+    { id: 'ot', label: 'OT', clocks: ['ot'] }
+  ];
+}
+
+function gbuPlaysInPeriod(plays, period) {
+  return (plays || []).filter(function (p) {
+    return period.clocks.indexOf(String(p.clock || '')) !== -1;
+  });
+}
+
+function gbuPeriodHtml(plays) {
+  let html = '';
+  gbuPeriodList().forEach(function (period) {
+    const cell = gbuPlaysInPeriod(plays, period);
+    html += '<div class="gbu-period">';
+    html += '<div class="gbu-win">' + period.label + ' · ' + cell.length + ' snaps</div>';
     if (!cell.length) {
-      html += '<tr><th>' + (GBU_CLOCK_LABEL[id] || id) + '</th><td class="gbu-empty">—</td><td class="gbu-empty">—</td><td class="gbu-empty">—</td></tr>';
+      if (period.id === 'q4') {
+        html += '<p class="gbu-note">No snaps tagged 4th / 4-min / 2-min. Call Desk uses 4-min and 2-min instead of a generic 4th tile when those windows are on.</p>';
+      } else {
+        html += '<p class="gbu-empty">No snaps in this window.</p>';
+      }
+      html += '</div>';
       return;
     }
-    html += '<tr><th>' + (GBU_CLOCK_LABEL[id] || id) + '</th><td>' + mix.n + '</td><td>' + mix.run + '/' + mix.pass + '/' + mix.other + '</td><td>' + (mix.graded ? (mix.ok + '/' + mix.graded) : '—') + '</td></tr>';
+    const mix = gbuMixCounts(cell);
+    const scores = cell.filter(function (p) { return p.scored || Number(p.points || 0) > 0; });
+    const to = cell.filter(function (p) { return p.result === 'int' || p.result === 'fumble' || p.result === 'pick6' || p.result === 'fum6'; });
+    const red = cell.filter(function (p) { return p.field === 'red'; }).length;
+    const plus = cell.filter(function (p) { return p.field === 'plus' || p.field === 'red'; }).length;
+    let extra = '';
+    if (period.id === 'q4') {
+      const m4 = cell.filter(function (p) { return p.clock === 'm4'; }).length;
+      const m2 = cell.filter(function (p) { return p.clock === 'm2'; }).length;
+      const q4 = cell.filter(function (p) { return p.clock === 'q4'; }).length;
+      extra = ' · generic 4th ' + q4 + ' · 4-min ' + m4 + ' · 2-min ' + m2;
+    }
+    html += '<p class="gbu-line">' + gbuMixHuman(cell) + extra + '</p>';
+    html += '<p class="gbu-note">On schedule ' + (mix.graded ? (mix.ok + '/' + mix.graded) : '—') + ' · opp-side ' + plus + ' · red ' + red + ' · scoring snaps ' + scores.length + ' · turnovers ' + to.length + '</p>';
+    if (scores.length) {
+      html += '<p class="gbu-note">' + scores.map(function (p) {
+        return String(p.team || '') + ' ' + String(p.result || '') + ' +' + Number(p.points || 0);
+      }).join(' · ') + '</p>';
+    }
+    html += '</div>';
   });
-  html += '</tbody></table></div>';
   return html;
 }
 
 function gbuAdjLine(firstPlays, latestPlays, sameGame) {
-  if (sameGame) return 'ADJ — one official game; no week-to-week delta';
+  if (sameGame) return '';
   if (!firstPlays || !latestPlays) return 'ADJ — thin in this bucket';
   const keys = {};
   firstPlays.concat(latestPlays).forEach(function (p) {
@@ -6796,23 +6852,33 @@ function gbuPaintLine(ln) {
   return '<p class="' + cls + '">' + ln.replace(/^GOOD/, '<strong>GOOD</strong>').replace(/^BAD/, '<strong>BAD</strong>').replace(/^UGLY/, '<strong>UGLY</strong>') + '</p>';
 }
 
-function gbuColumnHtml(team, thisPlays, seasonPlays, firstPlays, latestPlays, sameGame) {
-  let html = '<div>';
-  html += '<div class="gbu-col-title">' + team + '</div>';
-  html += '<div class="gbu-win">This game · n=' + thisPlays.length + '</div>';
-  gbuLinesFor(thisPlays).forEach(function (ln) { html += gbuPaintLine(ln); });
-  html += '<div class="gbu-win">Down × distance (whole field)</div>';
-  html += gbuTableHtml(thisPlays);
-  html += '<div class="gbu-win">Field zone</div>';
-  html += gbuFieldTable(thisPlays);
-  html += '<div class="gbu-win">Clock window</div>';
-  html += gbuClockTable(thisPlays);
-  html += '<div class="gbu-win">Season · n=' + seasonPlays.length + '</div>';
-  gbuLinesFor(seasonPlays).forEach(function (ln) { html += gbuPaintLine(ln); });
-  html += gbuTableHtml(seasonPlays);
-  html += '<p class="gbu-line">' + gbuAdjLine(gbuTeamPlays(firstPlays, team), gbuTeamPlays(latestPlays, team), sameGame) + '</p>';
-  html += '</div>';
-  return html;
+function gbuScoreFromTags(plays, away, home) {
+  let a = 0;
+  let h = 0;
+  const bits = [];
+  (plays || []).slice().sort(function (x, y) { return Number(x.ts || 0) - Number(y.ts || 0); }).forEach(function (p) {
+    if (!(p.scored || Number(p.points || 0) > 0)) return;
+    const pts = Number(p.points || 0);
+    const team = String(p.team || '').toUpperCase();
+    if (team === away) a += pts;
+    else if (team === home) h += pts;
+    bits.push(team + ' ' + String(p.result || '') + ' +' + pts);
+  });
+  return { away: a, home: h, bits: bits };
+}
+
+function gbuScoreLine(g) {
+  const plays = (g && g.plays) || [];
+  if (!plays.length) return 'Score from snaps — none';
+  const last = plays.slice().sort(function (a, b) { return Number(a.ts || 0) - Number(b.ts || 0); }).pop();
+  const away = String(g.awayAbbr || last.awayAbbr || 'AWY').toUpperCase();
+  const home = String(g.homeAbbr || last.homeAbbr || 'HOM').toUpperCase();
+  const s = gbuScoreFromTags(plays, away, home);
+  let winner = 'tied';
+  if (s.home > s.away) winner = home + ' won';
+  else if (s.away > s.home) winner = away + ' won';
+  const why = s.bits.length ? s.bits.join(' · ') : 'no tagged scoring snaps';
+  return winner + ' ' + away + ' ' + s.away + ' – ' + home + ' ' + s.home + ' · from tagged scoring snaps only · ' + why;
 }
 
 function gbuWhyGame(g) {
@@ -6821,14 +6887,11 @@ function gbuWhyGame(g) {
   const last = plays.slice().sort(function (a, b) { return Number(a.ts || 0) - Number(b.ts || 0); }).pop();
   const away = String((g && g.awayAbbr) || (last && last.awayAbbr) || teams[0] || 'AWY').toUpperCase();
   const home = String((g && g.homeAbbr) || (last && last.homeAbbr) || teams[1] || 'HOM').toUpperCase();
-  const aScore = last && last.awayScoreAfter != null ? Number(last.awayScoreAfter) : null;
-  const hScore = last && last.homeScoreAfter != null ? Number(last.homeScoreAfter) : null;
-  let winner = 'no final from snaps';
-  if (aScore != null && hScore != null) {
-    if (aScore > hScore) winner = away + ' win ' + aScore + '–' + hScore;
-    else if (hScore > aScore) winner = home + ' win ' + hScore + '–' + aScore;
-    else winner = 'tie ' + aScore + '–' + hScore;
-  }
+  const s = gbuScoreFromTags(plays, away, home);
+  let winner = 'The tagged snaps do not produce a winner.';
+  if (s.home > s.away) winner = home + ' won ' + s.home + '–' + s.away + ' on tagged scoring snaps.';
+  else if (s.away > s.home) winner = away + ' won ' + s.away + '–' + s.home + ' on tagged scoring snaps.';
+  else winner = 'Tied ' + s.away + '–' + s.home + ' on tagged scoring snaps.';
   const parts = [winner];
   teams.forEach(function (team) {
     const tp = gbuTeamPlays(plays, team);
@@ -6837,13 +6900,12 @@ function gbuWhyGame(g) {
     const plus = tp.filter(function (p) { return p.field === 'plus' || p.field === 'red'; });
     const third = tp.filter(function (p) { return Number(p.down) === 3 && gbuIsGraded(p); });
     const thirdOk = third.filter(gbuIsSuccess).length;
-    const scores = tp.filter(function (p) { return p.scored || Number(p.points || 0) > 0; });
-    const h1 = tp.filter(function (p) { return p.clock === 'h1'; }).length;
-    const late = tp.filter(function (p) { return p.clock === 'q3' || p.clock === 'q4' || p.clock === 'm4' || p.clock === 'm2'; }).length;
-    const pts = scores.reduce(function (s, p) { return s + Number(p.points || 0); }, 0);
-    parts.push(team + ': ' + pts + ' pts from ' + scores.length + ' scoring snaps · opp-side (plus+red) ' + plus.length + ' · red ' + red.length + ' · 3rd ' + thirdOk + '/' + third.length + ' · TO ' + to.length + ' · snaps H1 ' + h1 + ' / after H1 ' + late);
+    const h1 = gbuPlaysInPeriod(tp, gbuPeriodList()[0]).length;
+    const q3 = gbuPlaysInPeriod(tp, gbuPeriodList()[1]).length;
+    const q4 = gbuPlaysInPeriod(tp, gbuPeriodList()[2]).length;
+    parts.push(team + ' — ' + gbuMixHuman(tp) + '. Opp-side ' + plus.length + ', red ' + red.length + ', 3rd ' + thirdOk + '/' + third.length + ', TO ' + to.length + '. Snaps by window: 1st half ' + h1 + ', 3rd ' + q3 + ', 4th (incl. 4-min/2-min) ' + q4 + '.');
   });
-  return parts.join('. ') + '.';
+  return parts.join(' ');
 }
 
 function gbuGameTeams(g) {
@@ -6859,20 +6921,24 @@ function gbuGameTeams(g) {
   return seen.slice(0, 2);
 }
 
-function gbuScoreLine(g) {
-  const plays = ((g && g.plays) || []).slice().sort(function (a, b) { return Number(a.ts || 0) - Number(b.ts || 0); });
-  if (!plays.length) return 'Score from snaps — none';
-  const last = plays[plays.length - 1];
-  const away = String(g.awayAbbr || last.awayAbbr || 'AWY').toUpperCase();
-  const home = String(g.homeAbbr || last.homeAbbr || 'HOM').toUpperCase();
-  const a = last.awayScoreAfter != null ? last.awayScoreAfter : '—';
-  const h = last.homeScoreAfter != null ? last.homeScoreAfter : '—';
-  const scores = plays.filter(function (p) { return p && (p.scored || Number(p.points || 0) > 0); });
-  const bits = scores.map(function (p) {
-    return String(p.team || '') + ' ' + String(p.result || '') + ' +' + Number(p.points || 0);
-  });
-  const why = bits.length ? bits.join(' · ') : 'no tagged scoring snaps';
-  return away + ' ' + a + ' – ' + home + ' ' + h + ' · ' + why;
+function gbuColumnHtml(team, thisPlays, seasonPlays, firstPlays, latestPlays, sameGame) {
+  let html = '<div>';
+  html += '<div class="gbu-col-title">' + team + ' · this game · n=' + thisPlays.length + '</div>';
+  gbuLinesFor(thisPlays).forEach(function (ln) { html += gbuPaintLine(ln); });
+  html += '<div class="gbu-win">Game flow</div>';
+  html += gbuPeriodHtml(thisPlays);
+  html += '<div class="gbu-win">Field zone</div>';
+  html += gbuFieldTable(thisPlays);
+  html += '<div class="gbu-win">Down × distance</div>';
+  html += gbuTableHtml(thisPlays);
+  if (!sameGame) {
+    html += '<div class="gbu-win">Season · n=' + seasonPlays.length + '</div>';
+    gbuLinesFor(seasonPlays).forEach(function (ln) { html += gbuPaintLine(ln); });
+    const adj = gbuAdjLine(gbuTeamPlays(firstPlays, team), gbuTeamPlays(latestPlays, team), sameGame);
+    if (adj) html += '<p class="gbu-line">' + adj + '</p>';
+  }
+  html += '</div>';
+  return html;
 }
 
 let GBU_FOCUS = null;
@@ -6925,6 +6991,7 @@ function renderSituationalGbu() {
 
   const firstGame = games[0];
   const latestGame = games[games.length - 1];
+  const sameGame = firstGame.key === latestGame.key;
   const seasonByTeam = {};
   games.forEach(function (g) {
     (g.plays || []).forEach(function (p) {
@@ -6944,9 +7011,8 @@ function renderSituationalGbu() {
     }
   }
 
-  const sameGame = !firstGame || !latestGame || firstGame.key === latestGame.key;
   let html = note;
-  html += '<p class="gbu-note">Official snaps only. Field zone and clock are counted for the whole field — empty 1st-and-short cells mean no snaps there, not “own side only.”</p>';
+  html += '<p class="gbu-note">Score is rebuilt from tagged scoring snaps only (stored running score is ignored). 4th quarter includes the 4-min and 2-min tiles — Call Desk does not also stamp those snaps as q4. Penalties are off or def, not “oth.” Season rows appear only after a second official game.</p>';
   for (let gi = games.length - 1; gi >= 0; gi--) {
     const g = games[gi];
     const teams = gbuGameTeams(g);
