@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.49';
+const APP_VERSION = 'v15.50';
 
-const APP_VERSION_LABEL = 'v15.49 · Week 1 · GBU flow';
+const APP_VERSION_LABEL = 'v15.50 · Week 1 · KO after score';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -6064,7 +6064,7 @@ function renderCallDesk() {
   let body = '';
   if (st.step === 'situation') {
     body += '<div class="cd-top">';
-    body += '<div class="cd-who"><strong>' + ballAbbr + ' BALL</strong> · ' + match.label + '</div>';
+    body += '<div class="cd-who"><strong>' + ballAbbr + ' BALL</strong> · ' + match.label + (st.expectKo ? ' · KICKOFF NEXT' : '') + '</div>';
     body += '<div class="cd-scoreboard">' +
       '<button type="button" class="cd-mini" data-cd="scoreadj" data-id="away-">−</button> ' +
       match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> ' +
@@ -6373,23 +6373,61 @@ function advanceAfterPlay(st) {
   st.lastPat = 'none';
   st.step = 'situation';
   if (call === 'KO') {
-    st.expectKo = false;
     if (res === 'onside') {
+      st.expectKo = false;
       st.down = 1;
       st.distance = 'short';
       st.field = 'mid';
       return;
     }
+    // Kickoff is recorded by the kicking team. After a normal KO, the
+    // receiving team has the ball. After a kick-return TD they scored,
+    // so they keep the ball line and must log the next kickoff.
     flipPoss(st);
     st.down = 1;
     st.distance = 'long';
-    st.field = (res === 'tb') ? 'own40' : 'backed';
-    if (res === 'krtd') st.field = 'mid';
+    if (res === 'krtd') {
+      st.expectKo = true;
+      st.field = 'mid';
+    } else {
+      st.expectKo = false;
+      st.field = (res === 'tb') ? 'own40' : 'backed';
+    }
     return;
   }
-  if (res === 'td' || res === 'fg' || res === 'safety' || res === 'pick6' || res === 'fum6' || res === 'krtd' || res === 'prtd' || res === 'blktd') {
+  // Scoring plays that are followed by a kickoff from the scoring team
+  // (or a safety kick from the team that just had the ball). Ball line
+  // stays with the kicking team until KO is saved.
+  if (res === 'td' || res === 'fg') {
     st.expectKo = true;
-  } else if (res !== 'penalty') {
+    st.down = 1;
+    st.distance = 'long';
+    st.field = 'mid';
+    return;
+  }
+  if (res === 'safety') {
+    st.expectKo = true;
+    st.down = 1;
+    st.distance = 'long';
+    st.field = 'backed';
+    return;
+  }
+  if (res === 'pick6' || res === 'fum6' || res === 'prtd' || res === 'blktd') {
+    flipPoss(st);
+    st.expectKo = true;
+    st.down = 1;
+    st.distance = 'long';
+    st.field = 'mid';
+    return;
+  }
+  if (res === 'krtd') {
+    st.expectKo = true;
+    st.down = 1;
+    st.distance = 'long';
+    st.field = 'mid';
+    return;
+  }
+  if (res !== 'penalty') {
     st.expectKo = false;
   }
   if (isAutoFirstFlag(flag)) {
@@ -6405,7 +6443,7 @@ function advanceAfterPlay(st) {
     // Replay the down (false start / offsides).
     return;
   }
-  if (res === 'td' || res === 'fg' || res === 'fgmiss' || res === 'pick6' || res === 'fum6' || res === 'safety' || res === 'krtd' || res === 'prtd' || res === 'punt' || res === 'blocked' || res === 'blktd') {
+  if (res === 'fgmiss' || res === 'punt' || res === 'blocked') {
     flipPoss(st);
     st.down = 1;
     st.distance = 'long';
