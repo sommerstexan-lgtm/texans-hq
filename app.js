@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.60';
+const APP_VERSION = 'v15.62';
 
-const APP_VERSION_LABEL = 'v15.60 · Week 1 · TV ends + Q2 flip';
+const APP_VERSION_LABEL = 'v15.62 · Week 1 · LOS + side of 50';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5862,6 +5862,65 @@ function fieldTilesForTv(st, match) {
   if (off && st.tvRight && off === st.tvRight) return tiles.reverse();
   return tiles;
 }
+function fieldFromLos(side, yard) {
+  const n = Number(yard);
+  if (side === 'opp') {
+    if (n <= 20) return 'red';
+    if (n <= 39) return 'plus';
+    return 'mid';
+  }
+  if (n <= 19) return 'backed';
+  if (n <= 39) return 'own40';
+  return 'mid';
+}
+function defaultLosForField(field) {
+  if (field === 'backed') return { side: 'own', yard: 10 };
+  if (field === 'own40') return { side: 'own', yard: 30 };
+  if (field === 'plus') return { side: 'opp', yard: 30 };
+  if (field === 'red') return { side: 'opp', yard: 10 };
+  return { side: 'own', yard: 50 };
+}
+function applyLos(st, side, yard) {
+  let n = Number(yard);
+  if (!Number.isFinite(n)) n = 50;
+  n = Math.max(1, Math.min(50, Math.round(n)));
+  st.losSide = side === 'opp' ? 'opp' : 'own';
+  st.losYard = n;
+  st.field = fieldFromLos(st.losSide, n);
+}
+function losToOppGoal(side, yard) {
+  const n = Number(yard);
+  if (!Number.isFinite(n)) return null;
+  return side === 'opp' ? n : (100 - n);
+}
+function backfillPrevYardsFromLos(st) {
+  try {
+    const match = callActiveMatchup();
+    const log = loadCallLog(st);
+    const prev = lastSameDrivePlay(log, st, match);
+    if (!prev || prev.yardsSource === 'manual') return;
+    const prevDef = defaultLosForField(prev.field);
+    const t0 = losToOppGoal(prev.losSide || prevDef.side, prev.losYard || prevDef.yard);
+    const t1 = losToOppGoal(st.losSide, st.losYard);
+    if (t0 == null || t1 == null) return;
+    if (playEndsDrive(prev) && String(prev.call) === 'KO') return;
+    const y = t0 - t1;
+    if (!Number.isFinite(y)) return;
+    applyYardsToPlay(prev, y, 'los');
+    saveCallLog(log, st);
+    st.lastCalcTs = prev.ts;
+    st.lastCalcYards = y;
+  } catch (e) {}
+}
+function losLabel(st, match) {
+  const off = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
+  const def = st.possession === 'away' ? match.homeAbbr : match.awayAbbr;
+  const yard = Number(st.losYard);
+  if (yard === 50) return '50';
+  const side = st.losSide || 'own';
+  const team = side === 'opp' ? def : off;
+  return (team || side) + ' ' + (st.losYard || '—');
+}
 const CALL_PASS_RESULTS = [
   { id: 'complete', label: 'Complete' },
   { id: 'td', label: 'TD' },
@@ -5993,6 +6052,8 @@ function defaultCallState() {
     distance: 'long',
     toGo: '10',
     field: 'mid',
+    losSide: 'own',
+    losYard: 50,
     score: 'tied',
     clock: 'q1',
     tvLeft: '',
@@ -6619,7 +6680,16 @@ function renderCallDesk() {
       '<button type="button" class="cd-tile' + (st.tvLeft === match.homeAbbr ? ' is-on' : '') + '" data-cd="tvleft" data-id="' + match.homeAbbr + '">Left ' + match.homeAbbr + '</button>' +
       '<button type="button" class="cd-tile" data-cd="tvswap" data-id="1">Swap ends</button></div></div>';
     body += '<div class="cd-tend">' + (st.tvLeft || '') + ' end on TV left · ' + (st.tvRight || '') + ' end on TV right · ' + driveDir + '</div>';
-    body += '<div class="cd-line"><span class="cd-row-label">Line of scrimmage</span><div class="cd-row">' + tilesHtml(fieldTilesForTv(st, match), st.field, 'field') + '</div></div>';
+    if (!st.losYard) applyLos(st, (defaultLosForField(st.field).side), defaultLosForField(st.field).yard);
+    body += '<div class="cd-line"><span class="cd-row-label">Line of scrimmage · now ' + losLabel(st, match) + '</span><div class="cd-row">' +
+      '<button type="button" class="cd-tile' + (st.losSide !== 'opp' ? ' is-on' : '') + '" data-cd="losside" data-id="own">Own</button>' +
+      '<button type="button" class="cd-tile' + (st.losSide === 'opp' ? ' is-on' : '') + '" data-cd="losside" data-id="opp">Opp</button>' +
+      '<button type="button" class="cd-mini" data-cd="losadj" data-id="-1">−1</button>' +
+      '<button type="button" class="cd-mini" data-cd="losadj" data-id="+1">+1</button></div></div>';
+    body += '<div class="cd-row">' + [5,10,15,20,25,30,35,40,45,50].map(function (n) {
+      return '<button type="button" class="cd-tile' + (Number(st.losYard) === n ? ' is-on' : '') + '" data-cd="losyard" data-id="' + n + '">' + n + '</button>';
+    }).join('') + '</div>';
+    body += '<div class="cd-line"><span class="cd-row-label">Zone</span><div class="cd-row">' + tilesHtml(fieldTilesForTv(st, match), st.field, 'field') + '</div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Clock</span><div class="cd-row">' + tilesHtml(CALL_CLOCK, st.clock, 'clock') + '</div></div>';
     body += '<button type="button" class="cd-mini" data-cd="moresit" data-id="' + (st.moreSit ? 'off' : 'on') + '">' + (st.moreSit ? 'Hide extras' : 'Extras') + '</button>';
     if (st.moreSit) {
@@ -6896,6 +6966,7 @@ function onCallDeskClick(ev) {
     st.distance = play.distance || st.distance;
     st.toGo = play.toGo || st.toGo;
     st.field = play.field || st.field;
+    if (play.losYard) applyLos(st, play.losSide || 'own', play.losYard);
     st.score = play.score || st.score;
     st.clock = play.clock || st.clock;
     st.lastCall = play.call || null;
@@ -6959,7 +7030,25 @@ function onCallDeskClick(ev) {
       }
     } catch (e) {}
   }
-  if (key === 'field') st.field = id;
+  if (key === 'field') {
+    st.field = id;
+    const d = defaultLosForField(id);
+    applyLos(st, d.side, d.yard);
+    backfillPrevYardsFromLos(st);
+  }
+  if (key === 'losside') {
+    applyLos(st, id, st.losYard || 25);
+    backfillPrevYardsFromLos(st);
+  }
+  if (key === 'losyard') {
+    applyLos(st, st.losSide || 'own', id);
+    backfillPrevYardsFromLos(st);
+  }
+  if (key === 'losadj') {
+    const cur = Number(st.losYard || 50);
+    applyLos(st, st.losSide || 'own', cur + (id === '+1' ? 1 : -1));
+    backfillPrevYardsFromLos(st);
+  }
   if (key === 'score') {
     st.score = id;
     st.scoreManual = true;
@@ -7099,6 +7188,8 @@ function commitCallPlay(st) {
     distance: st.distance || distFromToGo(st.toGo),
     toGo: st.toGo || '',
     field: st.field,
+    losSide: st.losSide || '',
+    losYard: st.losYard || null,
     score: st.score,
     clock: st.clock,
     call: st.lastCall,
