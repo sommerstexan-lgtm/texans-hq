@@ -1958,3 +1958,7 @@ body.dock-mode .app-header {
 .qr-game .qr-qtitle{color:#F5C518;}
 
 .cd-yardcalc{font-size:0.88rem;font-weight:700;margin:6px 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+
+.cd-los-now{font-size:1.6rem;font-weight:800;padding:8px 4px 6px;letter-spacing:0.02em;}
+.cd-los-now strong{font-size:2.1rem;}
+.cd-tile.cd-near{border-color:var(--navy);box-shadow:0 0 0 2px rgba(3,32,47,0.15);}

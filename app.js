@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.62';
+const APP_VERSION = 'v15.63';
 
-const APP_VERSION_LABEL = 'v15.62 · Week 1 · LOS + side of 50';
+const APP_VERSION_LABEL = 'v15.63 · Week 1 · big LOS number';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -6681,13 +6681,16 @@ function renderCallDesk() {
       '<button type="button" class="cd-tile" data-cd="tvswap" data-id="1">Swap ends</button></div></div>';
     body += '<div class="cd-tend">' + (st.tvLeft || '') + ' end on TV left · ' + (st.tvRight || '') + ' end on TV right · ' + driveDir + '</div>';
     if (!st.losYard) applyLos(st, (defaultLosForField(st.field).side), defaultLosForField(st.field).yard);
-    body += '<div class="cd-line"><span class="cd-row-label">Line of scrimmage · now ' + losLabel(st, match) + '</span><div class="cd-row">' +
+    body += '<div class="cd-los-now">LOS <strong>' + losLabel(st, match) + '</strong></div>';
+    body += '<div class="cd-line"><span class="cd-row-label">Line of scrimmage</span><div class="cd-row">' +
       '<button type="button" class="cd-tile' + (st.losSide !== 'opp' ? ' is-on' : '') + '" data-cd="losside" data-id="own">Own</button>' +
       '<button type="button" class="cd-tile' + (st.losSide === 'opp' ? ' is-on' : '') + '" data-cd="losside" data-id="opp">Opp</button>' +
       '<button type="button" class="cd-mini" data-cd="losadj" data-id="-1">−1</button>' +
       '<button type="button" class="cd-mini" data-cd="losadj" data-id="+1">+1</button></div></div>';
     body += '<div class="cd-row">' + [5,10,15,20,25,30,35,40,45,50].map(function (n) {
-      return '<button type="button" class="cd-tile' + (Number(st.losYard) === n ? ' is-on' : '') + '" data-cd="losyard" data-id="' + n + '">' + n + '</button>';
+      const exact = Number(st.losYard) === n;
+      const near = !exact && Math.abs(Number(st.losYard) - n) <= 2;
+      return '<button type="button" class="cd-tile' + (exact ? ' is-on' : '') + (near ? ' cd-near' : '') + '" data-cd="losyard" data-id="' + n + '">' + n + '</button>';
     }).join('') + '</div>';
     body += '<div class="cd-line"><span class="cd-row-label">Zone</span><div class="cd-row">' + tilesHtml(fieldTilesForTv(st, match), st.field, 'field') + '</div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Clock</span><div class="cd-row">' + tilesHtml(CALL_CLOCK, st.clock, 'clock') + '</div></div>';
