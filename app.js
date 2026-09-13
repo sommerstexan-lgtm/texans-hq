@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.48';
+const APP_VERSION = 'v15.49';
 
-const APP_VERSION_LABEL = 'v15.48 · Week 1 · GBU flow';
+const APP_VERSION_LABEL = 'v15.49 · Week 1 · GBU flow';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -6443,7 +6443,7 @@ function advanceAfterPlay(st) {
 }
 
 /* ============================================================
-   Situational GBU — official Call Desk book only (v15.48)
+   Situational GBU — official Call Desk book only (v15.49)
    Schema (confirmed on commitCallPlay):
    ts, eventId, label, awayAbbr, homeAbbr, focusAbbr, opponent, team,
    possession, down, distance, field, score, clock, call, result,
@@ -6963,6 +6963,164 @@ function gbuGameMatchesFocus(g, focus) {
   return false;
 }
 
+const GBU_ANALYSIS_BY_KEY = {};
+
+function gbuLiveRunPass(plays) {
+  return (plays || []).filter(function (p) {
+    const k = String(p.call || '').toUpperCase();
+    return (k === 'RUN' || k === 'PASS') && String(p.result || '') !== 'penalty';
+  });
+}
+
+function gbuTurnovers(plays) {
+  return (plays || []).filter(function (p) {
+    const r = String(p.result || '');
+    return r === 'int' || r === 'fumble' || r === 'pick6' || r === 'fum6';
+  });
+}
+
+function gbuPeriodId(p) {
+  const c = String((p && p.clock) || '');
+  if (c === 'h1') return 'h1';
+  if (c === 'q3') return 'q3';
+  if (c === 'q4' || c === 'm4' || c === 'm2') return 'q4';
+  if (c === 'ot') return 'ot';
+  return c || '?';
+}
+
+function buildOfficialGameAnalysis(g) {
+  const plays = ((g && g.plays) || []).slice().sort(function (a, b) { return Number(a.ts || 0) - Number(b.ts || 0); });
+  const empty = {
+    key: (g && g.key) || '',
+    label: (g && g.label) || 'Official game',
+    title: 'No official snaps',
+    scoreLine: 'Score from snaps — none',
+    text: 'Official Call book has no snaps for this game.',
+    html: '<p>Official Call book has no snaps for this game.</p>',
+    facts: null
+  };
+  if (!plays.length) return empty;
+  const last = plays[plays.length - 1];
+  const away = String((g && g.awayAbbr) || last.awayAbbr || 'AWY').toUpperCase();
+  const home = String((g && g.homeAbbr) || last.homeAbbr || 'HOM').toUpperCase();
+  const s = gbuScoreFromTags(plays, away, home);
+  let winnerAbbr = '';
+  let loserAbbr = '';
+  let winnerLine = 'Tied ' + away + ' ' + s.away + '–' + home + ' ' + s.home + ' on tagged scoring snaps.';
+  if (s.home > s.away) {
+    winnerAbbr = home; loserAbbr = away;
+    winnerLine = home + ' won ' + s.home + '–' + s.away + ' on tagged scoring snaps.';
+  } else if (s.away > s.home) {
+    winnerAbbr = away; loserAbbr = home;
+    winnerLine = away + ' won ' + s.away + '–' + s.home + ' on tagged scoring snaps.';
+  }
+  const scoring = plays.filter(function (p) { return p.scored || Number(p.points || 0) > 0; }).map(function (p) {
+    return {
+      team: String(p.team || '').toUpperCase(),
+      period: gbuPeriodId(p),
+      field: p.field,
+      down: p.down,
+      distance: p.distance,
+      call: p.call,
+      result: p.result,
+      points: Number(p.points || 0)
+    };
+  });
+  function teamFacts(team) {
+    const tp = gbuTeamPlays(plays, team);
+    const live = gbuLiveRunPass(tp);
+    const third = live.filter(function (p) { return Number(p.down) === 3; });
+    const fourth = tp.filter(function (p) { return Number(p.down) === 4; });
+    const to = gbuTurnovers(tp);
+    return {
+      team: team,
+      snaps: tp.length,
+      mix: gbuMixHuman(tp),
+      red: tp.filter(function (p) { return p.field === 'red'; }).length,
+      plusRed: tp.filter(function (p) { return p.field === 'plus' || p.field === 'red'; }).length,
+      thirdOk: third.filter(gbuIsSuccess).length,
+      thirdN: third.length,
+      fourthScores: fourth.filter(function (p) { return p.scored || Number(p.points || 0) > 0; }).length,
+      fourthN: fourth.length,
+      turnovers: to.length,
+      turnoverList: to.map(function (p) {
+        return gbuPeriodId(p) + ' ' + (GBU_FIELD_LABEL[p.field] || p.field || '') + ' ' + gbuDownWord(p.down) + '-and-' + (GBU_DIST_LABEL[p.distance] || p.distance || '') + ' ' + String(p.call || '') + ' ' + String(p.result || '');
+      }),
+      h1: tp.filter(function (p) { return gbuPeriodId(p) === 'h1'; }).length,
+      q3: tp.filter(function (p) { return gbuPeriodId(p) === 'q3'; }).length,
+      q4: tp.filter(function (p) { return gbuPeriodId(p) === 'q4'; }).length,
+      kneels: tp.filter(function (p) { return String(p.call || '').toUpperCase() === 'KNEEL' || p.result === 'kneel'; }).length
+    };
+  }
+  const fa = teamFacts(away);
+  const fh = teamFacts(home);
+  const periodName = { h1: '1st half', q3: '3rd quarter', q4: '4th quarter (4-min/2-min)', ot: 'OT' };
+  const scoringBits = scoring.map(function (x, i) {
+    return (i + 1) + '. ' + (periodName[x.period] || x.period) + ', ' + x.team + ', ' + (GBU_FIELD_LABEL[x.field] || x.field || '') + ', ' + gbuDownWord(x.down) + '-and-' + (GBU_DIST_LABEL[x.distance] || x.distance || '') + ', ' + String(x.call || '') + ' ' + String(x.result || '') + ' +' + x.points;
+  });
+  const paras = [];
+  paras.push(winnerLine + ' ' + away + ' logged ' + fa.snaps + ' snaps, ' + home + ' ' + fh.snaps + '. Extra snaps are not the result — field, ball security, and 4th-down finishing are.');
+  if (scoringBits.length) {
+    paras.push('Tagged scoring in order: ' + scoringBits.join('; ') + '.');
+  } else {
+    paras.push('No tagged scoring snaps in the official book.');
+  }
+  function toSentence(f) {
+    if (!f.turnovers) return f.team + ' turned it over 0 times.';
+    return f.team + ' turned it over ' + f.turnovers + ' time' + (f.turnovers === 1 ? '' : 's') + ': ' + f.turnoverList.join('; ') + '.';
+  }
+  paras.push(toSentence(fa) + ' ' + toSentence(fh));
+  paras.push(away + ' red-zone snaps ' + fa.red + ' (opp-side ' + fa.plusRed + '), live 3rd ' + fa.thirdOk + '/' + fa.thirdN + ', 4th-down scores ' + fa.fourthScores + '/' + fa.fourthN + '. ' + home + ' red-zone snaps ' + fh.red + ' (opp-side ' + fh.plusRed + '), live 3rd ' + fh.thirdOk + '/' + fh.thirdN + ', 4th-down scores ' + fh.fourthScores + '/' + fh.fourthN + '.');
+  paras.push('Clock windows — ' + away + ': 1st half ' + fa.h1 + ', 3rd ' + fa.q3 + ', 4th ' + fa.q4 + (fa.kneels ? ', kneels ' + fa.kneels : '') + '. ' + home + ': 1st half ' + fh.h1 + ', 3rd ' + fh.q3 + ', 4th ' + fh.q4 + (fh.kneels ? ', kneels ' + fh.kneels : '') + '.');
+  if (winnerAbbr && loserAbbr) {
+    const w = winnerAbbr === away ? fa : fh;
+    const l = loserAbbr === away ? fa : fh;
+    paras.push(winnerAbbr + ' won because the tagged book shows a cleaner ball (' + w.turnovers + ' TO vs ' + l.turnovers + ') and more 4th-down scores (' + w.fourthScores + ' vs ' + l.fourthScores + ') even if snap count favored ' + loserAbbr + ' (' + l.snaps + '–' + w.snaps + '). ' + loserAbbr + ' lost when extra volume stayed out of the red (' + l.red + ' red snaps) and turnovers ended possessions.');
+  }
+  const html = '<h3>' + (g.label || (away + ' @ ' + home)) + ' · post-game</h3>' +
+    '<p><strong>' + winnerLine + '</strong></p>' +
+    '<h4>Scoring snaps</h4><ul>' + (scoringBits.length ? scoringBits.map(function (b) { return '<li>' + b + '</li>'; }).join('') : '<li>None tagged</li>') + '</ul>' +
+    '<h4>Ball security</h4><p>' + toSentence(fa) + ' ' + toSentence(fh) + '</p>' +
+    '<h4>Field and downs</h4><p>' + away + ': ' + fa.mix + '. Red ' + fa.red + ', opp-side ' + fa.plusRed + ', 3rd ' + fa.thirdOk + '/' + fa.thirdN + ', 4th-down scores ' + fa.fourthScores + '/' + fa.fourthN + '.</p><p>' + home + ': ' + fh.mix + '. Red ' + fh.red + ', opp-side ' + fh.plusRed + ', 3rd ' + fh.thirdOk + '/' + fh.thirdN + ', 4th-down scores ' + fh.fourthScores + '/' + fh.fourthN + '.</p>' +
+    '<h4>Clock</h4><p>' + away + ' 1st half ' + fa.h1 + ', 3rd ' + fa.q3 + ', 4th ' + fa.q4 + '. ' + home + ' 1st half ' + fh.h1 + ', 3rd ' + fh.q3 + ', 4th ' + fh.q4 + '.</p>' +
+    '<h4>Why the score</h4><p>' + paras[paras.length - 1] + '</p>' +
+    '<p class="gbu-note">Built only from official Call snaps. Stored running score is ignored. Reuse via getOfficialGameAnalysis(eventId).</p>';
+  const out = {
+    key: (g && g.key) || String(g.eventId || g.label || ''),
+    eventId: g && g.eventId ? String(g.eventId) : '',
+    label: g.label || (away + ' @ ' + home),
+    title: (g.label || (away + ' @ ' + home)) + ' · post-game',
+    scoreLine: winnerLine,
+    text: paras.join(' '),
+    html: html,
+    facts: { away: fa, home: fh, scoring: scoring, winnerAbbr: winnerAbbr, loserAbbr: loserAbbr, awayScore: s.away, homeScore: s.home }
+  };
+  if (out.key) GBU_ANALYSIS_BY_KEY[out.key] = out;
+  if (out.eventId) GBU_ANALYSIS_BY_KEY[out.eventId] = out;
+  return out;
+}
+
+function getOfficialGameAnalysis(eventId) {
+  if (eventId && GBU_ANALYSIS_BY_KEY[String(eventId)]) return GBU_ANALYSIS_BY_KEY[String(eventId)];
+  const plays = (typeof loadOfficialCallPlays === 'function') ? loadOfficialCallPlays() : [];
+  const grouped = gbuGroupGames(plays);
+  const hit = (grouped.games || []).filter(function (g) {
+    return String(g.eventId || '') === String(eventId) || String(g.key || '') === String(eventId) || String(g.label || '') === String(eventId);
+  })[0];
+  return hit ? buildOfficialGameAnalysis(hit) : null;
+}
+
+function showGbuAnalysis(g) {
+  const panel = document.getElementById('gbuAnalysisPanel');
+  if (!panel) return;
+  const a = buildOfficialGameAnalysis(g);
+  panel.innerHTML = a.html + '<p><button type="button" class="btn secondary" id="gbuAnalysisClose">Close analysis</button></p>';
+  panel.hidden = false;
+  const close = document.getElementById('gbuAnalysisClose');
+  if (close) close.addEventListener('click', function () { panel.hidden = true; });
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function renderSituationalGbu() {
   const root = document.getElementById('situationalGbuContent');
   const title = document.getElementById('situationalGbuTitle');
@@ -7032,8 +7190,17 @@ function renderSituationalGbu() {
       );
     });
     html += '</div>';
+    buildOfficialGameAnalysis(g);
   }
   root.innerHTML = html;
+  const opened = games[focusIdx] || latestGame;
+  const btn = document.getElementById('gbuAnalysisBtn');
+  if (btn) {
+    btn.onclick = function () {
+      if (!opened) return;
+      showGbuAnalysis(opened);
+    };
+  }
 }
 
 function exportCallLog() {

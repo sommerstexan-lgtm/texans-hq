@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Texans HQ" />
-  <meta name="description" content="Personal Houston Texans PWA v15.48 — Call Desk, GBU tab, game center. Offline-friendly." />
-  <title>Texans HQ v15.48</title>
+  <meta name="description" content="Personal Houston Texans PWA v15.49 — Call Desk, GBU tab, game center. Offline-friendly." />
+  <title>Texans HQ v15.49</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="apple-touch-icon" href="icon-192.png" />
@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v15.48 · Week 1</div>
+      <div id="statusPill" class="status-pill">v15.49 · Week 1</div>
 
 
 
@@ -141,9 +141,13 @@
         <div class="card" id="situationalGbuCard">
           <div class="card-title-row">
             <div class="card-title" style="margin-bottom:0" id="situationalGbuTitle">Situational GBU</div>
-            <span class="mode-pill" id="situationalGbuPill">Official only</span>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span class="mode-pill" id="situationalGbuPill">Official only</span>
+              <button type="button" class="btn" id="gbuAnalysisBtn">Post-game</button>
+            </div>
           </div>
-          <p class="small" style="margin:6px 0 10px">Post-game board from the official Call book. Open a game from Schedule → GBU, or browse every logged official game here.</p>
+          <p class="small" style="margin:6px 0 10px">Post-game board from the official Call book. Open a game from Schedule → GBU, or browse every logged official game here. Top-right <em>Post-game</em> is the written analysis for the opened game.</p>
+          <div id="gbuAnalysisPanel" class="gbu-analysis-panel" hidden></div>
           <div id="situationalGbuContent">
             <div class="empty">Official Call book loads GBU from recorded snaps.</div>
           </div>
