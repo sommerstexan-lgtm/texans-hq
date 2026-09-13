@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Texans HQ" />
-  <meta name="description" content="Personal Houston Texans PWA v15.50 — Call Desk, GBU tab, game center. Offline-friendly." />
-  <title>Texans HQ v15.50</title>
+  <meta name="description" content="Personal Houston Texans PWA v15.59 — Call Desk, GBU tab, game center. Offline-friendly." />
+  <title>Texans HQ v15.59</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="apple-touch-icon" href="icon-192.png" />
@@ -33,7 +33,7 @@
         <div class="logo-mark">H</div>
         <div class="app-title">Texans <span>HQ</span></div>
       </div>
-      <div id="statusPill" class="status-pill">v15.50 · Week 1</div>
+      <div id="statusPill" class="status-pill">v15.59 · Week 1</div>
 
 
 
@@ -50,6 +50,16 @@
           </div>
           <div id="gameCenterContent">
             <div class="empty">Week 1 · Sun Sep 13 · vs BUF · 12:00 CT · CBS</div>
+          </div>
+        </div>
+        <div class="card" id="quarterRecapCard">
+          <div class="card-title-row">
+            <div class="card-title" style="margin-bottom:0">Quarter recap</div>
+            <span class="mode-pill" id="quarterRecapPill">Official book</span>
+          </div>
+          <p class="small" style="margin:6px 0 10px">Builds as you save snaps. 1st half is one tile (H1) because Call Desk clock is H1 / Q3 / Q4 / 4-min / 2-min / OT. Yards are estimated from the optional gain tap.</p>
+          <div id="quarterRecapContent">
+            <div class="empty">Save official snaps on Call and this board fills quarter by quarter.</div>
           </div>
         </div>
         <div class="card" id="backupReminder" style="display:none">
