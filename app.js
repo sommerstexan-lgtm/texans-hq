@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.59';
+const APP_VERSION = 'v15.60';
 
-const APP_VERSION_LABEL = 'v15.59 · Week 1 · LOS on main board';
+const APP_VERSION_LABEL = 'v15.60 · Week 1 · TV ends + Q2 flip';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5827,13 +5827,41 @@ const CALL_SCORE = [
   { id: 'home', label: 'Home lead' }
 ];
 const CALL_CLOCK = [
-  { id: 'h1', label: '1st half' },
+  { id: 'q1', label: '1st qtr' },
+  { id: 'q2', label: '2nd qtr' },
   { id: 'q3', label: '3rd qtr' },
   { id: 'q4', label: '4th qtr' },
   { id: 'm4', label: '4-min' },
   { id: 'm2', label: '2-min' },
   { id: 'ot', label: 'OT' }
 ];
+function clockQuarterNo(clock) {
+  const c = String(clock || '');
+  if (c === 'q1' || c === 'h1') return 1;
+  if (c === 'q2') return 2;
+  if (c === 'q3') return 3;
+  if (c === 'q4' || c === 'm4' || c === 'm2') return 4;
+  if (c === 'ot') return 5;
+  return 1;
+}
+function swapTvEnds(st) {
+  const a = st.tvLeft;
+  st.tvLeft = st.tvRight;
+  st.tvRight = a;
+}
+function ensureTvEnds(st, match) {
+  if (!st.tvLeft || !st.tvRight) {
+    st.tvLeft = match.awayAbbr;
+    st.tvRight = match.homeAbbr;
+  }
+}
+function fieldTilesForTv(st, match) {
+  ensureTvEnds(st, match);
+  const off = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
+  const tiles = CALL_FIELD.slice();
+  if (off && st.tvRight && off === st.tvRight) return tiles.reverse();
+  return tiles;
+}
 const CALL_PASS_RESULTS = [
   { id: 'complete', label: 'Complete' },
   { id: 'td', label: 'TD' },
@@ -5966,7 +5994,9 @@ function defaultCallState() {
     toGo: '10',
     field: 'mid',
     score: 'tied',
-    clock: 'h1',
+    clock: 'q1',
+    tvLeft: '',
+    tvRight: '',
     step: 'situation',
     lastCall: null,
     lastResult: null,
@@ -6177,15 +6207,18 @@ function playLine(p) {
 
 function quarterBucket(clock) {
   const c = String(clock || '');
-  if (c === 'h1') return 'H1';
+  if (c === 'q1') return 'Q1';
+  if (c === 'q2') return 'Q2';
+  if (c === 'h1') return 'Q1';
   if (c === 'q3') return 'Q3';
   if (c === 'q4' || c === 'm4' || c === 'm2') return 'Q4';
   if (c === 'ot') return 'OT';
-  return 'H1';
+  return 'Q1';
 }
 
 function quarterLabel(id) {
-  if (id === 'H1') return '1st half (Q1–Q2)';
+  if (id === 'Q1' || id === 'H1') return '1st quarter';
+  if (id === 'Q2') return '2nd quarter';
   if (id === 'Q3') return '3rd quarter';
   if (id === 'Q4') return '4th quarter';
   if (id === 'OT') return 'Overtime';
@@ -6292,8 +6325,8 @@ function renderQuarterRecap() {
       if (root) root.innerHTML = '<div class="empty">Save official snaps on Call and this board fills quarter by quarter.</div>';
       return;
     }
-    const order = ['H1', 'Q3', 'Q4', 'OT'];
-    const byQ = { H1: [], Q3: [], Q4: [], OT: [] };
+    const order = ['Q1', 'Q2', 'Q3', 'Q4', 'OT'];
+    const byQ = { Q1: [], Q2: [], Q3: [], Q4: [], OT: [] };
     gamePlays.forEach(function (p) {
       const q = quarterBucket(p.clock);
       if (!byQ[q]) byQ[q] = [];
@@ -6578,7 +6611,15 @@ function renderCallDesk() {
       body += '<button type="button" class="cd-mini" data-cd="yardadj" data-id="-1">−1</button>';
       body += '<button type="button" class="cd-mini" data-cd="yardadj" data-id="+1">+1</button></div>';
     }
-    body += '<div class="cd-line"><span class="cd-row-label">Line of scrimmage</span><div class="cd-row">' + tilesHtml(CALL_FIELD, st.field, 'field') + '</div></div>';
+    ensureTvEnds(st, match);
+    if (st.clock === 'h1') st.clock = 'q1';
+    const driveDir = (st.possession === 'away' ? match.awayAbbr : match.homeAbbr) === st.tvRight ? '← offense this way' : 'offense this way →';
+    body += '<div class="cd-line"><span class="cd-row-label">TV ends</span><div class="cd-row">' +
+      '<button type="button" class="cd-tile' + (st.tvLeft === match.awayAbbr ? ' is-on' : '') + '" data-cd="tvleft" data-id="' + match.awayAbbr + '">Left ' + match.awayAbbr + '</button>' +
+      '<button type="button" class="cd-tile' + (st.tvLeft === match.homeAbbr ? ' is-on' : '') + '" data-cd="tvleft" data-id="' + match.homeAbbr + '">Left ' + match.homeAbbr + '</button>' +
+      '<button type="button" class="cd-tile" data-cd="tvswap" data-id="1">Swap ends</button></div></div>';
+    body += '<div class="cd-tend">' + (st.tvLeft || '') + ' end on TV left · ' + (st.tvRight || '') + ' end on TV right · ' + driveDir + '</div>';
+    body += '<div class="cd-line"><span class="cd-row-label">Line of scrimmage</span><div class="cd-row">' + tilesHtml(fieldTilesForTv(st, match), st.field, 'field') + '</div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Clock</span><div class="cd-row">' + tilesHtml(CALL_CLOCK, st.clock, 'clock') + '</div></div>';
     body += '<button type="button" class="cd-mini" data-cd="moresit" data-id="' + (st.moreSit ? 'off' : 'on') + '">' + (st.moreSit ? 'Hide extras' : 'Extras') + '</button>';
     if (st.moreSit) {
@@ -6944,7 +6985,18 @@ function onCallDeskClick(ev) {
     }
     syncScoreSit(st);
   }
-  if (key === 'clock') st.clock = id;
+  if (key === 'clock') {
+    const prevQ = clockQuarterNo(st.clock);
+    const nextQ = clockQuarterNo(id);
+    if (prevQ !== nextQ && (Math.abs(nextQ - prevQ) % 2 === 1)) swapTvEnds(st);
+    st.clock = id;
+  }
+  if (key === 'tvleft') {
+    const matchNow = callActiveMatchup();
+    st.tvLeft = id;
+    st.tvRight = (id === matchNow.awayAbbr) ? matchNow.homeAbbr : matchNow.awayAbbr;
+  }
+  if (key === 'tvswap') swapTvEnds(st);
   if (key === 'call') {
     st.lastCall = id;
     st.step = 'result';
