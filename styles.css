@@ -2030,3 +2030,36 @@ body.dock-mode .app-header {
 .cd-row-special {
   flex-wrap: wrap;
 }
+
+
+/* v15.69 — land on the work, less chrome, less scroll */
+html { scroll-behavior: auto; }
+.section.active { animation: none; }
+.card, #callDeskRoot, #gameCenterContent, #pbpList, #scheduleList,
+#campUpdates, #teamStats, #rosterSearch, #newsList, #videoList, #notesArea {
+  scroll-margin-top: calc(12px + var(--safe-top) + 56px);
+}
+
+body.call-mode .cd-card > .card-title-row,
+body.call-mode .cd-card > p.small {
+  display: none !important;
+}
+body.call-mode .main { padding: 4px 10px 8px; }
+body.call-mode .cd-card { padding: 8px 10px 10px; margin-bottom: 8px; }
+body.call-mode .cd-top {
+  padding: 6px 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+body.call-mode .cd-pcts { font-size: 1.05rem; gap: 14px; }
+body.call-mode .cd-pass strong, body.call-mode .cd-run strong { font-size: 1.2rem; }
+body.call-mode .cd-tend { font-size: 0.78rem; padding: 2px 2px 4px; }
+body.call-mode .cd-los-now { font-size: 1.25rem; padding: 2px 2px 2px; }
+body.call-mode .cd-los-now strong { font-size: 1.55rem; }
+body.call-mode .cd-tvrail { margin: 2px 0 8px; }
+body.call-mode .cd-tv-end { flex-basis: 58px; padding: 6px 4px; font-size: 0.95rem; }
+body.call-mode .cd-tile { min-height: 40px; padding: 6px 8px; }
+body.call-mode .cd-xl { min-height: 56px; font-size: 1.35rem; }
+body.call-mode .cd-row-xl { margin: 8px 0; }
+body.call-mode .cd-row-special .cd-xl { min-height: 48px; font-size: 1.05rem; }
+body.call-mode .cd-line { gap: 4px; }

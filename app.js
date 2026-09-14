@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.68';
+const APP_VERSION = 'v15.69';
 
-const APP_VERSION_LABEL = 'v15.68 · Week 1 · TV hash order';
+const APP_VERSION_LABEL = 'v15.69 · Week 1 · open on the work';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -3697,11 +3697,45 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 /* ---------- Navigation ---------- */
+function sectionWorkId(id) {
+  return ({
+    game: 'gameCenterContent',
+    gbu: 'situationalGbuCard',
+    call: 'callDeskRoot',
+    pbp: 'pbpList',
+    schedule: 'scheduleList',
+    camp: 'campUpdates',
+    stats: 'teamStats',
+    roster: 'rosterSearch',
+    news: 'newsList',
+    videos: 'videoList',
+    notes: 'notesArea',
+    about: 'sec-about'
+  })[id] || ('sec-' + id);
+}
+
+function openSectionAtWork(id) {
+  try {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const el = document.getElementById(sectionWorkId(id)) || document.getElementById('sec-' + id);
+    if (!el) return;
+    const header = document.querySelector('.app-header');
+    const h = header ? header.getBoundingClientRect().height : 56;
+    const y = el.getBoundingClientRect().top + (window.pageYOffset || 0) - h - 4;
+    window.scrollTo(0, Math.max(0, Math.round(y)));
+  } catch (e) {
+    try { window.scrollTo(0, 0); } catch (e2) {}
+  }
+}
+
 function showSection(id) {
   currentSection = id;
   document.body.classList.toggle('call-mode', id === 'call');
   $$('.section').forEach((s) => s.classList.remove('active'));
-  $(`#sec-${id}`).classList.add('active');
+  const sec = $(`#sec-${id}`);
+  if (sec) sec.classList.add('active');
   $$('.nav-btn').forEach((b) => {
     b.classList.toggle('active', b.dataset.sec === id);
   });
@@ -3714,6 +3748,10 @@ function showSection(id) {
   if (id === 'notes' && typeof updateBackupStatusLine === 'function') updateBackupStatusLine();
   if (id === 'call' && typeof renderCallDesk === 'function') renderCallDesk();
   if (id === 'gbu' && typeof renderSituationalGbu === 'function') renderSituationalGbu();
+  requestAnimationFrame(function () {
+    openSectionAtWork(id);
+    requestAnimationFrame(function () { openSectionAtWork(id); });
+  });
 }
 
 
