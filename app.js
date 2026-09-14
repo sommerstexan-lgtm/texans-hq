@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.69';
+const APP_VERSION = 'v15.73';
 
-const APP_VERSION_LABEL = 'v15.69 · Week 1 · open on the work';
+const APP_VERSION_LABEL = 'v15.73 · Week 1 · yards-first analysis';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -1731,7 +1731,7 @@ function applyYardsToPlay(play, yards, source) {
   play.yardsEst = y;
   play.yardsCalc = y;
   play.yardsSource = source || 'manual';
-  play.yardsManual = source === 'manual' ? y : play.yardsManual;
+  play.yardsManual = source === 'manual' || source === 'heard' ? y : play.yardsManual;
   if (y >= 40) play.gainBucket = 'bomb';
   else if (y >= 20) play.gainBucket = 'exp';
   else if (y >= 11) play.gainBucket = 'longg';
@@ -1741,6 +1741,32 @@ function applyYardsToPlay(play, yards, source) {
   else play.gainBucket = 'loss';
 }
 
+
+function playYards(p) {
+  if (!p) return null;
+  const cands = [p.yardsManual, p.yardsEst, p.yardsCalc];
+  for (let i = 0; i < cands.length; i++) {
+    if (cands[i] != null && cands[i] !== '' && Number.isFinite(Number(cands[i]))) return Number(cands[i]);
+  }
+  return null;
+}
+function isExplosivePlay(p) {
+  const y = playYards(p);
+  return y != null && y >= 20;
+}
+function stampLastDriveYards(st, yards, source) {
+  try {
+    const match = callActiveMatchup();
+    const log = loadCallLog(st);
+    const prev = lastSameDrivePlay(log, st, match);
+    if (!prev) return;
+    if (prev.yardsSource === 'manual' && source !== 'manual' && source !== 'heard') return;
+    applyYardsToPlay(prev, yards, source);
+    saveCallLog(log, st);
+    st.lastCalcTs = prev.ts;
+    st.lastCalcYards = Number(yards);
+  } catch (e) {}
+}
 function pendingYardPlays(log, match) {
   return (log.plays || []).filter(function (p) {
     if (!p) return false;
@@ -5953,6 +5979,58 @@ function nudgeLosByYards(st, yards) {
   else if (toGoal < 50) applyLos(st, 'opp', toGoal);
   else applyLos(st, 'own', 100 - toGoal);
 }
+function rememberLosSnapshot(st) {
+  st.pendingFirstPrevSide = st.losSide || 'own';
+  st.pendingFirstPrevYard = st.losYard || 50;
+  st.pendingFirstPrevToGo = st.toGo;
+}
+function restoreLosSnapshot(st) {
+  applyLos(st, st.pendingFirstPrevSide || 'own', st.pendingFirstPrevYard || 50);
+}
+function afterLosMoveSetToGo(st) {
+  if (st.losSide === 'opp' && Number(st.losYard) <= 10) applyToGo(st, 'goal');
+  else applyToGo(st, '10');
+}
+function applyNewFirstDownMath(st, prevToGo) {
+  const sticks = toGoNumber(prevToGo);
+  rememberLosSnapshot(st);
+  if (sticks != null) {
+    nudgeLosByYards(st, sticks);
+    st.lastCalcYards = sticks;
+    stampLastDriveYards(st, sticks, 'sticks');
+  }
+  st.pendingFirst = true;
+  afterLosMoveSetToGo(st);
+}
+function applyHeardGain(st, yards) {
+  const y = Number(yards);
+  if (!Number.isFinite(y)) return;
+  restoreLosSnapshot(st);
+  nudgeLosByYards(st, y);
+  st.lastCalcYards = y;
+  st.pendingFirst = false;
+  st.showLosPad = false;
+  st.driveStarted = true;
+  stampLastDriveYards(st, y, 'heard');
+  afterLosMoveSetToGo(st);
+}
+function snapToGoId(n) {
+  if (!Number.isFinite(n) || n <= 0) return 'goal';
+  if (n <= 12) return String(n);
+  if (n <= 17) return '15';
+  return '20';
+}
+function applyHeardLoss(st, yards) {
+  const loss = Math.abs(Number(yards));
+  if (!Number.isFinite(loss) || loss === 0) return;
+  nudgeLosByYards(st, -loss);
+  const oldTo = toGoNumber(st.toGo);
+  if (oldTo != null) applyToGo(st, snapToGoId(oldTo + loss));
+  st.lastCalcYards = -loss;
+  st.driveStarted = true;
+  stampLastDriveYards(st, -loss, 'heard');
+}
+
 function losToOppGoal(side, yard) {
   const n = Number(yard);
   if (!Number.isFinite(n)) return null;
@@ -6129,6 +6207,12 @@ function defaultCallState() {
     lastFlag: 'none',
     lastPat: null,
     lastGain: null,
+    pendingFirst: false,
+    pendingFirstPrevToGo: null,
+    pendingFirstPrevSide: 'own',
+    pendingFirstPrevYard: 25,
+    showLosPad: false,
+    driveStarted: false,
     practice: false,
     awayScore: 0,
     homeScore: 0,
@@ -6326,7 +6410,8 @@ function findPlayByTs(log, ts) {
 function playLine(p) {
   if (!p) return '';
   const down = p.down ? (p.down + '&' + (p.toGo === 'goal' ? 'G' : (p.toGo || p.distance || ''))) : '';
-  const gain = (p.yardsEst != null && p.yardsEst !== '') ? ((Number(p.yardsEst) > 0 ? '+' : '') + p.yardsEst + ' yd') : (p.gainBucket ? gainLabel(p.gainBucket) + ' yd' : '');
+  const yds = playYards(p);
+  const gain = (yds != null) ? ((yds > 0 ? '+' : '') + yds + ' yd') : (p.gainBucket ? gainLabel(p.gainBucket) + ' yd' : '');
   return [p.team || '', down, p.field || '', p.call || '', p.result || '', gain, p.flag && p.flag !== 'none' ? p.flag : '']
     .filter(Boolean).join(' · ');
 }
@@ -6364,7 +6449,7 @@ function isKeyPlay(p) {
   const r = String(p.result || '');
   if (p.points) return true;
   if (/^(td|pick6|fum6|int|fumble|safety|blocked|blktd|prtd|krtd|sack)$/.test(r)) return true;
-  if (p.gainBucket === 'exp' || p.gainBucket === 'bomb') return true;
+  if (isExplosivePlay(p)) return true;
   if (Number(p.down) === 4 && /^(complete|gain|td|scramble)$/.test(r)) return true;
   return false;
 }
@@ -6380,8 +6465,8 @@ function keyPlayWhy(p) {
   if (r === 'safety') return 'Safety';
   if (r === 'sack') return 'Sack';
   if (r === 'blocked' || r === 'blktd') return 'Blocked';
-  if (p.gainBucket === 'bomb') return '40+ play';
-  if (p.gainBucket === 'exp') return '20+ play';
+  if (playYards(p) != null && playYards(p) >= 40) return '40+ play';
+  if (isExplosivePlay(p)) return '20+ play';
   if (Number(p.down) === 4) return '4th down';
   if (p.points) return '+' + p.points;
   return String(p.call || 'key');
@@ -6396,8 +6481,9 @@ function tallyQuarter(plays, team) {
   let yards = 0;
   let yardSnaps = 0;
   list.forEach(function (p) {
-    if (p.yardsEst == null || p.yardsEst === '') return;
-    yards += Number(p.yardsEst) || 0;
+    const yq = playYards(p);
+    if (yq == null) return;
+    yards += yq;
     yardSnaps += 1;
   });
   const fum = list.filter(function (p) { return p.result === 'fumble' || p.result === 'fum6'; }).length;
@@ -6483,7 +6569,7 @@ function renderQuarterRecap() {
         html += '</div>';
         if (t.keys.length) {
           html += '<div class="qr-keys">Key: ' + t.keys.map(function (p) {
-            return keyPlayWhy(p) + ' · ' + (p.call || '') + ' ' + (p.result || '') + (p.gainBucket ? ' ' + gainLabel(p.gainBucket) : '');
+            const yk = playYards(p); return keyPlayWhy(p) + ' · ' + (p.call || '') + ' ' + (p.result || '') + (yk != null ? (' ' + (yk > 0 ? '+' : '') + yk) : '');
           }).join(' · ') + '</div>';
         } else {
           html += '<div class="qr-keys">No game-changing snap tagged this quarter yet.</div>';
@@ -6494,7 +6580,7 @@ function renderQuarterRecap() {
     });
     const all = tallyQuarter(gamePlays, null);
     const pendingN = gamePlays.filter(function (p) {
-      return p && (p.yardsEst == null || p.yardsEst === '') && p.call !== 'KO' && p.call !== 'PUNT' && p.call !== 'FG';
+      return p && playYards(p) == null && p.call !== 'KO' && p.call !== 'PUNT' && p.call !== 'FG';
     }).length;
     html += '<div class="qr-block qr-game">';
     html += '<div class="qr-qtitle">Game so far · ' + gamePlays.length + ' snaps' + (pendingN ? ' · ' + pendingN + ' yards pending' : ' · yards locked') + '</div>';
@@ -6595,12 +6681,40 @@ function callSituationReady(st) {
   return !!(st.down && st.field && st.score && st.clock && st.possession);
 }
 
+function tileToneClass(dataKey, id) {
+  const k = String(dataKey || '');
+  const v = String(id || '');
+  if (k === 'down') {
+    if (v === '1') return ' cd-tone-gold';
+    if (v === '2') return ' cd-tone-green';
+    return ' cd-tone-red';
+  }
+  if (k === 'togo') {
+    if (v === 'goal' || v === '1' || v === '2') return ' cd-tone-green';
+    if (v === '15' || v === '20') return ' cd-tone-red';
+    return ' cd-tone-gold';
+  }
+  if (k === 'clock') {
+    if (v === 'm2' || v === 'm4') return ' cd-tone-gold';
+    if (v === 'ot') return ' cd-tone-red';
+    return '';
+  }
+  if (k === 'result' || k === 'pat') {
+    if (/^(td|gain|complete|scramble|fg|tb|xp|two)$/.test(v)) return ' cd-tone-green';
+    if (/^(sack|stuff|int|pick6|fumble|fum6|incomplete|fgmiss|blocked|blktd|safety|xpmiss|twomiss)$/.test(v)) return ' cd-tone-red';
+    return ' cd-tone-gold';
+  }
+  if (k === 'flag') return v === 'none' ? '' : ' cd-tone-gold';
+  if (k === 'losside') return v === 'opp' ? ' cd-tone-red' : ' cd-tone-green';
+  return '';
+}
 function tilesHtml(list, selected, dataKey, likelyIds) {
   const hot = likelyIds || [];
   return list.map((item) => {
     const on = selected === item.id ? ' is-on' : '';
     const likely = hot.indexOf(item.id) !== -1 ? ' cd-likely' : '';
-    return '<button type="button" class="cd-tile' + on + likely + '" data-cd="' + dataKey + '" data-id="' + item.id + '">' + item.label + '</button>';
+    const tone = tileToneClass(dataKey, item.id);
+    return '<button type="button" class="cd-tile' + on + likely + tone + '" data-cd="' + dataKey + '" data-id="' + item.id + '">' + item.label + '</button>';
   }).join('');
 }
 
@@ -6706,10 +6820,12 @@ function renderCallDesk() {
   const tend = callTendency(st, match);
   const ballAbbr = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
   const ready = callSituationReady(st);
+  if (st.step === 'call') st.step = 'situation';
 
   let body = '';
   if (st.step === 'situation') {
-    body += '<div class="cd-top">';
+    const houHasBall = ballAbbr === 'HOU';
+    body += '<div class="cd-top' + (houHasBall ? ' cd-top-hou' : ' cd-top-opp') + '">';
     body += '<div class="cd-who"><strong>' + ballAbbr + ' BALL</strong> · ' + match.label + (st.expectKo ? ' · KICKOFF NEXT' : '') + '</div>';
     body += '<div class="cd-scoreboard">' +
       '<button type="button" class="cd-mini" data-cd="scoreadj" data-id="away-">−</button> ' +
@@ -6726,49 +6842,55 @@ function renderCallDesk() {
     body += '<div class="cd-tend">' + tend.line + '</div>';
     body += '<div class="cd-board">';
     body += '<div class="cd-line"><span class="cd-row-label">Ball</span><div class="cd-row">' +
-      '<button type="button" class="cd-tile' + (st.possession === 'away' ? ' is-on' : '') + '" data-cd="possession" data-id="away">' + match.awayAbbr + (st.possession === 'away' ? ' BALL' : '') + '</button>' +
-      '<button type="button" class="cd-tile' + (st.possession === 'home' ? ' is-on' : '') + '" data-cd="possession" data-id="home">' + match.homeAbbr + (st.possession === 'home' ? ' BALL' : '') + '</button></div></div>';
+      '<button type="button" class="cd-tile cd-ball' + (match.awayAbbr === 'HOU' ? ' cd-tone-green' : ' cd-tone-red') + (st.possession === 'away' ? ' is-on' : '') + '" data-cd="possession" data-id="away">' + match.awayAbbr + (st.possession === 'away' ? ' BALL' : '') + '</button>' +
+      '<button type="button" class="cd-tile cd-ball' + (match.homeAbbr === 'HOU' ? ' cd-tone-green' : ' cd-tone-red') + (st.possession === 'home' ? ' is-on' : '') + '" data-cd="possession" data-id="home">' + match.homeAbbr + (st.possession === 'home' ? ' BALL' : '') + '</button></div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Down</span><div class="cd-row">' +
-      [1,2,3,4].map((d) => '<button type="button" class="cd-tile' + (st.down === d ? ' is-on' : '') + '" data-cd="down" data-id="' + d + '">' + d + '</button>').join('') + '</div></div>';
+      [1,2,3,4].map((d) => '<button type="button" class="cd-tile' + tileToneClass('down', d) + (st.down === d ? ' is-on' : '') + '" data-cd="down" data-id="' + d + '">' + d + '</button>').join('') + '</div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">TV yards to go</span><div class="cd-row">' + tilesHtml(CALL_TOGO, String(st.toGo || ''), 'togo') + '</div></div>';
+    body += '<div class="cd-line"><span class="cd-row-label">Heard loss</span><div class="cd-row cd-loss-row">';
+    ['1','2','3','4','5','7','8','10','12','15'].forEach(function (y) {
+      body += '<button type="button" class="cd-tile cd-loss" data-cd="lossyd" data-id="' + y + '">−' + y + '</button>';
+    });
+    body += '</div></div>';
     if (st.lastCalcYards != null && Number.isFinite(Number(st.lastCalcYards))) {
       const y = Number(st.lastCalcYards);
       const sign = y > 0 ? '+' : '';
-      body += '<div class="cd-yardcalc">Last snap recalculated: <strong>' + sign + y + ' yd</strong> ';
+      body += '<div class="cd-yardcalc' + (y < 0 ? ' is-loss' : (y > 0 ? ' is-gain' : '')) + '">Last snap: <strong>' + sign + y + ' yd</strong> ';
       body += '<button type="button" class="cd-mini" data-cd="yardadj" data-id="-1">−1</button>';
       body += '<button type="button" class="cd-mini" data-cd="yardadj" data-id="+1">+1</button></div>';
     }
-    ensureTvEnds(st, match);
     if (st.clock === 'h1') st.clock = 'q1';
     try { localStorage.setItem(CALL_DESK_STATE_KEY, JSON.stringify(st)); } catch (e) {}
-    const offAbbr = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
-    const goingRight = offAbbr === st.tvLeft;
-    const arrow = goingRight ? '→' : '←';
-    const dirWord = goingRight ? 'right' : 'left';
-    body += '<div class="cd-line"><span class="cd-row-label">TV field</span></div>';
-    body += '<div class="cd-tvrail" role="group" aria-label="TV field ends">';
-    body += '<div class="cd-tv-end cd-tv-left">' + (st.tvLeft || '—') + '<span>TV left</span></div>';
-    body += '<div class="cd-tv-mid"><div class="cd-tv-arrow">' + arrow + '</div><div class="cd-tv-midlabel">' + offAbbr + ' going ' + dirWord + '</div></div>';
-    body += '<div class="cd-tv-end cd-tv-right">' + (st.tvRight || '—') + '<span>TV right</span></div>';
-    body += '<button type="button" class="cd-tile cd-tv-swap" data-cd="tvswap" data-id="1">Swap</button>';
-    body += '</div>';
     if (!st.losYard) applyLos(st, (defaultLosForField(st.field).side), defaultLosForField(st.field).yard);
-    body += '<div class="cd-los-now">LOS <strong>' + losLabel(st, match) + '</strong></div>';
-    body += '<div class="cd-line"><span class="cd-row-label">Line of scrimmage</span><div class="cd-row">' +
-      '<button type="button" class="cd-tile' + (st.losSide !== 'opp' ? ' is-on' : '') + '" data-cd="losside" data-id="own">Own</button>' +
-      '<button type="button" class="cd-tile' + (st.losSide === 'opp' ? ' is-on' : '') + '" data-cd="losside" data-id="opp">Opp</button>' +
-      '<button type="button" class="cd-mini" data-cd="losadj" data-id="-1">−1</button>' +
-      '<button type="button" class="cd-mini" data-cd="losadj" data-id="+1">+1</button></div></div>';
-    var hashYards = [1,5,10,15,20,25,30,35,40,45,50];
-    var reverseHashes = (st.losSide === 'opp') === goingRight;
-    if (reverseHashes) hashYards = hashYards.slice().reverse();
-    body += '<div class="cd-row-label">Hashes on TV · ' + (reverseHashes ? '50 → 1 toward the goal you see on that side' : '1 → 50 away from the near end') + '</div>';
-    body += '<div class="cd-row">' + hashYards.map(function (n) {
-      const exact = Number(st.losYard) === n;
-      const lab = n === 1 ? 'GL' : String(n);
-      return '<button type="button" class="cd-tile' + (exact ? ' is-on' : '') + '" data-cd="losyard" data-id="' + n + '">' + lab + '</button>';
-    }).join('') + '</div>';
-    body += '<div class="cd-line"><span class="cd-row-label">Zone</span><div class="cd-row">' + tilesHtml(fieldTilesForTv(st, match), st.field, 'field') + '</div></div>';
+    const losTone = Number(st.losYard) === 50 ? ' cd-los-mid' : (st.losSide === 'opp' ? ' cd-los-opp' : ' cd-los-own');
+    body += '<div class="cd-los-now' + losTone + (st.pendingFirst ? ' is-pending' : '') + '">LOS <strong>' + losLabel(st, match) + '</strong>' +
+      (st.pendingFirst ? ' <span class="cd-los-hint">1st down · sticks unless you set yards/spot</span>' : '') +
+      '</div>';
+    const needSpot = st.pendingFirst || st.showLosPad || !st.driveStarted || st.expectKo;
+    body += '<div class="cd-line"><span class="cd-row-label">' + (st.pendingFirst ? 'New 1st · spot or heard yards' : 'Drive start / correct spot') + '</span>';
+    body += '<button type="button" class="cd-mini" data-cd="showlos" data-id="' + (st.showLosPad ? 'off' : 'on') + '">' + (needSpot ? (st.showLosPad || st.pendingFirst ? 'Hide pad' : 'Spot') : 'Spot') + '</button></div>';
+    if (needSpot) {
+      body += '<div class="cd-row">' +
+        '<button type="button" class="cd-tile cd-tone-green' + (st.losSide !== 'opp' ? ' is-on' : '') + '" data-cd="losside" data-id="own">Own</button>' +
+        '<button type="button" class="cd-tile cd-tone-red' + (st.losSide === 'opp' ? ' is-on' : '') + '" data-cd="losside" data-id="opp">Opp</button>' +
+        '<button type="button" class="cd-mini" data-cd="losadj" data-id="-1">−1</button>' +
+        '<button type="button" class="cd-mini" data-cd="losadj" data-id="+1">+1</button>' +
+        '<button type="button" class="cd-mini" data-cd="drivestart" data-id="tb">TB 25</button>' +
+        '</div>';
+      var hashYards = [1,5,10,15,20,25,30,35,40,45,50];
+      body += '<div class="cd-row">' + hashYards.map(function (n) {
+        const exact = Number(st.losYard) === n;
+        const lab = n === 1 ? 'GL' : String(n);
+        return '<button type="button" class="cd-tile' + (exact ? ' is-on' : '') + '" data-cd="losyard" data-id="' + n + '">' + lab + '</button>';
+      }).join('') + '</div>';
+      if (st.pendingFirst) {
+        body += '<div class="cd-row-label">Heard gain (overrides sticks)</div><div class="cd-row">';
+        ['8','10','12','15','18','20','25','30','40'].forEach(function (y) {
+          body += '<button type="button" class="cd-tile cd-tone-green" data-cd="firstyd" data-id="' + y + '">+' + y + '</button>';
+        });
+        body += '</div>';
+      }
+    }
     body += '<div class="cd-line"><span class="cd-row-label">Clock</span><div class="cd-row">' + tilesHtml(CALL_CLOCK, st.clock, 'clock') + '</div></div>';
     body += '<button type="button" class="cd-mini" data-cd="moresit" data-id="' + (st.moreSit ? 'off' : 'on') + '">' + (st.moreSit ? 'Hide extras' : 'Extras') + '</button>';
     if (st.moreSit) {
@@ -6842,7 +6964,7 @@ function renderCallDesk() {
         body += '<div class="cd-row-label">Defense flag</div><div class="cd-row">' + tilesHtml(CALL_DEF_FLAGS, st.lastFlag, 'flag') + '</div>';
       }
     }
-    body += '<button type="button" class="cd-go" id="cdSavePlay"' + (callCanSave(st) ? '' : ' disabled') + '>' + (st.editingId ? 'Save edit' : (isSaveableFlag(st.lastFlag) ? 'Save with flag' : 'Save snap')) + '</button>';
+    body += '<button type="button" class="cd-go cd-go-save" id="cdSavePlay"' + (callCanSave(st) ? '' : ' disabled') + '>' + (st.editingId ? 'Save edit' : (isSaveableFlag(st.lastFlag) ? 'Save with flag' : 'Save snap')) + '</button>';
     if (st.editingId) {
       body += '<div class="cd-row-label">Gain override</div><div class="cd-row">' + tilesHtml(CALL_GAIN_BUCKETS, st.lastGain, 'gain') + '</div>';
       body += '<button type="button" class="cd-go" id="cdSavePlay"' + (callCanSave(st) ? '' : ' disabled') + '>Save edit</button>';
@@ -7096,16 +7218,51 @@ function onCallDeskClick(ev) {
   }
   if (key === 'possession') st.possession = (id === 'away' || id === 'home') ? id : normalizeCallPossession(id, callActiveMatchup());
   if (key === 'down') {
+    const prevDown = Number(st.down || 0);
+    const prevToGo = st.toGo;
     st.down = Number(id);
-    backfillPrevYards(st);
+    if (st.down === 1 && prevDown > 1) {
+      applyNewFirstDownMath(st, prevToGo);
+    } else {
+      st.pendingFirst = false;
+      backfillPrevYards(st);
+    }
   }
   if (key === 'distance') {
     st.distance = id;
     if (!st.toGo) applyToGo(st, id === 'short' ? '2' : id === 'med' ? '5' : id === 'xlong' ? '15' : '10');
   }
   if (key === 'togo') {
+    const oldTo = toGoNumber(st.toGo);
+    const oldDown = Number(st.down || 0);
     applyToGo(st, id);
+    const newTo = toGoNumber(st.toGo);
+    if (oldDown > 1 && !st.pendingFirst && oldTo != null && newTo != null) {
+      const gained = oldTo - newTo;
+      nudgeLosByYards(st, gained);
+      st.lastCalcYards = gained;
+      st.driveStarted = true;
+    }
     backfillPrevYards(st);
+  }
+  if (key === 'firstyd') {
+    applyHeardGain(st, id);
+  }
+  if (key === 'lossyd') {
+    applyHeardLoss(st, id);
+  }
+  if (key === 'showlos') {
+    st.showLosPad = (id === 'on');
+  }
+  if (key === 'drivestart') {
+    if (id === 'tb') {
+      applyLos(st, 'own', 25);
+      startNewSeries(st, '10');
+      st.driveStarted = true;
+      st.pendingFirst = false;
+      st.expectKo = false;
+      st.showLosPad = false;
+    }
   }
   if (key === 'yardadj') {
     const delta = id === '+1' ? 1 : -1;
@@ -7133,15 +7290,21 @@ function onCallDeskClick(ev) {
   }
   if (key === 'losside') {
     applyLos(st, id, st.losYard || 25);
+    st.pendingFirst = false;
+    st.driveStarted = true;
     backfillPrevYardsFromLos(st);
   }
   if (key === 'losyard') {
     applyLos(st, st.losSide || 'own', id);
+    st.pendingFirst = false;
+    st.driveStarted = true;
+    st.showLosPad = false;
     backfillPrevYardsFromLos(st);
   }
   if (key === 'losadj') {
     const dir = (id === '+1') ? 1 : -1;
     nudgeLosByYards(st, dir);
+    st.driveStarted = true;
     backfillPrevYardsFromLos(st);
   }
   if (key === 'score') {
@@ -7386,7 +7549,11 @@ function advanceAfterPlay(st) {
       st.field = 'mid';
     } else {
       st.expectKo = false;
-      st.field = (res === 'tb') ? 'own40' : 'backed';
+      if (res === 'tb') applyLos(st, 'own', 25);
+      else applyLos(st, 'own', 25);
+      st.showLosPad = true;
+      st.driveStarted = false;
+      st.pendingFirst = false;
     }
     return;
   }
@@ -7437,12 +7604,18 @@ function advanceAfterPlay(st) {
     flipPoss(st);
     startNewSeries(st, '10');
     st.field = 'mid';
+    st.showLosPad = true;
+    st.driveStarted = false;
+    st.pendingFirst = false;
     return;
   }
   if (res === 'int' || res === 'fumble') {
     flipPoss(st);
     startNewSeries(st, '10');
     st.field = 'mid';
+    st.showLosPad = true;
+    st.driveStarted = false;
+    st.pendingFirst = false;
     return;
   }
   if (res === 'pi') {
@@ -7459,8 +7632,6 @@ function advanceAfterPlay(st) {
   }
   if (res === 'complete' || res === 'gain' || res === 'scramble') {
     st.down = Math.min(4, (st.down || 1) + 1);
-    const gained = gainYards(savedGain);
-    if (Number.isFinite(gained) && gained) nudgeLosByYards(st, gained);
     return;
   }
 }
@@ -7535,7 +7706,12 @@ function gbuIsLiveSnap(p) {
 
 function gbuIsSuccess(p) {
   const res = String(p.result || '');
-  if (res === 'td' || res === 'pi' || res === 'fg' || res === 'complete' || res === 'gain' || res === 'scramble') return true;
+  if (res === 'td' || res === 'pi' || res === 'fg') return true;
+  if (res === 'incomplete' || res === 'sack' || res === 'stuff' || res === 'int' || res === 'fumble') return false;
+  const need = toGoNumber(p.toGo);
+  const y = playYards(p);
+  if (y != null && need != null && y >= need) return true;
+  if (res === 'complete' || res === 'gain' || res === 'scramble') return true;
   return false;
 }
 

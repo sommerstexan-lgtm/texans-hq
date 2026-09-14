@@ -2032,7 +2032,42 @@ body.dock-mode .app-header {
 }
 
 
-/* v15.69 — land on the work, less chrome, less scroll */
+.cd-los-hint { font-size: 0.78rem; font-weight: 600; color: #8a5a00; margin-left: 8px; }
+.cd-loss-row .cd-loss { background: #f6e8e8; color: #7a1f1f; min-width: 44px; border-color: #c45b6a; }
+.cd-loss-row .cd-loss:active, .cd-loss-row .cd-loss.is-on { background: #9B1B30; color: #fff; }
+
+/* v15.72 Call color language: gold = now/1st/attention, green = plus/HOU/own, red = pass/loss/3rd-4th/opp */
+.cd-tone-gold { background: #FFF4C4; border-color: #C9A000; color: #5a4300; }
+.cd-tone-green { background: #D8F3E6; border-color: #0B6E4F; color: #084c36; }
+.cd-tone-red { background: #F8E6EA; border-color: #9B1B30; color: #6b1220; }
+.cd-tone-gold.is-on { background: #F5C518; border-color: #C9A000; color: #03202F; }
+.cd-tone-green.is-on { background: #0B6E4F; border-color: #0B6E4F; color: #fff; }
+.cd-tone-red.is-on { background: #9B1B30; border-color: #9B1B30; color: #fff; }
+.cd-tile.is-on.cd-tone-gold, .cd-tile.is-on.cd-tone-green, .cd-tile.is-on.cd-tone-red {
+  box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.45);
+}
+.cd-top-hou { background: #0B6E4F; }
+.cd-top-opp { background: #9B1B30; }
+.cd-top-hou .cd-pass, .cd-top-opp .cd-pass { color: #FFD4DA; }
+.cd-top-hou .cd-run, .cd-top-opp .cd-run { color: #F5C518; }
+.cd-pass-btn { background: #F8E6EA; color: #9B1B30; border-color: #9B1B30; }
+.cd-run-btn { background: #D8F3E6; color: #0B6E4F; border-color: #0B6E4F; }
+.cd-pass-btn.cd-hot { background: #9B1B30; color: #fff; border-color: #F5C518; }
+.cd-run-btn.cd-hot { background: #0B6E4F; color: #fff; border-color: #F5C518; }
+.cd-los-own { background: #D8F3E6; color: #084c36; border-radius: 8px; padding: 6px 10px; }
+.cd-los-opp { background: #F8E6EA; color: #6b1220; border-radius: 8px; padding: 6px 10px; }
+.cd-los-mid { background: #FFF4C4; color: #5a4300; border-radius: 8px; padding: 6px 10px; }
+.cd-los-now.is-pending { outline: 3px solid #F5C518; }
+.cd-yardcalc.is-gain { color: #0B6E4F; }
+.cd-yardcalc.is-loss { color: #9B1B30; }
+.cd-go-save { background: #0B6E4F; color: #fff; }
+.cd-flag-btn { background: #FFF4C4 !important; }
+body.call-mode .cd-row-label { font-size: 0.72rem; }
+body.call-mode .cd-scoreboard { font-size: 0.95rem; }
+body.call-mode .cd-logline, body.call-mode .cd-logrow { font-size: 0.75rem; }
+body.call-mode .cd-board { margin-top: 2px; }
+
+/* v15.70 — compact Call desk, less chrome, less scroll */
 html { scroll-behavior: auto; }
 .section.active { animation: none; }
 .card, #callDeskRoot, #gameCenterContent, #pbpList, #scheduleList,
