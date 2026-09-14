@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.67';
+const APP_VERSION = 'v15.68';
 
-const APP_VERSION_LABEL = 'v15.67 · Week 1 · pre-off / pre-def';
+const APP_VERSION_LABEL = 'v15.68 · Week 1 · TV hash order';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -6721,10 +6721,14 @@ function renderCallDesk() {
       '<button type="button" class="cd-tile' + (st.losSide === 'opp' ? ' is-on' : '') + '" data-cd="losside" data-id="opp">Opp</button>' +
       '<button type="button" class="cd-mini" data-cd="losadj" data-id="-1">−1</button>' +
       '<button type="button" class="cd-mini" data-cd="losadj" data-id="+1">+1</button></div></div>';
-    body += '<div class="cd-row">' + [5,10,15,20,25,30,35,40,45,50].map(function (n) {
+    var hashYards = [1,5,10,15,20,25,30,35,40,45,50];
+    var reverseHashes = (st.losSide === 'opp') === goingRight;
+    if (reverseHashes) hashYards = hashYards.slice().reverse();
+    body += '<div class="cd-row-label">Hashes on TV · ' + (reverseHashes ? '50 → 1 toward the goal you see on that side' : '1 → 50 away from the near end') + '</div>';
+    body += '<div class="cd-row">' + hashYards.map(function (n) {
       const exact = Number(st.losYard) === n;
-      const near = !exact && Math.abs(Number(st.losYard) - n) <= 2;
-      return '<button type="button" class="cd-tile' + (exact ? ' is-on' : '') + (near ? ' cd-near' : '') + '" data-cd="losyard" data-id="' + n + '">' + n + '</button>';
+      const lab = n === 1 ? 'GL' : String(n);
+      return '<button type="button" class="cd-tile' + (exact ? ' is-on' : '') + '" data-cd="losyard" data-id="' + n + '">' + lab + '</button>';
     }).join('') + '</div>';
     body += '<div class="cd-line"><span class="cd-row-label">Zone</span><div class="cd-row">' + tilesHtml(fieldTilesForTv(st, match), st.field, 'field') + '</div></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Clock</span><div class="cd-row">' + tilesHtml(CALL_CLOCK, st.clock, 'clock') + '</div></div>';
