@@ -2021,3 +2021,12 @@ body.dock-mode .app-header {
   flex: 0 0 auto;
   min-width: 64px;
 }
+
+.cd-flag-btn {
+  border-color: #C9A227 !important;
+  color: #7A5A00;
+  font-weight: 800;
+}
+.cd-row-special {
+  flex-wrap: wrap;
+}

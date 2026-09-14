@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.65';
+const APP_VERSION = 'v15.67';
 
-const APP_VERSION_LABEL = 'v15.65 · Week 1 · TV field rail';
+const APP_VERSION_LABEL = 'v15.67 · Week 1 · pre-off / pre-def';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -6567,6 +6567,7 @@ function tilesHtml(list, selected, dataKey, likelyIds) {
 }
 
 function resultsForCall(call) {
+  if (call === 'PRE' || call === 'PREOFF' || call === 'PREDEF' || call === 'FLAG') return [];
   if (call === 'PASS') return CALL_PASS_RESULTS;
   if (call === 'PUNT') return CALL_PUNT_RESULTS;
   if (call === 'FG') return CALL_FG_RESULTS;
@@ -6747,6 +6748,8 @@ function renderCallDesk() {
     body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'KO' ? ' cd-hot' : '') + '" data-cd="call" data-id="KO">KICKOFF</button>';
     body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'KNEEL' ? ' cd-hot' : '') + '" data-cd="call" data-id="KNEEL">KNEEL</button>';
     body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'SPIKE' ? ' cd-hot' : '') + '" data-cd="call" data-id="SPIKE">SPIKE</button>';
+    body += '<button type="button" class="cd-tile cd-xl cd-flag-btn" data-cd="call" data-id="PREOFF">PRE-OFF</button>';
+    body += '<button type="button" class="cd-tile cd-xl cd-flag-btn" data-cd="call" data-id="PREDEF">PRE-DEF</button>';
     body += '</div>';
     body += '</div>';
   } else if (st.step === 'call') {
@@ -6765,6 +6768,8 @@ function renderCallDesk() {
     body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'KO' ? ' cd-hot' : '') + '" data-cd="call" data-id="KO">KICKOFF</button>';
     body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'KNEEL' ? ' cd-hot' : '') + '" data-cd="call" data-id="KNEEL">KNEEL</button>';
     body += '<button type="button" class="cd-tile cd-xl' + (hotCall === 'SPIKE' ? ' cd-hot' : '') + '" data-cd="call" data-id="SPIKE">SPIKE</button>';
+    body += '<button type="button" class="cd-tile cd-xl cd-flag-btn" data-cd="call" data-id="PREOFF">PRE-OFF</button>';
+    body += '<button type="button" class="cd-tile cd-xl cd-flag-btn" data-cd="call" data-id="PREDEF">PRE-DEF</button>';
     body += '</div>';
     body += '<button type="button" class="cd-undo" data-cd="undo">UNDO — back to situation</button>';
     body += '</div>';
@@ -6773,15 +6778,27 @@ function renderCallDesk() {
     const likely = likelyResultIds(st);
     body += '<div class="cd-predict cd-predict-wide">';
     body += '<div class="cd-scoreboard">' + match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> – ' + match.homeAbbr + ' <strong>' + Number(st.homeScore || 0) + '</strong></div>';
-    body += '<div class="cd-who"><strong>' + st.lastCall + '</strong> · tap result, add a flag if needed, then Save</div>';
-    body += '<div class="cd-row">' + tilesHtml(results, st.lastResult, 'result', likely) + '</div>';
+    if (st.lastCall === 'PREOFF' || st.lastCall === 'PREDEF' || st.lastCall === 'PRE' || st.lastCall === 'FLAG') {
+      const side = (st.lastCall === 'PREDEF') ? 'defense' : (st.lastCall === 'PREOFF' ? 'offense' : 'offense or defense');
+      body += '<div class="cd-who"><strong>PRE-SNAP ' + (st.lastCall === 'PREDEF' ? 'DEF' : st.lastCall === 'PREOFF' ? 'OFF' : '') + '</strong> · play killed · tap the ' + side + ' flag, then Save</div>';
+    } else {
+      body += '<div class="cd-who"><strong>' + st.lastCall + '</strong> · tap result, add a flag if needed, then Save</div>';
+      body += '<div class="cd-row">' + tilesHtml(results, st.lastResult, 'result', likely) + '</div>';
+    }
     if (extraResultsForCall(st.lastCall).length) {
       body += '<button type="button" class="cd-mini" data-cd="moreresults" data-id="' + (st.moreResults ? 'off' : 'on') + '">' + (st.moreResults ? 'Fewer results' : 'More results (PI, pick-6, safety…)') + '</button>';
     }
-    body += '<button type="button" class="cd-mini" data-cd="showflags" data-id="' + (st.showFlags ? 'off' : 'on') + '">' + (st.showFlags ? 'Hide flags' : 'Flag on this snap') + '</button>';
-    if (st.showFlags) {
-      body += '<div class="cd-row-label">Offense flag · do not assume 5/10 if backed up (half-distance)</div><div class="cd-row">' + tilesHtml(CALL_OFF_FLAGS, st.lastFlag || 'none', 'flag') + '</div>';
-      body += '<div class="cd-row-label">Defense flag</div><div class="cd-row">' + tilesHtml(CALL_DEF_FLAGS, st.lastFlag, 'flag') + '</div>';
+    const forceFlags = (st.lastCall === 'PRE' || st.lastCall === 'PREOFF' || st.lastCall === 'PREDEF' || st.lastCall === 'FLAG');
+    if (!forceFlags) {
+      body += '<button type="button" class="cd-mini" data-cd="showflags" data-id="' + (st.showFlags ? 'off' : 'on') + '">' + (st.showFlags ? 'Hide flags' : 'Flag on this snap') + '</button>';
+    }
+    if (st.showFlags || forceFlags) {
+      if (st.lastCall !== 'PREDEF') {
+        body += '<div class="cd-row-label">Offense flag · do not assume 5/10 if backed up (half-distance)</div><div class="cd-row">' + tilesHtml(CALL_OFF_FLAGS.filter(function (f) { return f.id !== 'none'; }), st.lastFlag || 'none', 'flag') + '</div>';
+      }
+      if (st.lastCall !== 'PREOFF') {
+        body += '<div class="cd-row-label">Defense flag</div><div class="cd-row">' + tilesHtml(CALL_DEF_FLAGS, st.lastFlag, 'flag') + '</div>';
+      }
     }
     body += '<button type="button" class="cd-go" id="cdSavePlay"' + (callCanSave(st) ? '' : ' disabled') + '>' + (st.editingId ? 'Save edit' : (isSaveableFlag(st.lastFlag) ? 'Save with flag' : 'Save snap')) + '</button>';
     if (st.editingId) {
@@ -7128,6 +7145,13 @@ function onCallDeskClick(ev) {
     st.lastResult = null;
     st.lastFlag = 'none';
     st.lastPat = null;
+    if (id === 'PRE' || id === 'PREOFF' || id === 'PREDEF' || id === 'FLAG') {
+      st.lastResult = 'penalty';
+      st.showFlags = true;
+      saveCallState(st);
+      renderCallDesk();
+      return;
+    }
     if (id === 'KNEEL') {
       st.lastResult = 'kneel';
       saveCallState(st);
