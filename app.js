@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.64';
+const APP_VERSION = 'v15.65';
 
-const APP_VERSION_LABEL = 'v15.64 · Week 1 · swap + LOS + flagged save';
+const APP_VERSION_LABEL = 'v15.65 · Week 1 · TV field rail';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -6702,12 +6702,17 @@ function renderCallDesk() {
     ensureTvEnds(st, match);
     if (st.clock === 'h1') st.clock = 'q1';
     try { localStorage.setItem(CALL_DESK_STATE_KEY, JSON.stringify(st)); } catch (e) {}
-    const driveDir = (st.possession === 'away' ? match.awayAbbr : match.homeAbbr) === st.tvRight ? '← offense this way' : 'offense this way →';
-    body += '<div class="cd-line"><span class="cd-row-label">TV ends</span><div class="cd-row">' +
-      '<button type="button" class="cd-tile' + (st.tvLeft === match.awayAbbr ? ' is-on' : '') + '" data-cd="tvleft" data-id="' + match.awayAbbr + '">Left ' + match.awayAbbr + '</button>' +
-      '<button type="button" class="cd-tile' + (st.tvLeft === match.homeAbbr ? ' is-on' : '') + '" data-cd="tvleft" data-id="' + match.homeAbbr + '">Left ' + match.homeAbbr + '</button>' +
-      '<button type="button" class="cd-tile" data-cd="tvswap" data-id="1">Swap ends</button></div></div>';
-    body += '<div class="cd-tend">' + (st.tvLeft || '') + ' end on TV left · ' + (st.tvRight || '') + ' end on TV right · ' + driveDir + '</div>';
+    const offAbbr = st.possession === 'away' ? match.awayAbbr : match.homeAbbr;
+    const goingRight = offAbbr === st.tvLeft;
+    const arrow = goingRight ? '→' : '←';
+    const dirWord = goingRight ? 'right' : 'left';
+    body += '<div class="cd-line"><span class="cd-row-label">TV field</span></div>';
+    body += '<div class="cd-tvrail" role="group" aria-label="TV field ends">';
+    body += '<div class="cd-tv-end cd-tv-left">' + (st.tvLeft || '—') + '<span>TV left</span></div>';
+    body += '<div class="cd-tv-mid"><div class="cd-tv-arrow">' + arrow + '</div><div class="cd-tv-midlabel">' + offAbbr + ' going ' + dirWord + '</div></div>';
+    body += '<div class="cd-tv-end cd-tv-right">' + (st.tvRight || '—') + '<span>TV right</span></div>';
+    body += '<button type="button" class="cd-tile cd-tv-swap" data-cd="tvswap" data-id="1">Swap</button>';
+    body += '</div>';
     if (!st.losYard) applyLos(st, (defaultLosForField(st.field).side), defaultLosForField(st.field).yard);
     body += '<div class="cd-los-now">LOS <strong>' + losLabel(st, match) + '</strong></div>';
     body += '<div class="cd-line"><span class="cd-row-label">Line of scrimmage</span><div class="cd-row">' +
