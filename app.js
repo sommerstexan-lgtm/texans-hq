@@ -1,5 +1,5 @@
 /* ============================================================
-   Texans HQ — Personal PWA  v15.22
+   Texans HQ — Personal PWA  v15.64
    Privacy-first • Offline-friendly • Self-contained
    Password-protected (remembers device)
    High-contrast light theme
@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.63';
+const APP_VERSION = 'v15.64';
 
-const APP_VERSION_LABEL = 'v15.63 · Week 1 · big LOS number';
+const APP_VERSION_LABEL = 'v15.64 · Week 1 · swap + LOS + flagged save';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -5844,15 +5844,32 @@ function clockQuarterNo(clock) {
   if (c === 'ot') return 5;
   return 1;
 }
-function swapTvEnds(st) {
+function swapTvEnds(st, match) {
+  if (match) ensureTvEnds(st, match);
   const a = st.tvLeft;
   st.tvLeft = st.tvRight;
   st.tvRight = a;
+  st.tvManual = true;
 }
 function ensureTvEnds(st, match) {
-  if (!st.tvLeft || !st.tvRight) {
-    st.tvLeft = match.awayAbbr;
-    st.tvRight = match.homeAbbr;
+  if (!match) return;
+  const away = match.awayAbbr;
+  const home = match.homeAbbr;
+  if (!st.tvLeft && !st.tvRight) {
+    st.tvLeft = away;
+    st.tvRight = home;
+    return;
+  }
+  if (!st.tvLeft && st.tvRight) {
+    st.tvLeft = (st.tvRight === away) ? home : away;
+    return;
+  }
+  if (st.tvLeft && !st.tvRight) {
+    st.tvRight = (st.tvLeft === away) ? home : away;
+    return;
+  }
+  if (st.tvLeft === st.tvRight) {
+    st.tvRight = (st.tvLeft === away) ? home : away;
   }
 }
 function fieldTilesForTv(st, match) {
@@ -5887,6 +5904,16 @@ function applyLos(st, side, yard) {
   st.losSide = side === 'opp' ? 'opp' : 'own';
   st.losYard = n;
   st.field = fieldFromLos(st.losSide, n);
+}
+function nudgeLosByYards(st, yards) {
+  const y = Number(yards);
+  if (!Number.isFinite(y) || y === 0) return;
+  let toGoal = losToOppGoal(st.losSide || 'own', st.losYard || 50);
+  if (toGoal == null) return;
+  toGoal = Math.max(1, Math.min(99, toGoal - y));
+  if (toGoal === 50) applyLos(st, 'own', 50);
+  else if (toGoal < 50) applyLos(st, 'opp', toGoal);
+  else applyLos(st, 'own', 100 - toGoal);
 }
 function losToOppGoal(side, yard) {
   const n = Number(yard);
@@ -6674,6 +6701,7 @@ function renderCallDesk() {
     }
     ensureTvEnds(st, match);
     if (st.clock === 'h1') st.clock = 'q1';
+    try { localStorage.setItem(CALL_DESK_STATE_KEY, JSON.stringify(st)); } catch (e) {}
     const driveDir = (st.possession === 'away' ? match.awayAbbr : match.homeAbbr) === st.tvRight ? '← offense this way' : 'offense this way →';
     body += '<div class="cd-line"><span class="cd-row-label">TV ends</span><div class="cd-row">' +
       '<button type="button" class="cd-tile' + (st.tvLeft === match.awayAbbr ? ' is-on' : '') + '" data-cd="tvleft" data-id="' + match.awayAbbr + '">Left ' + match.awayAbbr + '</button>' +
@@ -6740,7 +6768,7 @@ function renderCallDesk() {
     const likely = likelyResultIds(st);
     body += '<div class="cd-predict cd-predict-wide">';
     body += '<div class="cd-scoreboard">' + match.awayAbbr + ' <strong>' + Number(st.awayScore || 0) + '</strong> – ' + match.homeAbbr + ' <strong>' + Number(st.homeScore || 0) + '</strong></div>';
-    body += '<div class="cd-who"><strong>' + st.lastCall + '</strong> · tap result to save</div>';
+    body += '<div class="cd-who"><strong>' + st.lastCall + '</strong> · tap result, add a flag if needed, then Save</div>';
     body += '<div class="cd-row">' + tilesHtml(results, st.lastResult, 'result', likely) + '</div>';
     if (extraResultsForCall(st.lastCall).length) {
       body += '<button type="button" class="cd-mini" data-cd="moreresults" data-id="' + (st.moreResults ? 'off' : 'on') + '">' + (st.moreResults ? 'Fewer results' : 'More results (PI, pick-6, safety…)') + '</button>';
@@ -6749,8 +6777,8 @@ function renderCallDesk() {
     if (st.showFlags) {
       body += '<div class="cd-row-label">Offense flag · do not assume 5/10 if backed up (half-distance)</div><div class="cd-row">' + tilesHtml(CALL_OFF_FLAGS, st.lastFlag || 'none', 'flag') + '</div>';
       body += '<div class="cd-row-label">Defense flag</div><div class="cd-row">' + tilesHtml(CALL_DEF_FLAGS, st.lastFlag, 'flag') + '</div>';
-      body += '<button type="button" class="cd-go" id="cdSavePlay"' + (callCanSave(st) ? '' : ' disabled') + '>' + (st.editingId ? 'Save edit' : 'Save with flag') + '</button>';
     }
+    body += '<button type="button" class="cd-go" id="cdSavePlay"' + (callCanSave(st) ? '' : ' disabled') + '>' + (st.editingId ? 'Save edit' : (isSaveableFlag(st.lastFlag) ? 'Save with flag' : 'Save snap')) + '</button>';
     if (st.editingId) {
       body += '<div class="cd-row-label">Gain override</div><div class="cd-row">' + tilesHtml(CALL_GAIN_BUCKETS, st.lastGain, 'gain') + '</div>';
       body += '<button type="button" class="cd-go" id="cdSavePlay"' + (callCanSave(st) ? '' : ' disabled') + '>Save edit</button>';
@@ -7048,8 +7076,8 @@ function onCallDeskClick(ev) {
     backfillPrevYardsFromLos(st);
   }
   if (key === 'losadj') {
-    const cur = Number(st.losYard || 50);
-    applyLos(st, st.losSide || 'own', cur + (id === '+1' ? 1 : -1));
+    const dir = (id === '+1') ? 1 : -1;
+    nudgeLosByYards(st, dir);
     backfillPrevYardsFromLos(st);
   }
   if (key === 'score') {
@@ -7080,7 +7108,7 @@ function onCallDeskClick(ev) {
   if (key === 'clock') {
     const prevQ = clockQuarterNo(st.clock);
     const nextQ = clockQuarterNo(id);
-    if (prevQ !== nextQ && (Math.abs(nextQ - prevQ) % 2 === 1)) swapTvEnds(st);
+    if (prevQ !== nextQ && (Math.abs(nextQ - prevQ) % 2 === 1)) swapTvEnds(st, callActiveMatchup());
     st.clock = id;
   }
   if (key === 'tvleft') {
@@ -7088,7 +7116,7 @@ function onCallDeskClick(ev) {
     st.tvLeft = id;
     st.tvRight = (id === matchNow.awayAbbr) ? matchNow.homeAbbr : matchNow.awayAbbr;
   }
-  if (key === 'tvswap') swapTvEnds(st);
+  if (key === 'tvswap') swapTvEnds(st, callActiveMatchup());
   if (key === 'call') {
     st.lastCall = id;
     st.step = 'result';
@@ -7117,11 +7145,9 @@ function onCallDeskClick(ev) {
       renderCallDesk();
       return;
     }
-    if (!st.showFlags && !st.editingId) {
-      saveCallState(st);
-      commitCallPlay(st);
-      return;
-    }
+    saveCallState(st);
+    renderCallDesk();
+    return;
   }
   if (key === 'moresit') {
     st.moreSit = (id === 'on');
@@ -7261,6 +7287,8 @@ function advanceAfterPlay(st) {
   const res = st.lastResult;
   const flag = st.lastFlag;
   const call = st.lastCall;
+  const savedGain = st.lastGain;
+  const savedCalc = st.lastCalcYards;
   st.lastCall = null;
   st.lastResult = null;
   st.lastFlag = 'none';
@@ -7360,6 +7388,8 @@ function advanceAfterPlay(st) {
   }
   if (res === 'complete' || res === 'gain' || res === 'scramble') {
     st.down = Math.min(4, (st.down || 1) + 1);
+    const gained = gainYards(savedGain);
+    if (Number.isFinite(gained) && gained) nudgeLosByYards(st, gained);
     return;
   }
 }
