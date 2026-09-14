@@ -2098,3 +2098,7 @@ body.call-mode .cd-xl { min-height: 56px; font-size: 1.35rem; }
 body.call-mode .cd-row-xl { margin: 8px 0; }
 body.call-mode .cd-row-special .cd-xl { min-height: 48px; font-size: 1.05rem; }
 body.call-mode .cd-line { gap: 4px; }
+
+.cd-type-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:6px 0 8px; }
+.cd-type-lab { font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; }
+.cd-type-in { width:7.5rem; min-height:40px; font-size:1.15rem; font-weight:800; padding:4px 8px; border:2px solid #C9A000; border-radius:8px; }

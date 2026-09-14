@@ -12,9 +12,9 @@
    ============================================================ */
 
 const APP_PASSWORD = 'texans2026';
-const APP_VERSION = 'v15.73';
+const APP_VERSION = 'v15.74';
 
-const APP_VERSION_LABEL = 'v15.73 · Week 1 · yards-first analysis';
+const APP_VERSION_LABEL = 'v15.74 · Week 1 · type LOS / yards';
 
 /* ============================================================
    INTEGRITY / ANTI-DRIFT GUARDS (v15.11)
@@ -6005,7 +6005,7 @@ function applyNewFirstDownMath(st, prevToGo) {
 function applyHeardGain(st, yards) {
   const y = Number(yards);
   if (!Number.isFinite(y)) return;
-  restoreLosSnapshot(st);
+  if (st.pendingFirst) restoreLosSnapshot(st);
   nudgeLosByYards(st, y);
   st.lastCalcYards = y;
   st.pendingFirst = false;
@@ -6030,6 +6030,67 @@ function applyHeardLoss(st, yards) {
   st.driveStarted = true;
   stampLastDriveYards(st, -loss, 'heard');
 }
+function parseTypedLos(raw, st, match) {
+  const s = String(raw || '').trim().toLowerCase();
+  if (!s) return null;
+  const num = s.match(/(\d{1,2})/);
+  if (!num) return null;
+  let yard = Math.max(1, Math.min(50, Number(num[1])));
+  let side = st.losSide || 'own';
+  if (/\bopp\b/.test(s) || /\bdef\b/.test(s)) side = 'opp';
+  else if (/\bown\b/.test(s)) side = 'own';
+  else if (match) {
+    const off = (st.possession === 'away' ? match.awayAbbr : match.homeAbbr) || '';
+    const def = (st.possession === 'away' ? match.homeAbbr : match.awayAbbr) || '';
+    if (off && s.indexOf(off.toLowerCase()) >= 0) side = 'own';
+    else if (def && s.indexOf(def.toLowerCase()) >= 0) side = 'opp';
+  }
+  if (yard === 50) side = 'own';
+  return { side: side, yard: yard };
+}
+function applyTypedLos(st, raw) {
+  const parsed = parseTypedLos(raw, st, callActiveMatchup());
+  if (!parsed) return false;
+  applyLos(st, parsed.side, parsed.yard);
+  st.pendingFirst = false;
+  st.driveStarted = true;
+  st.showLosPad = false;
+  backfillPrevYardsFromLos(st);
+  return true;
+}
+function applyTypedYards(st, raw, sign) {
+  let n = Number(String(raw || '').replace(/[^0-9.+-]/g, ''));
+  if (!Number.isFinite(n) || n === 0) return false;
+  if (sign < 0) n = -Math.abs(n);
+  if (sign > 0) n = Math.abs(n);
+  if (n > 0 && st.pendingFirst) {
+    applyHeardGain(st, n);
+    return true;
+  }
+  if (n > 0) {
+    nudgeLosByYards(st, n);
+    const oldTo = toGoNumber(st.toGo);
+    if (oldTo != null) {
+      const left = oldTo - n;
+      if (left <= 0) {
+        st.pendingFirst = false;
+        afterLosMoveSetToGo(st);
+        st.down = 1;
+      } else applyToGo(st, snapToGoId(left));
+    }
+    st.lastCalcYards = n;
+    st.driveStarted = true;
+    stampLastDriveYards(st, n, 'heard');
+    return true;
+  }
+  applyHeardLoss(st, n);
+  return true;
+}
+function typedBoxValue(id) {
+  const el = document.getElementById(id);
+  return el ? el.value : '';
+}
+
 
 function losToOppGoal(side, yard) {
   const n = Number(yard);
@@ -6867,6 +6928,15 @@ function renderCallDesk() {
       (st.pendingFirst ? ' <span class="cd-los-hint">1st down · sticks unless you set yards/spot</span>' : '') +
       '</div>';
     const needSpot = st.pendingFirst || st.showLosPad || !st.driveStarted || st.expectKo;
+    body += '<div class="cd-type-row">';
+    body += '<label class="cd-type-lab">LOS</label>';
+    body += '<input id="cdLosNum" class="cd-type-in" type="text" inputmode="numeric" placeholder="28 or BUF 33" maxlength="12">';
+    body += '<button type="button" class="cd-mini cd-tone-gold" data-cd="typelos" data-id="1">Set LOS</button>';
+    body += '<label class="cd-type-lab">Yds</label>';
+    body += '<input id="cdYdNum" class="cd-type-in" type="text" inputmode="numeric" placeholder="17" maxlength="6">';
+    body += '<button type="button" class="cd-mini cd-tone-green" data-cd="typeplus" data-id="1">+ yds</button>';
+    body += '<button type="button" class="cd-mini cd-tone-red" data-cd="typeminus" data-id="1">− yds</button>';
+    body += '</div>';
     body += '<div class="cd-line"><span class="cd-row-label">' + (st.pendingFirst ? 'New 1st · spot or heard yards' : 'Drive start / correct spot') + '</span>';
     body += '<button type="button" class="cd-mini" data-cd="showlos" data-id="' + (st.showLosPad ? 'off' : 'on') + '">' + (needSpot ? (st.showLosPad || st.pendingFirst ? 'Hide pad' : 'Spot') : 'Spot') + '</button></div>';
     if (needSpot) {
@@ -7067,12 +7137,35 @@ function renderCallDesk() {
 
   root.innerHTML = body;
   bindCallDesk();
+  bindCallTypeFields();
+
   try { renderQuarterRecap(); } catch (e2) {}
   } catch (e) {
     console.warn('renderCallDesk', e);
   }
 }
 
+
+function bindCallTypeFields() {
+  function wire(id, fn) {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.bound === '1') return;
+    el.dataset.bound = '1';
+    el.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      const st = loadCallState();
+      fn(st, el.value);
+      saveCallState(st);
+      renderCallDesk();
+    });
+  }
+  wire('cdLosNum', function (st, v) { applyTypedLos(st, v); });
+  wire('cdYdNum', function (st, v) {
+    const n = Number(String(v || '').replace(/[^0-9.+-]/g, ''));
+    applyTypedYards(st, v, n < 0 ? -1 : 1);
+  });
+}
 function bindCallDesk() {
   const root = document.getElementById('callDeskRoot');
   if (!root || root.dataset.bound === '1') {
@@ -7244,6 +7337,16 @@ function onCallDeskClick(ev) {
       st.driveStarted = true;
     }
     backfillPrevYards(st);
+  }
+
+  if (key === 'typelos') {
+    applyTypedLos(st, typedBoxValue('cdLosNum'));
+  }
+  if (key === 'typeplus') {
+    applyTypedYards(st, typedBoxValue('cdYdNum'), 1);
+  }
+  if (key === 'typeminus') {
+    applyTypedYards(st, typedBoxValue('cdYdNum'), -1);
   }
   if (key === 'firstyd') {
     applyHeardGain(st, id);
